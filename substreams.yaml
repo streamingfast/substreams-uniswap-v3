@@ -1,0 +1,36 @@
+specVersion: v0.1.0
+package:
+  name: pcs
+  version: v0.5.1
+  url: https://github.com/streamingfast/substreams-uniswap-v3
+  doc: |
+    These substream modules compose all the things to build up the Uniswap v3 substreams.
+
+    See individual modules docs for help.
+
+protobuf:
+  files:
+    - uniswap/v1/uniswap.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../../target/wasm32-unknown-unknown/release/substreams-uniswap-v3.wasm
+
+modules:
+  - name: map_pairs
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v1.Block
+    output:
+      type: proto:uniswap.types.v1.Pairs
+
+  - name: store_pairs
+    kind: store
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.Pair
+    inputs:
+      - map: map_pairs

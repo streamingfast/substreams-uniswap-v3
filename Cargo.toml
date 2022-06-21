@@ -1,0 +1,20 @@
+[package]
+name = "substreams-uniswap-v3"
+version = "0.1.0"
+description = "Uniswap v3 Substreams"
+edition = "2021"
+
+[dependencies]
+wasm-bindgen = "0.2.79"
+prost = { version = "0.10.1" }
+prost-types = "0.10.1"
+hex = "0.4.3"
+substreams = "0.0.11"
+substreams-ethereum = "0.1.2"
+num-bigint = "0.4"
+bigdecimal = "0.3"
+pad = "0.1"
+substreams-databases = { version = "0.1.0", git = "https://github.com/streamingfast/substreams-databases" }
+
+[build-dependencies]
+prost-build = "0.10.1"
