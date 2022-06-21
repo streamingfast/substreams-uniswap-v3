@@ -2,17 +2,24 @@ syntax = "proto3";
 
 package uniswap.types.v1;
 
-// todo: pairs/pair or pools/pool ?
-
-message Pairs {
-  repeated Pair pairs =1;
+message Pools {
+  repeated Pool pools =1;
 }
 
-message Pair {
+message Pool {
   string address = 1;
   string token0_address = 2;
   string token1_address = 3;
   string creation_transaction_id = 4;
-  uint64 block_num = 5;
-  uint64 log_ordinal = 6;
+  uint32 fee = 5;
+  uint64 block_num = 6;
+  uint64 log_ordinal = 7;
+}
+
+message Reserves {
+  repeated Reserve reserves = 1;
+}
+
+message Reserve {
+
 }
