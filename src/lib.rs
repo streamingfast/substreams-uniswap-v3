@@ -52,6 +52,32 @@ pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
     }
 }
 
+#[substreams::handlers::store]
+pub fn store_fee_amount_enabled(block: ethpb::v1::Block, output: store::StoreSet) {
+    for trx in block.transaction_traces {
+        for log in trx.receipt.unwrap().logs {
+            let sig = hex::encode(&log.topics[0]);
+
+            if !event::is_fee_amount_enabled(sig.as_str()) {
+                continue;
+            }
+
+            let fee = pb::uniswap::Fee {
+                fee: Hex(&log.topics[0][29..]).to_string().parse().unwrap(),
+                tick_spacing: Hex(&log.topics[1][29..]).to_string().parse().unwrap(),
+                log_ordinal: log.block_index as u64,
+                creation_transaction_id: Hex(&trx.hash).to_string(),
+            };
+
+            output.set(
+                fee.log_ordinal,
+                format!("fee:{}", fee.creation_transaction_id),
+                    &proto::encode(&fee).unwrap(),
+            );
+        }
+    }
+}
+
 // #[substreams::handlers::map]
 // pub fn map_reserves(
 //     block: ethpb::v1::Block,

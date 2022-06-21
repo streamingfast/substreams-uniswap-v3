@@ -6,3 +6,8 @@ pub fn is_pool_created_event(signature: &str) -> bool {
 pub fn is_pool_sync_event(signature: &str) -> bool {
     return false
 }
+
+pub fn is_fee_amount_enabled(signature: &str) -> bool {
+    /* keccak value for FeeAmountEnabled(uint24,int24) */
+    return signature == "c66a3fdf07232cdd185febcc6579d408c241b47ae2f9907d84be655141eeaecc";
+}

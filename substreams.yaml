@@ -36,7 +36,15 @@ modules:
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Pool
     inputs:
-      - map: map_pool
+      - map: map_pools
+
+  - name: store_fee_amount_enabled
+    kind: store
+    updatePolicy: set
+    initialBlock: 12369621
+    valueType: proto:uniswap.types.v1.Fee
+    inputs:
+      - source: sf.ethereum.type.v1.Block
 
 #  - name: map_reserves
 #    kind: map
