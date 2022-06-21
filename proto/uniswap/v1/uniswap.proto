@@ -31,6 +31,4 @@ message Fees {
 message Fee {
   uint32 fee = 1;
   int32 tick_spacing = 2;
-  uint64 log_ordinal = 3;
-  string creation_transaction_id = 4;
 }

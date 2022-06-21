@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+ethabi = "17.0"
 wasm-bindgen = "0.2.79"
 prost = { version = "0.10.1" }
 prost-types = "0.10.1"
@@ -21,3 +22,5 @@ substreams-databases = { version = "0.1.0", git = "https://github.com/streamingf
 
 [build-dependencies]
 prost-build = "0.10.1"
+anyhow = "1"
+substreams-ethereum = "0.1.3"

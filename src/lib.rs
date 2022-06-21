@@ -1,4 +1,5 @@
 mod pb;
+mod abi;
 mod event;
 
 use substreams::errors::Error;
@@ -19,18 +20,18 @@ pub fn map_pools(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
         }
 
         for log in trx.receipt.unwrap().logs {
-            let sig = hex::encode(&log.topics[0]);
-
-            if !event::is_pool_created_event(sig.as_str()) {
+            if !abi::factory::events::PoolCreated::match_log(&log) {
                 continue;
             }
 
+            let event = abi::factory::events::PoolCreated::must_decode(&log);
+
             pools.pools.push(pb::uniswap::Pool {
                 address: Hex(&log.data[12..32]).to_string(),
-                token0_address: Hex(&log.topics[1][12..]).to_string(),
-                token1_address: Hex(&log.topics[2][12..]).to_string(),
+                token0_address: Hex(&event.token0).to_string(),
+                token1_address: Hex(&event.token1).to_string(),
                 creation_transaction_id: Hex(&trx.hash).to_string(),
-                fee: Hex(&log.topics[3][12..]).to_string().parse().unwrap(),
+                fee: event.fee.as_u32(),
                 block_num: block.number,
                 log_ordinal: log.block_index as u64,
             })
@@ -53,25 +54,23 @@ pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
 }
 
 #[substreams::handlers::store]
-pub fn store_fee_amount_enabled(block: ethpb::v1::Block, output: store::StoreSet) {
+pub fn fees(block: ethpb::v1::Block, output: store::StoreSet) {
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs {
-            let sig = hex::encode(&log.topics[0]);
-
-            if !event::is_fee_amount_enabled(sig.as_str()) {
+            if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
                 continue;
             }
 
+            let event = abi::factory::events::FeeAmountEnabled::must_decode(&log);
+
             let fee = pb::uniswap::Fee {
-                fee: Hex(&log.topics[0][29..]).to_string().parse().unwrap(),
-                tick_spacing: Hex(&log.topics[1][29..]).to_string().parse().unwrap(),
-                log_ordinal: log.block_index as u64,
-                creation_transaction_id: Hex(&trx.hash).to_string(),
+                fee: event.fee.as_u32(),
+                tick_spacing: event.tick_spacing.as_u32() as i32
             };
 
             output.set(
-                fee.log_ordinal,
-                format!("fee:{}", fee.creation_transaction_id),
+                log.block_index as u64,
+                format!("fee:{}:{}", fee.fee, fee.tick_spacing),
                     &proto::encode(&fee).unwrap(),
             );
         }

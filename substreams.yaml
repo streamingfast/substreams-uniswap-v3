@@ -38,7 +38,7 @@ modules:
     inputs:
       - map: map_pools
 
-  - name: store_fee_amount_enabled
+  - name: fees
     kind: store
     updatePolicy: set
     initialBlock: 12369621

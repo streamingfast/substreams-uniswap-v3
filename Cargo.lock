@@ -796,7 +796,9 @@ dependencies = [
 name = "substreams-uniswap-v3"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bigdecimal",
+ "ethabi",
  "hex",
  "num-bigint",
  "pad",
