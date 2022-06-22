@@ -77,6 +77,56 @@ pub fn fees(block: ethpb::v1::Block, output: store::StoreSet) {
     }
 }
 
+#[substreams::handlers::map]
+pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
+    let mut out = pb::uniswap::Fees { fees: vec![] };
+    for trx in block.transaction_traces {
+        for log in trx.receipt.unwrap().logs {
+            if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
+                continue;
+            }
+
+            let ev = abi::factory::events::FeeAmountEnabled::must_decode(&log);
+
+            out.fees.push(pb::uniswap::Fee {
+                fee: ev.fee.as_u32(),
+                tick_spacing: ev.tick_spacing.as_u32() as i32,
+            });
+        }
+    }
+    Ok(out)
+}
+
+#[substreams::handlers::map]
+pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Error> {
+    let mut out = pb::uniswap::Flashes { flashes: vec![] };
+    for trx in block.transaction_traces {
+        for call in trx.calls.iter() {
+            log::info!("call target: {}", Hex(&call.address).to_string());
+            for l in call.logs.iter() {
+                if !abi::pool::events::Flash::match_log(&l) {
+                    continue;
+                }
+
+                let ev = abi::pool::events::Flash::must_decode(&l);
+                log::info!("{:?}", ev);
+
+                log::info!("trx id: {}", Hex(&trx.hash).to_string());
+                for change in call.storage_changes.iter() {
+                    log::info!(
+                        "storage change: {} {} {} {}",
+                        Hex(&change.address).to_string(),
+                        Hex(&change.key).to_string(),
+                        Hex(&change.old_value).to_string(),
+                        Hex(&change.new_value).to_string(),
+                    );
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
 // #[substreams::handlers::map]
 // pub fn map_reserves(
 //     block: ethpb::v1::Block,

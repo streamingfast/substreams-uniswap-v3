@@ -32,3 +32,10 @@ message Fee {
   uint32 fee = 1;
   int32 tick_spacing = 2;
 }
+
+message Flashes {
+  repeated Flash flashes = 1;
+}
+
+message Flash {
+}
