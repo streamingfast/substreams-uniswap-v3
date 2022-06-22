@@ -1,6 +1,7 @@
 mod pb;
 mod abi;
 
+use std::fmt::format;
 use bigdecimal::BigDecimal;
 use bigdecimal::num_traits::pow;
 use num_bigint::{BigInt, Sign};
@@ -8,36 +9,47 @@ use substreams::errors::Error;
 use substreams::{Hex, log, proto, store};
 use substreams_ethereum::pb::eth as ethpb;
 use crate::abi::pool::events::Swap;
+use crate::pb::uniswap::Pool;
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
-
+const UNISWAP_V3_NFT_FACTORY: &str = "c36442b4a4522e871399cd717abdd847ab11fe88";
+const PEWPEW: &str = "10a0847c2d170008ddca7c3a688124f493630032";
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut pools = pb::uniswap::Pools { pools: vec![] };
 
     for trx in block.transaction_traces {
         /* Uniswap v3 Factory address 0x1f98431c8ad98523631ae4a59f267346ea31f984 */
-        if hex::encode(&trx.to) != UNISWAP_V3_FACTORY {
+        if hex::encode(&trx.to) != UNISWAP_V3_FACTORY &&
+            hex::encode(&trx.to) != UNISWAP_V3_NFT_FACTORY &&
+            hex::encode(&trx.to) != PEWPEW
+        {
             continue;
         }
 
+
         for log in trx.receipt.unwrap().logs {
             if !abi::factory::events::PoolCreated::match_log(&log) {
-                continue;
+                continue
             }
-
             let event = abi::factory::events::PoolCreated::must_decode(&log);
 
+            log::info!("pool address {}", Hex(&log.data[44..64]).to_string());
+
+
             pools.pools.push(pb::uniswap::Pool {
-                address: Hex(&log.data[12..32]).to_string(),
+                address: Hex(&log.data[44..64]).to_string(),
                 token0_address: Hex(&event.token0).to_string(),
                 token1_address: Hex(&event.token1).to_string(),
                 creation_transaction_id: Hex(&trx.hash).to_string(),
                 fee: event.fee.as_u32(),
                 block_num: block.number,
                 log_ordinal: log.block_index as u64,
-            })
+                tick: "".to_string(),
+                sqrt_price: "".to_string()
+            });
         }
+
     }
 
     Ok(pools)
@@ -47,7 +59,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
 // here we will get the tick and sqrtprice
 // and have the rest from the store_pool
 #[substreams::handlers::map]
-pub fn map_pools_initialized(block: ethpb::v1::Block, store: store::StoreGet) -> Result<pb::uniswap::Pools, Error> {
+pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut pools = pb::uniswap::Pools { pools: vec![] };
 
     for trx in block.transaction_traces {
@@ -56,30 +68,54 @@ pub fn map_pools_initialized(block: ethpb::v1::Block, store: store::StoreGet) ->
                 continue;
             }
 
-
+            let event = abi::pool::events::Initialize::must_decode(&log);
+            pools.pools.push(Pool{
+                address: Hex(&log.address).to_string(),
+                token0_address: "".to_string(),
+                token1_address: "".to_string(),
+                creation_transaction_id: Hex(&trx.hash).to_string(),
+                fee: 0,
+                block_num: 0,
+                log_ordinal: 0,
+                tick: event.tick.to_string(),
+                sqrt_price: event.sqrt_price_x96.to_string(),
+            });
         }
     }
-
-
-
-
-
-
-
-
 
     Ok(pools)
 }
 
 #[substreams::handlers::store]
-pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
-    log::info!("Building pool state");
+pub fn store_pools_created(pools: pb::uniswap::Pools, output: store::StoreSet) {
     for pool in pools.pools {
         output.set(
             pool.log_ordinal,
-            format!("pool:{}:fee:{}", pool.address, pool.fee),
+            format!("pool:{}", pool.address),
             &proto::encode(&pool).unwrap(),
         );
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_pools(pools_initialized: pb::uniswap::Pools, store_created: store::StoreGet, output: store::StoreSet) {
+    for pool in pools_initialized.pools {
+        match store_created.get_last(&format!("pool:{}", pool.address)) {
+            None => {
+                panic!("pool {} initialized but never created, tx id {}", pool.address, pool.creation_transaction_id)
+            }
+            Some(pool_bytes) => {
+                let mut created_pool : Pool = proto::decode(&pool_bytes).unwrap();
+                created_pool.tick = pool.tick;
+                created_pool.sqrt_price = pool.sqrt_price;
+
+                output.set(
+                    created_pool.log_ordinal,
+                    format!("pool:{}", created_pool.address),
+                    &proto::encode(&created_pool).unwrap(),
+                );
+            }
+        }
     }
 
     // another loop over the initialized to add the other pools by getting the information from the store
@@ -160,11 +196,11 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
     }
     Ok(out)
 }
-
-#[substreams::handler::map]
-pub fn map_swaps(block: ethpb::v1::Block) -> Result<, Error> {
-
-}
+//
+// #[substreams::handler::map]
+// pub fn map_swaps(block: ethpb::v1::Block) -> Result<, Error> {
+//
+// }
 
 // todo: swap store
 
@@ -255,9 +291,9 @@ pub fn store_prices(
             let price = sqrt_price.pow(base as u32);
 
             log::info!("trx hash: {}, amount0: {}, amount1: {}, price: {}", Hex(trx.hash.as_slice()).to_string(), event.amount0, event.amount1, price);
-
-            match tokens_store.get_last(&format!("token:{}", event.));
-            let amount0 = utils::convert_token_to_decimal(event.amount0, )
+            //
+            // match tokens_store.get_last(&format!("token:{}", event.));
+            // let amount0 = utils::convert_token_to_decimal(event.amount0, )
 
         }
     }

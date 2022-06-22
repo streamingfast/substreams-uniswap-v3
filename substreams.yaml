@@ -31,12 +31,18 @@ modules:
     output:
       type: proto:uniswap.types.v1.Pools
 
+  - name: store_pools_created
+    kind: store
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.Pool
+    inputs:
+      - map: map_pools_created
+
   - name: map_pools_initialized
     kind: map
     initialBlock: 12369621
     inputs:
       - source: sf.ethereum.type.v1.Block
-      - store: store_pools
     output:
       type: proto:uniswap.types.v1.Pools
 
@@ -45,32 +51,32 @@ modules:
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Pool
     inputs:
-      - map: map_pools_created
       - map: map_pools_initialized
+      - store: store_pools_created
 
-  - name: map_fees
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-    output:
-      type: proto:uniswap.types.v1.Fees
-
-  - name: fees
-    kind: store
-    updatePolicy: set
-    initialBlock: 12369621
-    valueType: proto:uniswap.types.v1.Fee
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-
-  - name: map_flashes
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-    output:
-      type: proto:uniswap.types.v1.Flashes
+#  - name: map_fees
+#    kind: map
+#    initialBlock: 12369621
+#    inputs:
+#      - source: sf.ethereum.type.v1.Block
+#    output:
+#      type: proto:uniswap.types.v1.Fees
+#
+#  - name: fees
+#    kind: store
+#    updatePolicy: set
+#    initialBlock: 12369621
+#    valueType: proto:uniswap.types.v1.Fee
+#    inputs:
+#      - source: sf.ethereum.type.v1.Block
+#
+#  - name: map_flashes
+#    kind: map
+#    initialBlock: 12369621
+#    inputs:
+#      - source: sf.ethereum.type.v1.Block
+#    output:
+#      type: proto:uniswap.types.v1.Flashes
 
 #  - name: map_reserves
 #    kind: map
@@ -89,12 +95,12 @@ modules:
 #      - source: sf.substreams.v1.Clock
 #      - map: map_reserves
 #      - store: store_pairs
-
-  - name: store_prices
-    kind: store
-    updatePolicy: set
-    initialBlock: 12369621
-    valueType: string
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-      - store: eth:store_tokens
+#
+#  - name: store_prices
+#    kind: store
+#    updatePolicy: set
+#    initialBlock: 12369621
+#    valueType: string
+#    inputs:
+#      - source: sf.ethereum.type.v1.Block
+#      - store: eth:store_tokens

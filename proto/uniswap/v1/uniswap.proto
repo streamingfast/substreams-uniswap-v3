@@ -20,7 +20,6 @@ message Pool {
 
 message Swap {
   string address = 1;
-  string
 }
 
 message Reserves {
