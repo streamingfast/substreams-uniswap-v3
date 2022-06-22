@@ -14,6 +14,13 @@ message Pool {
   uint32 fee = 5;
   uint64 block_num = 6;
   uint64 log_ordinal = 7;
+  string tick = 8;
+  string sqrt_price = 9;
+}
+
+message Swap {
+  string address = 1;
+  string
 }
 
 message Reserves {

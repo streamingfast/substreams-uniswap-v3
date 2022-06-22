@@ -23,11 +23,20 @@ binaries:
     file: target/wasm32-unknown-unknown/release/substreams_uniswap_v3.wasm
 
 modules:
-  - name: map_pools
+  - name: map_pools_created
     kind: map
     initialBlock: 12369621
     inputs:
       - source: sf.ethereum.type.v1.Block
+    output:
+      type: proto:uniswap.types.v1.Pools
+
+  - name: map_pools_initialized
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v1.Block
+      - store: store_pools
     output:
       type: proto:uniswap.types.v1.Pools
 
@@ -36,7 +45,8 @@ modules:
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Pool
     inputs:
-      - map: map_pools
+      - map: map_pools_created
+      - map: map_pools_initialized
 
   - name: map_fees
     kind: map
@@ -83,7 +93,8 @@ modules:
   - name: store_prices
     kind: store
     updatePolicy: set
-    valuekind: string
+    initialBlock: 12369621
+    valueType: string
     inputs:
-      - source: sf.substreams.v1.Clock
-      - store: store_pools
+      - source: sf.ethereum.type.v1.Block
+      - store: eth:store_tokens
