@@ -13,16 +13,18 @@ use crate::pb::uniswap::Pool;
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 const UNISWAP_V3_NFT_FACTORY: &str = "c36442b4a4522e871399cd717abdd847ab11fe88";
-const PEWPEW: &str = "10a0847c2d170008ddca7c3a688124f493630032";
+const UNISWAP_V3_RELAYER: &str = "10a0847c2d170008ddca7c3a688124f493630032"; // ????????????
+const UNISWAP_V3_MIGRATOR: &str = "a5644e29708357803b5a882d272c41cc0df92b34";
+
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut pools = pb::uniswap::Pools { pools: vec![] };
 
     for trx in block.transaction_traces {
-        /* Uniswap v3 Factory address 0x1f98431c8ad98523631ae4a59f267346ea31f984 */
         if hex::encode(&trx.to) != UNISWAP_V3_FACTORY &&
             hex::encode(&trx.to) != UNISWAP_V3_NFT_FACTORY &&
-            hex::encode(&trx.to) != PEWPEW
+            hex::encode(&trx.to) != UNISWAP_V3_RELAYER &&
+            hex::encode(&trx.to) != UNISWAP_V3_MIGRATOR
         {
             continue;
         }
