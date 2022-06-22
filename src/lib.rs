@@ -29,9 +29,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                 }
                 let event = abi::factory::events::PoolCreated::must_decode(&log);
 
-                log::info!("pool address {}", Hex(&log.data[44..64]).to_string());
-
-
                 pools.pools.push(Pool {
                     address: Hex(&log.data[44..64]).to_string(),
                     token0_address: Hex(&event.token0).to_string(),
