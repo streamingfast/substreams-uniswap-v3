@@ -38,14 +38,6 @@ modules:
     inputs:
       - map: map_pools
 
-  - name: fees
-    kind: store
-    updatePolicy: set
-    initialBlock: 12369621
-    valueType: proto:uniswap.types.v1.Fee
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-
   - name: map_fees
     kind: map
     initialBlock: 12369621
@@ -53,6 +45,14 @@ modules:
       - source: sf.ethereum.type.v1.Block
     output:
       type: proto:uniswap.types.v1.Fees
+
+  - name: fees
+    kind: store
+    updatePolicy: set
+    initialBlock: 12369621
+    valueType: proto:uniswap.types.v1.Fee
+    inputs:
+      - source: sf.ethereum.type.v1.Block
 
   - name: map_flashes
     kind: map
@@ -79,13 +79,11 @@ modules:
 #      - source: sf.substreams.v1.Clock
 #      - map: map_reserves
 #      - store: store_pairs
-#
-#  - name: store_prices
-#    kind: store
-#    updatePolicy: set
-#    valuekind: string
-#    inputs:
-#      - source: sf.substreams.v1.Clock
-#      - map: map_reserves
-#      - store: store_pairs
-#      - store: store_reserves
+
+  - name: store_prices
+    kind: store
+    updatePolicy: set
+    valuekind: string
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - store: store_pools
