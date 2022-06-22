@@ -1,10 +1,11 @@
 mod pb;
 mod abi;
-mod event;
 
+use bigdecimal::num_traits::pow;
 use substreams::errors::Error;
 use substreams::{Hex, log, proto, store};
 use substreams_ethereum::pb::eth as ethpb;
+use crate::abi::pool::events::Swap;
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
@@ -53,6 +54,26 @@ pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
     }
 }
 
+#[substreams::handlers::map]
+pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
+    let mut out = pb::uniswap::Fees { fees: vec![] };
+    for trx in block.transaction_traces {
+        for log in trx.receipt.unwrap().logs {
+            if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
+                continue;
+            }
+
+            let ev = abi::factory::events::FeeAmountEnabled::must_decode(&log);
+
+            out.fees.push(pb::uniswap::Fee {
+                fee: ev.fee.as_u32(),
+                tick_spacing: ev.tick_spacing.as_u32() as i32,
+            });
+        }
+    }
+    Ok(out)
+}
+
 #[substreams::handlers::store]
 pub fn fees(block: ethpb::v1::Block, output: store::StoreSet) {
     for trx in block.transaction_traces {
@@ -75,26 +96,6 @@ pub fn fees(block: ethpb::v1::Block, output: store::StoreSet) {
             );
         }
     }
-}
-
-#[substreams::handlers::map]
-pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
-    let mut out = pb::uniswap::Fees { fees: vec![] };
-    for trx in block.transaction_traces {
-        for log in trx.receipt.unwrap().logs {
-            if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
-                continue;
-            }
-
-            let ev = abi::factory::events::FeeAmountEnabled::must_decode(&log);
-
-            out.fees.push(pb::uniswap::Fee {
-                fee: ev.fee.as_u32(),
-                tick_spacing: ev.tick_spacing.as_u32() as i32,
-            });
-        }
-    }
-    Ok(out)
 }
 
 #[substreams::handlers::map]
@@ -167,15 +168,32 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
 //
 // }
 //
-// #[substreams::handlers::store]
-// pub fn store_prices(
-//     clock: substreams::pb::substreams::Clock,
-//     reserves: pb::uniswap::Reserves,
-//     pairs_store: store::StoreGet,
-//     reserves_store: store::StoreGet,
-//     output: store::StoreSet
-// ) {
-//
-//     // todo -> price stream for usd
-//
-// }
+#[substreams::handlers::store]
+pub fn store_prices(
+    block: ethpb::v1::Block,
+    pools_store: store::StoreGet,
+    output: store::StoreSet
+) {
+    //todo -> price stream for usd
+    // price seems to be in the event -> event.params.sqrtPriceX96
+    let timestamp_seconds: i64 = block.header.unwrap().timestamp.unwrap().seconds;
+    let hour_id: i64 = timestamp_seconds / 3600;
+    let day_id: i64 = timestamp_seconds / 86400;
+    let base: i32 = 2;
+
+    output.delete_prefix(0, &format!("pool_id:{}:", hour_id - 1));
+    output.delete_prefix(0, &format!("pool_id:{}:", day_id - 1));
+    output.delete_prefix(0, &format!("token_id:{}:", day_id - 1));
+
+    for trx in block.transaction_traces {
+        for log in trx.receipt.unwrap().logs {
+            if !Swap::match_log(&log) {
+                continue;
+            }
+            let event: Swap = Swap::must_decode(&log);
+            let price = base.pow(event.sqrt_price_x96.as_u32());
+
+        }
+    }
+
+}
