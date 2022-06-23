@@ -1,5 +1,6 @@
 mod pb;
 mod abi;
+mod utils;
 
 use std::fmt::format;
 use bigdecimal::BigDecimal;
@@ -10,7 +11,8 @@ use substreams::{Hex, log, proto, store};
 use substreams::store::StoreGet;
 use substreams_ethereum::pb::eth as ethpb;
 use crate::abi::pool::events::Swap;
-use crate::pb::uniswap::{Event, Pool};
+use crate::pb::uniswap::{Event, Events, Pool};
+use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
@@ -133,7 +135,7 @@ pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn fees(block: ethpb::v1::Block, output: store::StoreSet) {
+pub fn store_fees(block: ethpb::v1::Block, output: store::StoreSet) {
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs {
             if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
@@ -234,14 +236,14 @@ pub fn map_swaps(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
 
     Ok(out)
 }
-
-// todo: swap store
-#[substreams::handlers::store]
-pub fn store_swaps(swaps: pb::uniswap::Swaps, output: store::StoreSet) {
-    for swap in swaps.swaps {
-        // output.set(swap.)
-    }
-}
+//
+// // todo: swap store
+// #[substreams::handlers::store]
+// pub fn store_swaps(swap_events: pb::uniswap::Events, output: store::StoreSet) {
+//     for swap_event in swap_events.events {
+//         output.set(
+//     }
+// }
 
 // #[substreams::handlers::map]
 // pub fn map_reserves(
@@ -302,7 +304,8 @@ price store:
 #[substreams::handlers::store]
 pub fn store_prices(
     block: ethpb::v1::Block,
-    // pools_store: store::StoreGet, // todo: probably gonna need the pools here (mapper and the store)
+    swaps: pb::uniswap::Events,
+    pools_store: store::StoreGet, // todo: probably gonna need the pools here (mapper and the store)
     tokens_store: store::StoreGet,
     output: store::StoreSet
 ) {
@@ -311,11 +314,20 @@ pub fn store_prices(
     let timestamp_seconds: i64 = block.header.unwrap().timestamp.unwrap().seconds;
     let hour_id: i64 = timestamp_seconds / 3600;
     let day_id: i64 = timestamp_seconds / 86400;
-    let base: i32 = 2;
 
-    output.delete_prefix(0, &format!("pool_id:{}:", hour_id - 1));
-    output.delete_prefix(0, &format!("pool_id:{}:", day_id - 1));
-    output.delete_prefix(0, &format!("token_id:{}:", day_id - 1));
+    // output.delete_prefix(0, &format!("pool_id:{}:", hour_id - 1));
+    // output.delete_prefix(0, &format!("pool_id:{}:", day_id - 1));
+    // output.delete_prefix(0, &format!("token_id:{}:", day_id - 1));
+
+    for swap_event in swaps.events {
+        match swap_event.r#type.unwrap() {
+            Type::Swap(swap) => {
+                swap.sqrt_price
+            }
+            Type::Burn(_) => {}
+            Type::Mint(_) => {}
+        }
+    }
 
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs {
@@ -328,7 +340,7 @@ pub fn store_prices(
             let event: Swap = Swap::must_decode(&log);
             let sqrt_price = BigInt::from(event.sqrt_price_x96.as_u128());
             // fixme: check sqrtPriceX96ToTokenPrices in v3-subgraph
-            let price = sqrt_price.pow(base as u32);
+            let price = sqrt_price.pow(2 as u32);
 
             log::info!("trx hash: {}, amount0: {}, amount1: {}, price: {}", Hex(trx.hash.as_slice()).to_string(), event.amount0, event.amount1, price);
             // match tokens_store.get_last(&format!("token:{}", event.));
