@@ -18,8 +18,41 @@ message Pool {
   string sqrt_price = 9;
 }
 
+message Event {
+  oneof type {
+    Swap swap = 1;
+    Burn burn = 2;
+    Mint mint = 3;
+  }
+  uint64 log_ordinal = 100;
+  string pool_address = 101;
+  string token0 = 102;
+  string token1 = 103;
+  string transaction_id = 104;
+  uint64 timestamp = 105;
+}
+
+message Swaps {
+  repeated Swap swaps = 1;
+}
+
 message Swap {
-  string address = 1;
+  string sender = 1;
+  string to = 2;
+  string from = 3;
+  string amount_0 = 4;
+  string amount_1 = 5;
+  string amount_usd = 6;
+  string sqrt_price = 7;
+  string tick = 8;
+}
+
+message Burn {
+  // todo
+}
+
+message Mint {
+  // todo
 }
 
 message Reserves {

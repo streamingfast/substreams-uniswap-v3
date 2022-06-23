@@ -47,9 +47,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
     Ok(pools)
 }
 
-// map_pool_initialize
-// here we will get the tick and sqrtprice
-// and have the rest from the store_pool
 #[substreams::handlers::map]
 pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut pools = pb::uniswap::Pools { pools: vec![] };
@@ -160,6 +157,7 @@ pub fn fees(block: ethpb::v1::Block, output: store::StoreSet) {
 #[substreams::handlers::map]
 pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Error> {
     let mut out = pb::uniswap::Flashes { flashes: vec![] };
+
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
             log::info!("call target: {}", Hex(&call.address).to_string());
@@ -184,15 +182,37 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
             }
         }
     }
+
     Ok(out)
 }
-//
-// #[substreams::handler::map]
-// pub fn map_swaps(block: ethpb::v1::Block) -> Result<, Error> {
-//
-// }
+
+#[substreams::handler::map]
+pub fn map_swaps(block: ethpb::v1::Block) -> Result<pb::uniswap::Swaps, Error> {
+    let mut out = pb::uniswap::Swaps { swaps: vec![] };
+
+    for trx in block.transaction_traces {
+        for log in trx.receipt.unwrap().logs.iter() {
+            if !abi::pool::events::Swap::match_log(log) {
+                continue;
+            }
+
+            let event = abi::pool::events::Swap::must_decode(log);
+
+            // todo: add the swap to out
+
+        }
+    }
+
+    Ok(out)
+}
 
 // todo: swap store
+#[substreams::handler::store]
+pub fn store_swaps(swaps: pb::uniswap::Swaps, output: store::StoreSet) {
+    for swap in swaps.swaps {
+        // output.set(swap.)
+    }
+}
 
 // #[substreams::handlers::map]
 // pub fn map_reserves(
@@ -278,10 +298,10 @@ pub fn store_prices(
 
             let event: Swap = Swap::must_decode(&log);
             let sqrt_price = BigInt::from(event.sqrt_price_x96.as_u128());
+            // fixme: check sqrtPriceX96ToTokenPrices in v3-subgraph
             let price = sqrt_price.pow(base as u32);
 
             log::info!("trx hash: {}, amount0: {}, amount1: {}, price: {}", Hex(trx.hash.as_slice()).to_string(), event.amount0, event.amount1, price);
-            //
             // match tokens_store.get_last(&format!("token:{}", event.));
             // let amount0 = utils::convert_token_to_decimal(event.amount0, )
 
