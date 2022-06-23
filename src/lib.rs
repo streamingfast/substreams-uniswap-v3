@@ -7,9 +7,11 @@ use bigdecimal::num_traits::pow;
 use num_bigint::{BigInt, Sign};
 use substreams::errors::Error;
 use substreams::{Hex, log, proto, store};
+use substreams::store::StoreGet;
 use substreams_ethereum::pb::eth as ethpb;
 use crate::abi::pool::events::Swap;
-use crate::pb::uniswap::Pool;
+use crate::pb::uniswap::{Event, Pool};
+use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
@@ -186,9 +188,9 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
     Ok(out)
 }
 
-#[substreams::handler::map]
-pub fn map_swaps(block: ethpb::v1::Block) -> Result<pb::uniswap::Swaps, Error> {
-    let mut out = pb::uniswap::Swaps { swaps: vec![] };
+#[substreams::handlers::map]
+pub fn map_swaps(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
+    let mut out = pb::uniswap::Events { events: vec![] };
 
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs.iter() {
@@ -196,10 +198,37 @@ pub fn map_swaps(block: ethpb::v1::Block) -> Result<pb::uniswap::Swaps, Error> {
                 continue;
             }
 
-            let event = abi::pool::events::Swap::must_decode(log);
+            let swap = abi::pool::events::Swap::must_decode(log);
 
-            // todo: add the swap to out
+            match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                None => {
+                    panic!("invalid swap. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
+                }
+                Some(pool_bytes) => {
+                    let pool: Pool = proto::decode(&pool_bytes).unwrap();
 
+
+                    out.events.push(Event{
+                        log_ordinal: log.block_index as u64,
+                        pool_address: pool.address.to_string(),
+                        token0: pool.token0_address.to_string(),
+                        token1: pool.token1_address.to_string(),
+                        fee: pool.fee.to_string(),
+                        transaction_id: Hex(&trx.hash).to_string(),
+                        timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
+                        r#type: Some(SwapEvent(pb::uniswap::Swap{
+                            sender: Hex(&swap.sender).to_string(),
+                            to: Hex(&swap.recipient).to_string(),
+                            from: Hex(&swap.sender).to_string(),
+                            amount_0: swap.amount0.to_string(),
+                            amount_1: swap.amount1.to_string(),
+                            amount_usd: "".to_string(), //TODO: WOT
+                            sqrt_price: swap.sqrt_price_x96.to_string(),
+                            tick: swap.tick.to_string(),
+                        })),
+                    });
+                }
+            }
         }
     }
 
@@ -207,7 +236,7 @@ pub fn map_swaps(block: ethpb::v1::Block) -> Result<pb::uniswap::Swaps, Error> {
 }
 
 // todo: swap store
-#[substreams::handler::store]
+#[substreams::handlers::store]
 pub fn store_swaps(swaps: pb::uniswap::Swaps, output: store::StoreSet) {
     for swap in swaps.swaps {
         // output.set(swap.)

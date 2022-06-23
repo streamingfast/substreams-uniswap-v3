@@ -18,6 +18,10 @@ message Pool {
   string sqrt_price = 9;
 }
 
+message Events {
+  repeated Event events = 1;
+}
+
 message Event {
   oneof type {
     Swap swap = 1;
@@ -28,8 +32,9 @@ message Event {
   string pool_address = 101;
   string token0 = 102;
   string token1 = 103;
-  string transaction_id = 104;
-  uint64 timestamp = 105;
+  string fee = 104;
+  string transaction_id = 105;
+  uint64 timestamp = 106;
 }
 
 message Swaps {

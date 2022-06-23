@@ -54,6 +54,15 @@ modules:
       - map: map_pools_initialized
       - store: store_pools_created
 
+  - name: map_swaps
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v1.Block
+      - store: store_pools
+    output:
+      type: proto:uniswap.types.v1.Events
+
 #  - name: map_fees
 #    kind: map
 #    initialBlock: 12369621
