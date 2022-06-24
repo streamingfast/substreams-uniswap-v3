@@ -3,6 +3,7 @@ mod abi;
 mod utils;
 
 use std::fmt::format;
+use std::str::FromStr;
 use bigdecimal::BigDecimal;
 use bigdecimal::num_traits::pow;
 use num_bigint::{BigInt, Sign};
@@ -320,32 +321,28 @@ pub fn store_prices(
     // output.delete_prefix(0, &format!("token_id:{}:", day_id - 1));
 
     for swap_event in swaps.events {
+        let token_0 = utils::get_last_token(&tokens_store, swap_event.token0.as_str());
+        let token_1 = utils::get_last_token(&tokens_store, swap_event.token1.as_str());
+        let pool = utils::get_last_pool(&pools_store, swap_event.pool_address.as_str());
+
         match swap_event.r#type.unwrap() {
             Type::Swap(swap) => {
-                swap.sqrt_price
+                //todo: here we need to get the price and compute
+                // https://github.com/Uniswap/v3-subgraph/blob/bf03f940f17c3d32ee58bd37386f26713cff21e2/src/utils/pricing.ts#L48
+                // blk 10: usdt-dai
+
+                let sqrt_price = BigInt::from_str(swap.sqrt_price.as_str()).unwrap();
+                let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, token_0, token_1);
+
+                // fixme: check sqrtPriceX96ToTokenPrices in v3-subgraph
+                let price = sqrt_price.pow(2 as u32);
+
+                // log::info!("trx hash: {}, amount0: {}, amount1: {}, price: {}", Hex(trx.hash.as_slice()).to_string(), event.amount0, event.amount1, price);
+                // match tokens_store.get_last(&format!("token:{}", event.));
+                // let amount0 = utils::convert_token_to_decimal(event.amount0, )
             }
             Type::Burn(_) => {}
             Type::Mint(_) => {}
-        }
-    }
-
-    for trx in block.transaction_traces {
-        for log in trx.receipt.unwrap().logs {
-            if !Swap::match_log(&log) {
-                continue;
-            }
-            let pool = Hex(&log.address).to_string();
-            // blk 10: usdt-dai
-
-            let event: Swap = Swap::must_decode(&log);
-            let sqrt_price = BigInt::from(event.sqrt_price_x96.as_u128());
-            // fixme: check sqrtPriceX96ToTokenPrices in v3-subgraph
-            let price = sqrt_price.pow(2 as u32);
-
-            log::info!("trx hash: {}, amount0: {}, amount1: {}, price: {}", Hex(trx.hash.as_slice()).to_string(), event.amount0, event.amount1, price);
-            // match tokens_store.get_last(&format!("token:{}", event.));
-            // let amount0 = utils::convert_token_to_decimal(event.amount0, )
-
         }
     }
 
