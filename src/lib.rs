@@ -12,6 +12,8 @@ use substreams_ethereum::pb::eth as ethpb;
 use crate::pb::uniswap::{Event, Pool};
 use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
+use crate::pb::uniswap::event::Type::Burn as BurnEvent;
+use crate::pb::uniswap::event::Type::Mint as MintEvent;
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
@@ -207,7 +209,6 @@ pub fn map_swaps(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
 
-
                     out.events.push(Event{
                         log_ordinal: log.block_index as u64,
                         pool_address: pool.address.to_string(),
@@ -234,6 +235,90 @@ pub fn map_swaps(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
 
     Ok(out)
 }
+
+#[substreams::handlers::map]
+pub fn map_burns(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
+    let mut out = pb::uniswap::Events { events: vec![] };
+
+    for trx in block.transaction_traces {
+        for log in trx.receipt.unwrap().logs.iter() {
+            if !abi::pool::events::Burn::match_log(log) {
+                continue;
+            }
+
+            let burn = abi::pool::events::Burn::must_decode(log);
+
+            match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                None => {
+                    panic!("invalid burn. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
+                }
+                Some(pool_bytes) => {
+                    let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+
+                    out.events.push(Event{
+                        log_ordinal: log.block_index as u64,
+                        pool_address: pool.address.to_string(),
+                        token0: pool.token0_address.to_string(),
+                        token1: pool.token1_address.to_string(),
+                        fee: pool.fee.to_string(),
+                        transaction_id: Hex(&trx.hash).to_string(),
+                        timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
+                        r#type: Some(BurnEvent(pb::uniswap::Burn{
+                            // todo: need to find out what we want to save for burns
+                        })),
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(out)
+}
+
+#[substreams::handlers::map]
+pub fn map_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
+    let mut out = pb::uniswap::Events { events: vec![] };
+
+    for trx in block.transaction_traces {
+        for log in trx.receipt.unwrap().logs.iter() {
+            if !abi::pool::events::Mint::match_log(log) {
+                continue;
+            }
+
+            let mint = abi::pool::events::Mint::must_decode(log);
+
+            match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                None => {
+                    panic!("invalid mint. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
+                }
+                Some(pool_bytes) => {
+                    let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+
+                    out.events.push(Event{
+                        log_ordinal: log.block_index as u64,
+                        pool_address: pool.address.to_string(),
+                        token0: pool.token0_address.to_string(),
+                        token1: pool.token1_address.to_string(),
+                        fee: pool.fee.to_string(),
+                        transaction_id: Hex(&trx.hash).to_string(),
+                        timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
+                        r#type: Some(BurnEvent(pb::uniswap::Burn{
+                            // todo: need to find out what we want to save for mints
+                        })),
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(out)
+}
+
+// are we better off to do a similar pattern as we did for pcs and have a substreams that takes care of all 3 types of events ?
+
+
 //
 // // todo: swap store
 // #[substreams::handlers::store]
