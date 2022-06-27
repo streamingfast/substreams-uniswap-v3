@@ -2,17 +2,14 @@ mod pb;
 mod abi;
 mod utils;
 
-use std::fmt::format;
 use std::str::FromStr;
 use bigdecimal::BigDecimal;
-use bigdecimal::num_traits::pow;
-use num_bigint::{BigInt, Sign};
+use num_bigint::BigInt;
 use substreams::errors::Error;
 use substreams::{Hex, log, proto, store};
 use substreams::store::StoreGet;
 use substreams_ethereum::pb::eth as ethpb;
-use crate::abi::pool::events::Swap;
-use crate::pb::uniswap::{Event, Events, Pool};
+use crate::pb::uniswap::{Event, Pool};
 use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 

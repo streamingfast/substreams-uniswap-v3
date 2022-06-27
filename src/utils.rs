@@ -1,16 +1,11 @@
 use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul};
-use std::slice::range;
-use num_bigint::{BigInt, Sign};
+use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, FromPrimitive, One, Zero};
-use bigdecimal::ParseBigDecimalError::ParseBigInt;
-use prost::DecodeError;
 use substreams::{proto, store};
-use crate::{pb, Pool};
-use substreams::pb::substreams::module::input::Store;
+use crate::Pool;
 use substreams::store::StoreGet;
 use crate::pb::tokens::Token;
-use crate::pb::uniswap::Pool as uniswapPool;
 
 const DAI_USD_KEY : &str = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const WETH_ADDRESS : &str = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
@@ -137,10 +132,10 @@ pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     return result
 }
 
-pub fn get_last_token(tokens: &store::StoreGet, token_address: &str) -> Token {
+pub fn get_last_token(tokens: &StoreGet, token_address: &str) -> Token {
     proto::decode(&tokens.get_last(&format!("token:{}", token_address)).unwrap()).unwrap()
 }
 
-pub fn get_last_pool(pools_store: &store::StoreGet, pool_address: &str) -> Pool {
+pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Pool {
     proto::decode(&pools_store.get_last(&format!("pool:{}", pool_address)).unwrap()).unwrap()
 }
