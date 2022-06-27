@@ -730,6 +730,7 @@ dependencies = [
 [[package]]
 name = "substreams-eth-token"
 version = "0.1.0"
+source = "git+https://github.com/streamingfast/substreams-playground#0a96fe0c5a703f945be478612df131b2b21dbbd3"
 dependencies = [
  "bigdecimal",
  "hex",
