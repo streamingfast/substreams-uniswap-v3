@@ -332,11 +332,10 @@ pub fn store_prices(
                 // blk 10: usdt-dai
 
                 let sqrt_price = BigInt::from_str(swap.sqrt_price.as_str()).unwrap();
+                // fixme: check sqrtPriceX96ToTokenPrices in v3-subgraph
                 let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, token_0, token_1);
 
-                // fixme: check sqrtPriceX96ToTokenPrices in v3-subgraph
-                let price = sqrt_price.pow(2 as u32);
-
+                log::info!("trx hash: {}, price0: {}, price1: {}", swap_event.transaction_id ,tokens_price.0, tokens_price.1)
                 // log::info!("trx hash: {}, amount0: {}, amount1: {}, price: {}", Hex(trx.hash.as_slice()).to_string(), event.amount0, event.amount1, price);
                 // match tokens_store.get_last(&format!("token:{}", event.));
                 // let amount0 = utils::convert_token_to_decimal(event.amount0, )
@@ -347,3 +346,7 @@ pub fn store_prices(
     }
 
 }
+
+// @colin and @eduard
+// need to scope out what we need to have a complete migration of
+// uniswap v3 subgraph to a substream

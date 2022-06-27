@@ -728,22 +728,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "substreams-eth-token"
-version = "0.1.0"
-source = "git+https://github.com/streamingfast/substreams-playground#0a96fe0c5a703f945be478612df131b2b21dbbd3"
-dependencies = [
- "bigdecimal",
- "hex",
- "num-bigint",
- "pad",
- "prost",
- "prost-types",
- "substreams",
- "substreams-ethereum",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "substreams-ethereum"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -817,7 +801,6 @@ dependencies = [
  "prost-build",
  "prost-types",
  "substreams",
- "substreams-eth-token",
  "substreams-ethereum",
  "wasm-bindgen",
 ]
