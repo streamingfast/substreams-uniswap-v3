@@ -1,4 +1,6 @@
 use std::convert::TryInto;
+use std::ops::Index;
+use substreams::log;
 
 pub fn read_uint32(input: &[u8]) -> Result<u32, String> {
     if input.len() != 32 {
@@ -9,6 +11,10 @@ pub fn read_uint32(input: &[u8]) -> Result<u32, String> {
 }
 
 pub fn read_string(input: &[u8]) -> Result<String, String> {
+    if input.len() == 32 { // name or symbol set as bytes
+        return Ok(String::from_utf8_lossy(&input).to_string());
+    }
+
     if input.len() < 96 {
         return Err(format!("string invalid length: {}", input.len()));
     }

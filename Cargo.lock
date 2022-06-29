@@ -730,7 +730,7 @@ dependencies = [
 [[package]]
 name = "substreams"
 version = "0.0.12"
-source = "git+https://github.com/streamingfast/substreams/#d5de7118869acaf17a1000947204fcabcdfde284"
+source = "git+https://github.com/streamingfast/substreams/?branch=develop#df2de331cab93f805bd08a911208e7544d34a146"
 dependencies = [
  "bigdecimal",
  "hex",
@@ -806,7 +806,7 @@ dependencies = [
 [[package]]
 name = "substreams-macro"
 version = "0.0.12"
-source = "git+https://github.com/streamingfast/substreams/#d5de7118869acaf17a1000947204fcabcdfde284"
+source = "git+https://github.com/streamingfast/substreams/?branch=develop#df2de331cab93f805bd08a911208e7544d34a146"
 dependencies = [
  "proc-macro2",
  "quote",

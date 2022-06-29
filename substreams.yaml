@@ -36,13 +36,15 @@ modules:
     initialBlock: 12369621
     inputs:
       - map: map_pools_created
+    output:
+      type: proto:uniswap.types.v1.UniswapTokens
 
   - name: store_uniswap_tokens
     kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.UniswapToken
+    updatePolicy: append
+    valueType: string
     inputs:
-      - map: map_tokens
+      - map: map_uniswap_tokens
 
   - name: store_pools_created
     kind: store

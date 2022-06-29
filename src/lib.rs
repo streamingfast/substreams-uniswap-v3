@@ -5,12 +5,13 @@ mod event;
 mod rpc;
 mod eth;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use substreams::errors::Error;
-use substreams::{Hex, log, proto, store};
-use substreams::store::StoreGet;
+use substreams::{Hex, hex, log, proto, store};
+use substreams::store::{StoreAppend, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
 use crate::pb::uniswap::{Event, Pool, UniswapToken, UniswapTokens};
 use crate::pb::uniswap::event::Type;
@@ -20,6 +21,7 @@ use crate::pb::uniswap::event::Type::Mint as MintEvent;
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
+// todo: create a blacklist list which contains invalid pools
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut pools = pb::uniswap::Pools { pools: vec![] };
@@ -34,6 +36,12 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                 if !abi::factory::events::PoolCreated::match_log(&call_log) {
                     continue
                 }
+
+                log::debug!("pool address: {}", &Hex(&call_log.data[44..64]).to_string());
+                if utils::BLACKLISTED_POOLS.contains(&Hex(&call_log.data[44..64]).to_string().as_str()) {
+                    continue;
+                }
+
                 let event = abi::factory::events::PoolCreated::must_decode(&call_log);
 
                 pools.pools.push(Pool {
@@ -57,30 +65,57 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
 //todo: is this the correct way to do? better substreams pattern to not fetch the information
 // again when we have the information from the ethtoken
 #[substreams::handlers::map]
-pub fn map_uniswap_tokens(pools: pb::uniswap::Pools, uniswap_tokens_output: StoreGet) -> Result<UniswapTokens, Error> {
+pub fn map_uniswap_tokens(pools: pb::uniswap::Pools) -> Result<UniswapTokens, Error> {
     let mut uniswap_tokens = UniswapTokens { uniswap_tokens: vec![] };
+
+    let mut cached_tokens = HashMap::new();
 
     for pool in pools.pools {
         let token0_address: String = pool.token0_address;
-        let mut uniswap_token0 = rpc::create_uniswap_token(&token0_address);
 
-        if utils::WHITELIST_TOKENS.contains(&token0_address.as_str()) {
-            uniswap_token0.whitelist_pools.push(String::from(&pool.address))
+        log::debug!("pool address: {}", pool.address);
+        if !cached_tokens.contains_key(&token0_address) {
+            let mut uniswap_token0 = rpc::create_uniswap_token(&token0_address);
+            cached_tokens.insert(String::from(&token0_address), true);
+
+            if !uniswap_tokens.uniswap_tokens.contains(&uniswap_token0) {
+                if utils::WHITELIST_TOKENS.contains(&token0_address.as_str()) {
+                    uniswap_token0.whitelist_pools.push(String::from(&pool.address))
+                }
+
+                uniswap_tokens.uniswap_tokens.push(uniswap_token0);
+            }
         }
-
-        uniswap_tokens.uniswap_tokens.push(uniswap_token0);
 
         let token1_address: String = pool.token1_address;
-        let mut uniswap_token1 = rpc::create_uniswap_token(&token0_address);
+        if !cached_tokens.contains_key(&token1_address) {
+            let mut uniswap_token1 = rpc::create_uniswap_token(&token1_address);
+            cached_tokens.insert(String::from(&token1_address), true);
 
-        if utils::WHITELIST_TOKENS.contains(&token1_address.as_str()) {
-            uniswap_token1.whitelist_pools.push(String::from(&pool.address))
+            if !uniswap_tokens.uniswap_tokens.contains(&uniswap_token1) {
+                if utils::WHITELIST_TOKENS.contains(&token1_address.as_str()) {
+                    uniswap_token1.whitelist_pools.push(String::from(&pool.address))
+                }
+
+                uniswap_tokens.uniswap_tokens.push(uniswap_token1);
+            }
         }
-
-        uniswap_tokens.uniswap_tokens.push(uniswap_token1);
     }
 
     Ok(uniswap_tokens)
+}
+
+#[substreams::handlers::store]
+pub fn store_uniswap_tokens(uniswap_tokens: UniswapTokens, output_append: StoreAppend) {
+    for uniswap_token in uniswap_tokens.uniswap_tokens {
+        for pools in uniswap_token.whitelist_pools {
+            output_append.append(
+                1,
+                format!("token:{}", uniswap_token.address),
+                &format!("{};", pools.to_string())
+            )
+        }
+    }
 }
 
 #[substreams::handlers::map]

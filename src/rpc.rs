@@ -3,7 +3,7 @@ use substreams_ethereum::pb::eth as ethpb;
 use crate::{eth, UniswapToken};
 
 pub fn create_uniswap_token(token_address: &String) -> UniswapToken {
-    let rpc_calls = create_rpc_calls(&token_address.as_bytes().to_vec());
+    let rpc_calls = create_rpc_calls(&hex::decode(token_address).unwrap());
 
     let rpc_responses_unmarshalled: ethpb::rpc::RpcResponses =
         substreams_ethereum::rpc::eth_call(&rpc_calls);
@@ -21,38 +21,41 @@ pub fn create_uniswap_token(token_address: &String) -> UniswapToken {
             name_error,
             symbol_error,
         );
-        panic!("pool contains tokens which do not exist on chain")
+        panic!("pool contains tokens which do not exist on chain addr {}", token_address)
     };
 
     let decoded_decimals = eth::read_uint32(responses[0].raw.as_ref());
     if decoded_decimals.is_err() {
         log::debug!(
             "{} is not a an ERC20 token contract decimal `eth_call` failed: {}",
-            Hex(&token_address),
+            &token_address,
             decoded_decimals.err().unwrap(),
         );
         panic!("pool contains tokens which do not exist on chain")
     }
+    log::debug!("decoded_decimals ok");
 
     let decoded_name = eth::read_string(responses[1].raw.as_ref());
     if decoded_name.is_err() {
         log::debug!(
             "{} is not a an ERC20 token contract name `eth_call` failed: {}",
-            Hex(&token_address),
+            &token_address,
             decoded_name.err().unwrap(),
         );
         panic!("pool contains tokens which do not exist on chain")
     }
+    log::debug!("decoded_name ok");
 
     let decoded_symbol = eth::read_string(responses[2].raw.as_ref());
     if decoded_symbol.is_err() {
         log::debug!(
             "{} is not a an ERC20 token contract symbol `eth_call` failed: {}",
-            Hex(&token_address),
+            &token_address,
             decoded_symbol.err().unwrap(),
         );
         panic!("pool contains tokens which do not exist on chain")
     }
+    log::debug!("decoded_symbol ok");
 
     let decimals = decoded_decimals.unwrap() as u64;
     let symbol = decoded_symbol.unwrap();
