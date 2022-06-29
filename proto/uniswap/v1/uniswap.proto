@@ -80,7 +80,7 @@ message Burn {
 message Mint {
   string owner = 1;
   string sender = 2;
-  string origin = 3;
+//  string origin = 3; // should be the transaction origin, do we need this?
   string amount_0 = 4;
   string amount_1 = 5;
   string amount_usd = 6;
