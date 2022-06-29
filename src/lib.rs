@@ -6,14 +6,15 @@ mod rpc;
 mod eth;
 
 use std::collections::HashMap;
+use std::ops::Neg;
 use std::str::FromStr;
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use substreams::errors::Error;
 use substreams::{Hex, hex, log, proto, store};
-use substreams::store::{StoreAppend, StoreGet, StoreSet};
+use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
-use crate::pb::uniswap::{Event, Pool, UniswapToken, UniswapTokens};
+use crate::pb::uniswap::{Burn, Event, Pool, Swap, UniswapToken, UniswapTokens};
 use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 use crate::pb::uniswap::event::Type::Burn as BurnEvent;
@@ -106,7 +107,18 @@ pub fn map_uniswap_tokens(pools: pb::uniswap::Pools) -> Result<UniswapTokens, Er
 }
 
 #[substreams::handlers::store]
-pub fn store_uniswap_tokens(uniswap_tokens: UniswapTokens, output_append: StoreAppend) {
+pub fn store_uniswap_tokens(uniswap_tokens: UniswapTokens, output_set: StoreSet) {
+    for uniswap_token in uniswap_tokens.uniswap_tokens {
+        output_set.set(
+            1,
+            format!("token:{}", uniswap_token.address),
+            &proto::encode(&uniswap_token).unwrap()
+        );
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_uniswap_tokens_whitelist_pools(uniswap_tokens: UniswapTokens, output_append: StoreAppend) {
     for uniswap_token in uniswap_tokens.uniswap_tokens {
         for pools in uniswap_token.whitelist_pools {
             output_append.append(
@@ -178,18 +190,6 @@ pub fn store_pools(pools_initialized: pb::uniswap::Pools, store_created: StoreGe
         }
     }
 }
-
-
-
-// #[substreams::handlers::map]
-// pub fn map_liquidity(block: ethpb::v1::Block) -> Result<WhiteListPools, Error>{
-//     // let mut liquidities =
-// }
-//
-// #[substreams::handlers::store]
-// pub fn store_whitelist_pools(block: ethpb::v1::Block) -> Result<WhiteListPools, Error>{
-//     // format!("liquidity:{}:{}:{}", token0, token1, pool.address)
-// }
 
 #[substreams::handlers::map]
 pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
@@ -269,18 +269,110 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
     Ok(out)
 }
 
-// #[substreams::handlers::map]
-// pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
-//     let mut out = pb::uniswap::Events { events: vec![] };
-//
-//     for trx in block.transaction_traces {
-//         for log in trx.receipt.unwrap().logs.iter() {
-//             out.events.push(process_event(log));
-//         }
-//     }
-//
-//     Ok(out)
-// }
+#[substreams::handlers::map]
+pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
+    let mut out = pb::uniswap::Events { events: vec![] };
+
+    for trx in block.transaction_traces {
+        for log in trx.receipt.unwrap().logs.iter() {
+            if abi::pool::events::Swap::match_log(log) {
+                let swap = abi::pool::events::Swap::must_decode(log);
+
+                match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                    None => {
+                        panic!("invalid swap. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
+                    }
+                    Some(pool_bytes) => {
+                        let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+                        out.events.push(Event{
+                            log_ordinal: log.block_index as u64,
+                            pool_address: pool.address.to_string(),
+                            token0: pool.token0_address.to_string(),
+                            token1: pool.token1_address.to_string(),
+                            fee: pool.fee.to_string(),
+                            transaction_id: Hex(&trx.hash).to_string(),
+                            timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
+                            r#type: Some(SwapEvent(pb::uniswap::Swap{
+                                sender: Hex(&swap.sender).to_string(),
+                                recipient: Hex(&swap.recipient).to_string(),
+                                amount_0: swap.amount0.to_string(), // big_decimal?
+                                amount_1: swap.amount1.to_string(), // big_decimal?
+                                amount_usd: "".to_string(),
+                                sqrt_price: swap.sqrt_price_x96.to_string(), // big_decimal?
+                                tick: swap.tick.to_string(),
+                            })),
+                        });
+                    }
+                }
+            }
+
+            if abi::pool::events::Burn::match_log(log) {
+                let burn = abi::pool::events::Burn::must_decode(log);
+
+                match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                    None => {
+                        panic!("invalid burn. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
+                    }
+                    Some(pool_bytes) => {
+                        let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+                        out.events.push(Event{
+                            log_ordinal: log.block_index as u64,
+                            pool_address: pool.address.to_string(),
+                            token0: pool.token0_address.to_string(),
+                            token1: pool.token1_address.to_string(),
+                            fee: pool.fee.to_string(),
+                            transaction_id: Hex(&trx.hash).to_string(),
+                            timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
+                            r#type: Some(BurnEvent(pb::uniswap::Burn{
+                                owner: Hex(&burn.owner).to_string(),
+                                amount_0: burn.amount0.to_string(), // big_decimal?
+                                amount_1: burn.amount1.to_string(), // big_decimal?
+                                amount_usd: "".to_string(),
+                                amount: burn.amount.to_string(), // big_decimal?
+                                tick: "".to_string()
+                            })),
+                        });
+                    }
+                }
+            }
+
+            if abi::pool::events::Mint::match_log(log) {
+                let mint = abi::pool::events::Mint::must_decode(log);
+
+                match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                    None => {
+                        panic!("invalid mint. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
+                    }
+                    Some(pool_bytes) => {
+                        let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+                        out.events.push(Event{
+                            log_ordinal: log.block_index as u64,
+                            pool_address: pool.address.to_string(),
+                            token0: pool.token0_address.to_string(),
+                            token1: pool.token1_address.to_string(),
+                            fee: pool.fee.to_string(),
+                            transaction_id: Hex(&trx.hash).to_string(),
+                            timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
+                            r#type: Some(BurnEvent(pb::uniswap::Burn{
+                                owner: Hex(&mint.owner).to_string(),
+                                amount_0: mint.amount0.to_string(), // big_decimal?
+                                amount_1: mint.amount1.to_string(), // big_decimal?
+                                amount_usd: "".to_string(),
+                                amount: mint.amount.to_string(), // big_decimal?
+                                tick: "".to_string()
+                            })),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(out)
+}
 
 #[substreams::handlers::map]
 pub fn map_swaps(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
@@ -338,6 +430,7 @@ pub fn map_burns(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
             }
 
             let burn = abi::pool::events::Burn::must_decode(log);
+            let liquidity = burn.amount;
 
             match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
                 None => {
@@ -345,7 +438,6 @@ pub fn map_burns(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
-
 
                     out.events.push(Event{
                         log_ordinal: log.block_index as u64,
@@ -356,10 +448,11 @@ pub fn map_burns(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
                         transaction_id: Hex(&trx.hash).to_string(),
                         timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
                         r#type: Some(BurnEvent(pb::uniswap::Burn{
-                            owner: "".to_string(),
-                            amount_0: "".to_string(),
-                            amount_1: "".to_string(),
+                            owner: Hex(&burn.owner).to_string(),
+                            amount_0: burn.amount0.to_string(), // big_decimal?
+                            amount_1: burn.amount1.to_string(), // big_decimal?
                             amount_usd: "".to_string(),
+                            amount: burn.amount.to_string(), // big_decimal?
                             tick: "".to_string()
                         })),
                     });
@@ -403,10 +496,11 @@ pub fn map_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
                         transaction_id: Hex(&trx.hash).to_string(),
                         timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
                         r#type: Some(BurnEvent(pb::uniswap::Burn{
-                            owner: "".to_string(),
-                            amount_0: "".to_string(),
-                            amount_1: "".to_string(),
+                            owner: Hex(&mint.owner).to_string(),
+                            amount_0: mint.amount0.to_string(),
+                            amount_1: mint.amount1.to_string(),
                             amount_usd: "".to_string(),
+                            amount: mint.amount.to_string(),
                             tick: "".to_string()
                         })),
                     });
@@ -417,6 +511,36 @@ pub fn map_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
 
     Ok(out)
 }
+
+#[substreams::handlers::store]
+pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
+    for event in events.events {
+        if event.r#type.is_some() {
+            match event.r#type.unwrap() {
+                Type::Swap(_) => {
+                    continue
+                }
+                Type::Burn(burn) => {
+                    let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
+                    output.add(
+                        event.log_ordinal,
+                        format!("pool:{}:liquidity", event.pool_address),
+                        &amount.neg()
+                    )
+                }
+                Type::Mint(mint) => {
+                    let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
+                    output.add(
+                        event.log_ordinal,
+                        format!("pool:{}:liquidity", event.pool_address),
+                        &amount
+                    )
+                }
+            }
+        }
+    }
+}
+
 
 // are we better off to do a similar pattern as we did for pcs and have a substreams that takes care of all 3 types of events ?
 
@@ -490,9 +614,10 @@ price store:
 pub fn store_prices(
     block: ethpb::v1::Block,
     swaps: pb::uniswap::Events,
-    pools_store: store::StoreGet, // todo: probably gonna need the pools here (mapper and the store)
-    tokens_store: store::StoreGet,
-    output: store::StoreSet
+    pools_store: StoreGet, // todo: probably gonna need the pools here (mapper and the store)
+    tokens_store: StoreGet,
+    whitelist_pools_store: StoreGet,
+    output: StoreSet
 ) {
     //todo -> price stream for usd
     // price seems to be in the event -> event.params.sqrtPriceX96

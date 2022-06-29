@@ -14,6 +14,11 @@ message UniswapToken {
   repeated string whitelist_pools = 5;
 }
 
+message Liquidity {
+  string pool_address = 1;
+  string value = 2; // BigDecimal
+}
+
 message Pools {
   repeated Pool pools =1;
 }
@@ -68,17 +73,18 @@ message Burn {
   string amount_0 = 2;
   string amount_1 = 3;
   string amount_usd = 4;
-  string tick = 5;
+  string amount = 5;
+  string tick = 6;
 }
 
 message Mint {
   string owner = 1;
   string sender = 2;
   string origin = 3;
-  string amount_liquidity = 4; // todo: not sure about this one, is it better to have it as a key in a store
-  string amount_0 = 5;
-  string amount_1 = 6;
-  string amount_usd = 7;
+  string amount_0 = 4;
+  string amount_1 = 5;
+  string amount_usd = 6;
+  string amount = 7;
   string tick = 8;
 }
 

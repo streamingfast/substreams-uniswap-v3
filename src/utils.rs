@@ -7,9 +7,9 @@ use crate::Pool;
 use substreams::store::StoreGet;
 use crate::pb::tokens::Token;
 
-const DAI_USD_KEY : &str = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
-const WETH_ADDRESS : &str = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
-const USDC_WETH_03_POOL : &str = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
+const DAI_USD_KEY : &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
+const WETH_ADDRESS : &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+const USDC_WETH_03_POOL : &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 
 pub const STABLE_COINS: [&str; 6] = [
     "6b175474e89094c44da98b954eedeac495271d0f",
@@ -99,18 +99,35 @@ pub fn safe_div(amount0: BigDecimal, amount1: BigDecimal) -> BigDecimal {
     }
 }
 
-// pub fn find_eth_per_token(log_ordinal: &u64, token_address: &str, pools_store: StoreGet, prices_store: StoreGet) -> Option<BigDecimal> {
-//     if token_address.eq(WETH_ADDR) {
+// pub fn find_eth_per_token(
+//     log_ordinal: &u64,
+//     token_address: &str,
+//     pools_store: StoreGet,
+//     prices_store: StoreGet,
+//     whitelist_pools_store: StoreGet
+// ) -> Option<BigDecimal> {
+//     if token_address.eq(WETH_ADDRESS) {
 //         return Some(BigDecimal::one());
 //     }
 //
 //     let bd_one = BigDecimal::one();
 //     let mut price_so_far = BigDecimal::zero();
+//     let mut whitelist_pools: Vec<String> = vec![];
+//
+//     match whitelist_pools_store.get_last(&format!("token:{}", token_address)) {
+//         None => {
+//             return Some(price_so_far)
+//         }
+//         Some(whitelist_pools_bytes) => {
+//             let whitelist_pools_proto: String = proto::decode(&whitelist_pools_bytes).unwrap();
+//             whitelist_pools = whitelist_pools_proto.split(";").collect();
+//         }
+//     }
 //
 //     if STABLE_COINS.contains(&token_address) {
 //         price_so_far = safe_div(bd_one, BigDecimal::from(*log_ordinal));
 //     } else {
-//         for pool_address in WHITELIST_TOKENS.iter() {
+//         for pool_address in whitelist_pools.iter() {
 //             let pool = get_last_pool(&pools_store, pool_address);
 //             if pool.is_none() {
 //                 continue;
