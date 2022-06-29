@@ -22,25 +22,25 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
     let mut pools = pb::uniswap::Pools { pools: vec![] };
 
     for trx in block.transaction_traces {
-
         for call in trx.calls.iter() {
             if hex::encode(&call.address) != UNISWAP_V3_FACTORY {
                 continue;
             }
-            for log in call.logs.iter() {
-                if !abi::factory::events::PoolCreated::match_log(&log) {
+
+            for call_log in call.logs.iter() {
+                if !abi::factory::events::PoolCreated::match_log(&call_log) {
                     continue
                 }
-                let event = abi::factory::events::PoolCreated::must_decode(&log);
+                let event = abi::factory::events::PoolCreated::must_decode(&call_log);
 
                 pools.pools.push(Pool {
-                    address: Hex(&log.data[44..64]).to_string(),
+                    address: Hex(&call_log.data[44..64]).to_string(),
                     token0_address: Hex(&event.token0).to_string(),
                     token1_address: Hex(&event.token1).to_string(),
                     creation_transaction_id: Hex(&trx.hash).to_string(),
                     fee: event.fee.as_u32(),
                     block_num: block.number,
-                    log_ordinal: log.block_index as u64,
+                    log_ordinal: call_log.block_index as u64,
                     tick: "".to_string(),
                     sqrt_price: "".to_string()
                 });
@@ -165,12 +165,12 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
             log::info!("call target: {}", Hex(&call.address).to_string());
-            for l in call.logs.iter() {
-                if !abi::pool::events::Flash::match_log(&l) {
+            for call_log in call.logs.iter() {
+                if !abi::pool::events::Flash::match_log(&call_log) {
                     continue;
                 }
 
-                let ev = abi::pool::events::Flash::must_decode(&l);
+                let ev = abi::pool::events::Flash::must_decode(&call_log);
                 log::info!("{:?}", ev);
 
                 log::info!("trx id: {}", Hex(&trx.hash).to_string());
