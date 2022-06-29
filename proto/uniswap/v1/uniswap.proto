@@ -2,6 +2,18 @@ syntax = "proto3";
 
 package uniswap.types.v1;
 
+message UniswapTokens {
+  repeated UniswapToken uniswapTokens = 1;
+}
+
+message UniswapToken {
+  string address = 1;
+  string name = 2;
+  string symbol = 3;
+  uint64 decimals = 4;
+  repeated string whitelist_pools = 5;
+}
+
 message Pools {
   repeated Pool pools =1;
 }
@@ -43,29 +55,31 @@ message Swaps {
 
 message Swap {
   string sender = 1;
-  string to = 2;
-  string from = 3;
-  string amount_0 = 4;
-  string amount_1 = 5;
-  string amount_usd = 6;
-  string sqrt_price = 7;
-  string tick = 8;
+  string recipient = 2;
+  string amount_0 = 3;
+  string amount_1 = 4;
+  string amount_usd = 5;
+  string sqrt_price = 6;
+  string tick = 7;
 }
 
 message Burn {
-  // todo
+  string owner = 1;
+  string amount_0 = 2;
+  string amount_1 = 3;
+  string amount_usd = 4;
+  string tick = 5;
 }
 
 message Mint {
-  // todo
-}
-
-message Reserves {
-  repeated Reserve reserves = 1;
-}
-
-message Reserve {
-
+  string owner = 1;
+  string sender = 2;
+  string origin = 3;
+  string amount_liquidity = 4; // todo: not sure about this one, is it better to have it as a key in a store
+  string amount_0 = 5;
+  string amount_1 = 6;
+  string amount_usd = 7;
+  string tick = 8;
 }
 
 message Fees {
