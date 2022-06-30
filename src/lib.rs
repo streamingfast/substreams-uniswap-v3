@@ -525,12 +525,12 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
                     let amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
                     output.add(
                         event.log_ordinal,
-                        format!("token:{}:total_value_locked", event.token0),
+                        format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token0),
                         &amount0
                     );
                     output.add(
                         event.log_ordinal,
-                        format!("token:{}:total_value_locked", event.token1),
+                        format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token1),
                         &amount1
                     );
                 }
@@ -545,12 +545,12 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
                     );
                     output.add(
                         event.log_ordinal,
-                        format!("token:{}:total_value_locked", event.token0),
+                        format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token0),
                         &amount0.neg()
                     );
                     output.add(
                         event.log_ordinal,
-                        format!("token:{}:total_value_locked", event.token1),
+                        format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token1),
                         &amount1.neg()
                     );
                 }
@@ -566,12 +566,12 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
                     );
                     output.add(
                         event.log_ordinal,
-                        format!("token:{}:total_value_locked", event.token0),
+                        format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token0),
                         &amount0
                     );
                     output.add(
                         event.log_ordinal,
-                        format!("token:{}:total_value_locked", event.token1),
+                        format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token1),
                         &amount1
                     );
                 }
