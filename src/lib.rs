@@ -1,3 +1,5 @@
+extern crate core;
+
 mod pb;
 mod abi;
 mod utils;
@@ -431,7 +433,6 @@ pub fn map_burns(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
             }
 
             let burn = abi::pool::events::Burn::must_decode(log);
-            let liquidity = burn.amount;
 
             match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
                 None => {
@@ -513,34 +514,73 @@ pub fn map_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
     Ok(out)
 }
 
+// todo: find a better name ftw
 #[substreams::handlers::store]
 pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
     for event in events.events {
         if event.r#type.is_some() {
             match event.r#type.unwrap() {
-                Type::Swap(_) => {
-                    continue
+                Type::Swap(swap) => {
+                    let amount0 = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
+                    let amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+                    output.add(
+                        event.log_ordinal,
+                        format!("token:{}:total_value_locked", event.token0),
+                        &amount0
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        format!("token:{}:total_value_locked", event.token1),
+                        &amount1
+                    );
                 }
                 Type::Burn(burn) => {
                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
+                    let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
+                    let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
                     output.add(
                         event.log_ordinal,
                         format!("pool:{}:liquidity", event.pool_address),
                         &amount.neg()
-                    )
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        format!("token:{}:total_value_locked", event.token0),
+                        &amount0.neg()
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        format!("token:{}:total_value_locked", event.token1),
+                        &amount1.neg()
+                    );
                 }
                 Type::Mint(mint) => {
                     let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
+                    let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
+                    let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
+
                     output.add(
                         event.log_ordinal,
                         format!("pool:{}:liquidity", event.pool_address),
                         &amount
-                    )
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        format!("token:{}:total_value_locked", event.token0),
+                        &amount0
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        format!("token:{}:total_value_locked", event.token1),
+                        &amount1
+                    );
                 }
             }
         }
     }
 }
+
+// need ethPriceUSD
 
 
 // are we better off to do a similar pattern as we did for pcs and have a substreams that takes care of all 3 types of events ?
@@ -633,22 +673,45 @@ pub fn store_prices(
     for swap_event in swaps.events {
         let token_0 = utils::get_last_token(&tokens_store, swap_event.token0.as_str());
         let token_1 = utils::get_last_token(&tokens_store, swap_event.token1.as_str());
-        let pool = utils::get_last_pool(&pools_store, swap_event.pool_address.as_str());
 
         match swap_event.r#type.unwrap() {
             Type::Swap(swap) => {
-                //todo: here we need to get the price and compute
-                // https://github.com/Uniswap/v3-subgraph/blob/bf03f940f17c3d32ee58bd37386f26713cff21e2/src/utils/pricing.ts#L48
-                // blk 10: usdt-dai
-
                 let sqrt_price = BigInt::from_str(swap.sqrt_price.as_str()).unwrap();
-                // fixme: check sqrtPriceX96ToTokenPrices in v3-subgraph
                 let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, token_0, token_1);
+                output.set(
+                    swap_event.log_ordinal,
+                    format!("token:{}:price", swap_event.token0),
+                    &Vec::from(tokens_price.0.to_string())
+                );
+                output.set(
+                    swap_event.log_ordinal,
+                    format!("token:{}:price", swap_event.token1),
+                    &Vec::from(tokens_price.1.to_string())
+                );
 
-                log::info!("trx hash: {}, price0: {}, price1: {}", swap_event.transaction_id ,tokens_price.0, tokens_price.1)
-                // log::info!("trx hash: {}, amount0: {}, amount1: {}, price: {}", Hex(trx.hash.as_slice()).to_string(), event.amount0, event.amount1, price);
-                // match tokens_store.get_last(&format!("token:{}", event.));
-                // let amount0 = utils::convert_token_to_decimal(event.amount0, )
+                let token0_derived_eth_price = utils::find_eth_per_token(
+                    swap_event.log_ordinal,
+                    token_0.address.as_str(),
+                    &pools_store,
+                    &whitelist_pools_store
+                );
+                let token1_derived_eth_price = utils::find_eth_per_token(
+                    swap_event.log_ordinal,
+                    token_1.address.as_str(),
+                    &pools_store,
+                    &whitelist_pools_store
+                );
+                output.set(
+                    swap_event.log_ordinal,
+                    format!("token:{}:dprice:eth", swap_event.token0),
+                    &Vec::from(token0_derived_eth_price.to_string())
+                );
+                output.set(
+                    swap_event.log_ordinal,
+                    format!("token:{}:dprice:eth", swap_event.token1),
+                    &Vec::from(token1_derived_eth_price.to_string())
+                );
+
             }
             Type::Burn(_) => {}
             Type::Mint(_) => {}

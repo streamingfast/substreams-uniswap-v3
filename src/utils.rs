@@ -7,9 +7,10 @@ use crate::Pool;
 use substreams::store::StoreGet;
 use crate::pb::tokens::Token;
 
-const DAI_USD_KEY : &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
-const WETH_ADDRESS : &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
-const USDC_WETH_03_POOL : &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
+const DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
+const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 
 pub const STABLE_COINS: [&str; 6] = [
     "6b175474e89094c44da98b954eedeac495271d0f",
@@ -68,26 +69,19 @@ pub fn compute_prices(
     return (price0, price1);
 }
 
-pub fn get_eth_price_in_usd(pool_store: StoreGet, token_store: StoreGet, token_address: &str) -> BigDecimal {
-    match pool_store.get_last(&format!("pool:{}", DAI_USD_KEY)) {
+// can we do this differently and take the eth price from another place?
+pub fn get_eth_price_in_usd(token_store: StoreGet) -> BigDecimal {
+    return match token_store.get_last(&format!("token:{}", USDC_ADDRESS)) {
         None => {
-            return BigDecimal::zero();
+            BigDecimal::zero()
         }
-        Some(pool_bytes) => {
-            let pool: Pool = proto::decode(&pool_bytes).unwrap();
+        Some(token_bytes) => {
+            let token: Token = proto::decode(&token_bytes).unwrap();
+            // let token0_price, _ = compute_prices();
 
-            // todo: need to pass in the token0/token1 address
-            match token_store.get_last(&format!("token:{}", token_address)) {
-                None => {
-                    return BigDecimal::zero();
-                }
-                Some(token_bytes) => {
-                    let token: Token = proto::decode(&token_bytes).unwrap();
-                }
-            }
+            BigDecimal::zero()
         }
     }
-    return BigDecimal::zero()
 }
 
 pub fn safe_div(amount0: BigDecimal, amount1: BigDecimal) -> BigDecimal {
@@ -99,45 +93,57 @@ pub fn safe_div(amount0: BigDecimal, amount1: BigDecimal) -> BigDecimal {
     }
 }
 
-// pub fn find_eth_per_token(
-//     log_ordinal: &u64,
-//     token_address: &str,
-//     pools_store: StoreGet,
-//     prices_store: StoreGet,
-//     whitelist_pools_store: StoreGet
-// ) -> Option<BigDecimal> {
-//     if token_address.eq(WETH_ADDRESS) {
-//         return Some(BigDecimal::one());
-//     }
-//
-//     let bd_one = BigDecimal::one();
-//     let mut price_so_far = BigDecimal::zero();
-//     let mut whitelist_pools: Vec<String> = vec![];
-//
-//     match whitelist_pools_store.get_last(&format!("token:{}", token_address)) {
-//         None => {
-//             return Some(price_so_far)
-//         }
-//         Some(whitelist_pools_bytes) => {
-//             let whitelist_pools_proto: String = proto::decode(&whitelist_pools_bytes).unwrap();
-//             whitelist_pools = whitelist_pools_proto.split(";").collect();
-//         }
-//     }
-//
-//     if STABLE_COINS.contains(&token_address) {
-//         price_so_far = safe_div(bd_one, BigDecimal::from(*log_ordinal));
-//     } else {
-//         for pool_address in whitelist_pools.iter() {
-//             let pool = get_last_pool(&pools_store, pool_address);
-//             if pool.is_none() {
-//                 continue;
-//             }
-//             get
-//         }
-//     }
-//
-//     return Some(price_so_far);
-// }
+pub fn find_eth_per_token(
+    log_ordinal: u64,
+    token_address: &str,
+    pools_store: &StoreGet,
+    whitelist_pools_store: &StoreGet
+) -> BigDecimal {
+    if token_address.eq(WETH_ADDRESS) {
+        return BigDecimal::one();
+    }
+
+    let bd_one = BigDecimal::one();
+    let bi_zero= BigInt::zero();
+    let mut largest_liquidity_eth = BigDecimal::zero();
+    let mut price_so_far = BigDecimal::zero();
+    let mut whitelist_pools: Vec<&str> = vec![];
+
+    let eth_price_usd = BigDecimal::one(); // todo
+
+    match whitelist_pools_store.get_last(&format!("token:{}", token_address)) {
+        None => {
+            // do nothing
+        }
+        Some(whitelist_pools_bytes) => {
+            let whitelist_pools_proto: String = proto::decode(&whitelist_pools_bytes).unwrap();
+            whitelist_pools = whitelist_pools_proto.split(";").collect();
+        }
+    }
+
+    if STABLE_COINS.contains(&token_address) {
+        price_so_far = safe_div(bd_one, eth_price_usd);
+    } else {
+        for pool_address in whitelist_pools.iter() {
+            let pool = get_last_pool(&pools_store, pool_address);
+
+            match whitelist_pools_store.get_last(&format!("pool:{}:liquidity", pool_address)) {
+                None => {
+                    // todo: what the hell do I do here ?
+                }
+                Some(liquidity_bytes) => {
+                    let liquidity = BigDecimal::parse_bytes(liquidity_bytes.as_slice(), 10).unwrap();
+
+                    if liquidity.gt(&bi_zero) {
+
+                    }
+                }
+            }
+        }
+    }
+
+    return price_so_far;
+}
 
 pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     let mut result = BigDecimal::one();
