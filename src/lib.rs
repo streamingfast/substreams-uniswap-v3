@@ -488,7 +488,6 @@ pub fn map_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
 
-
                     out.events.push(Event{
                         log_ordinal: log.block_index as u64,
                         pool_address: pool.address.to_string(),
@@ -655,7 +654,8 @@ price store:
 pub fn store_prices(
     block: ethpb::v1::Block,
     swaps: pb::uniswap::Events,
-    pools_store: StoreGet, // todo: probably gonna need the pools here (mapper and the store)
+    liquidity_store: StoreGet,
+    pools_store: StoreGet,
     tokens_store: StoreGet,
     whitelist_pools_store: StoreGet,
     output: StoreSet
@@ -676,8 +676,8 @@ pub fn store_prices(
 
         match swap_event.r#type.unwrap() {
             Type::Swap(swap) => {
-                let sqrt_price = BigInt::from_str(swap.sqrt_price.as_str()).unwrap();
-                let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, token_0, token_1);
+                let sqrt_price = BigDecimal::from_str(swap.sqrt_price.as_str()).unwrap();
+                let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, &token_0, &token_1);
                 output.set(
                     swap_event.log_ordinal,
                     format!("token:{}:price", swap_event.token0),
@@ -691,15 +691,19 @@ pub fn store_prices(
 
                 let token0_derived_eth_price = utils::find_eth_per_token(
                     swap_event.log_ordinal,
-                    token_0.address.as_str(),
+                    &token_0.address.as_str(),
                     &pools_store,
-                    &whitelist_pools_store
+                    &tokens_store,
+                    &whitelist_pools_store,
+                    &liquidity_store,
                 );
                 let token1_derived_eth_price = utils::find_eth_per_token(
                     swap_event.log_ordinal,
-                    token_1.address.as_str(),
+                    &token_1.address.as_str(),
                     &pools_store,
-                    &whitelist_pools_store
+                    &tokens_store,
+                    &whitelist_pools_store,
+                    &liquidity_store,
                 );
                 output.set(
                     swap_event.log_ordinal,

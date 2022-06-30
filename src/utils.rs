@@ -1,9 +1,10 @@
 use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul};
+use std::str::FromStr;
 use num_bigint::BigInt;
-use bigdecimal::{BigDecimal, FromPrimitive, One, Zero};
+use bigdecimal::{BigDecimal, FromPrimitive, Num, One, Zero};
 use substreams::{proto, store};
-use crate::Pool;
+use crate::{Pool, UniswapToken};
 use substreams::store::StoreGet;
 use crate::pb::tokens::Token;
 
@@ -50,9 +51,9 @@ pub const BLACKLISTED_POOLS: [&str; 1] = [
 ];
 
 pub fn compute_prices(
-    sqrt_price: &BigInt,
-    token_0: Token,
-    token_1: Token
+    sqrt_price: &BigDecimal,
+    token_0: &UniswapToken,
+    token_1: &UniswapToken
 ) -> (BigDecimal, BigDecimal) {
     let price: BigDecimal = BigDecimal::from(sqrt_price * sqrt_price);
 
@@ -97,7 +98,9 @@ pub fn find_eth_per_token(
     log_ordinal: u64,
     token_address: &str,
     pools_store: &StoreGet,
-    whitelist_pools_store: &StoreGet
+    tokens_store: &StoreGet,
+    whitelist_pools_store: &StoreGet,
+    liquidity_store: &StoreGet,
 ) -> BigDecimal {
     if token_address.eq(WETH_ADDRESS) {
         return BigDecimal::one();
@@ -108,6 +111,7 @@ pub fn find_eth_per_token(
     let mut largest_liquidity_eth = BigDecimal::zero();
     let mut price_so_far = BigDecimal::zero();
     let mut whitelist_pools: Vec<&str> = vec![];
+    let mut whitelist_pools_proto: String = String::default();
 
     let eth_price_usd = BigDecimal::one(); // todo
 
@@ -116,9 +120,12 @@ pub fn find_eth_per_token(
             // do nothing
         }
         Some(whitelist_pools_bytes) => {
-            let whitelist_pools_proto: String = proto::decode(&whitelist_pools_bytes).unwrap();
-            whitelist_pools = whitelist_pools_proto.split(";").collect();
+            whitelist_pools_proto = proto::decode(&whitelist_pools_bytes).unwrap();
         }
+    }
+
+    for x in whitelist_pools_proto.split(";") {
+        whitelist_pools.push(x);
     }
 
     if STABLE_COINS.contains(&token_address) {
@@ -127,15 +134,52 @@ pub fn find_eth_per_token(
         for pool_address in whitelist_pools.iter() {
             let pool = get_last_pool(&pools_store, pool_address);
 
-            match whitelist_pools_store.get_last(&format!("pool:{}:liquidity", pool_address)) {
+            let liquidity : BigDecimal = match liquidity_store.get_last(&format!("pool:{}:liquidity", pool_address)) {
                 None => {
-                    // todo: what the hell do I do here ?
+                    BigDecimal::zero()
                 }
                 Some(liquidity_bytes) => {
-                    let liquidity = BigDecimal::parse_bytes(liquidity_bytes.as_slice(), 10).unwrap();
+                    BigDecimal::parse_bytes(liquidity_bytes.as_slice(), 10).unwrap()
+                }
+            };
 
-                    if liquidity.gt(&bi_zero) {
+            if liquidity.gt(&BigDecimal::zero()) {
+                let token0 : UniswapToken = get_last_token(tokens_store, &pool.token0_address);
+                let token1 : UniswapToken = get_last_token(tokens_store, &pool.token1_address);
+                let prices = compute_prices(
+                    &BigDecimal::from_str_radix(&pool.sqrt_price, 10).unwrap(),
+                    &token0,
+                    &token1,
+                );
 
+                if pool.token0_address == token_address {
+                    let token1_derived_eth = BigDecimal::zero();
+                    let eth_locked = match liquidity_store.get_last(&format!("pool:{}:token:{}:total_value_locked", pool_address, token_address)) {
+                        None => {
+                            BigDecimal::zero()
+                        }
+                        Some(tvl_bytes) => {
+                            BigDecimal::parse_bytes(tvl_bytes.as_slice(), 10).unwrap()
+                        }
+                    }.mul(&token1_derived_eth);
+                    if eth_locked.gt(&largest_liquidity_eth) && eth_locked.gt( &BigDecimal::from(60)) {
+                        largest_liquidity_eth = eth_locked;
+                        price_so_far = prices.0.mul(token1_derived_eth);
+                    }
+                }
+                if pool.token1_address == token_address {
+                    let token0_derived_eth = BigDecimal::zero();
+                    let eth_locked = match liquidity_store.get_last(&format!("pool:{}:token:{}:total_value_locked", pool_address, token_address)) {
+                        None => {
+                            BigDecimal::zero()
+                        }
+                        Some(tvl_bytes) => {
+                            BigDecimal::parse_bytes(tvl_bytes.as_slice(), 10).unwrap()
+                        }
+                    }.mul(&token0_derived_eth);
+                    if eth_locked.gt(&largest_liquidity_eth) && eth_locked.gt(&BigDecimal::from(60)) {
+                        largest_liquidity_eth = eth_locked;
+                        price_so_far = prices.1.mul(token0_derived_eth);
                     }
                 }
             }
@@ -159,8 +203,8 @@ pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     return result
 }
 
-pub fn get_last_token(tokens: &StoreGet, token_address: &str) -> Token {
-    proto::decode(&tokens.get_last(&format!("token:{}", token_address)).unwrap()).unwrap()
+pub fn get_last_token(tokens_store: &StoreGet, token_address: &str) -> UniswapToken {
+    proto::decode(&tokens_store.get_last(&format!("token:{}", token_address)).unwrap()).unwrap()
 }
 
 pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Pool {

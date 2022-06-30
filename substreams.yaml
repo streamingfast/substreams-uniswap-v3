@@ -115,14 +115,6 @@ modules:
     inputs:
       - map: map_burns_swaps_mints
 
-#  - name: store_swaps
-#    kind: store
-#    updatePolicy: set
-#    initialBlock: 12369621
-#    valueType: string
-#    inputs:
-#      - map: map_swaps
-
   - name: map_fees
     kind: map
     initialBlock: 12369621
@@ -155,6 +147,7 @@ modules:
     inputs:
       - source: sf.ethereum.type.v1.Block
       - map: map_swaps
+      - store: store_liquidity
       - store: store_pools
       - store: eth:store_tokens
       - store: store_uniswap_tokens_whitelist_pools
