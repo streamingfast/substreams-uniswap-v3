@@ -149,5 +149,5 @@ modules:
       - map: map_swaps
       - store: store_liquidity
       - store: store_pools
-      - store: eth:store_tokens
+      - store: store_uniswap_tokens
       - store: store_uniswap_tokens_whitelist_pools
