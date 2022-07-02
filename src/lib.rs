@@ -93,7 +93,6 @@ pub fn store_uniswap_tokens_whitelist_pools(uniswap_tokens: UniswapTokens, outpu
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut pools = pb::uniswap::Pools { pools: vec![] };
-
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
             if hex::encode(&call.address) != UNISWAP_V3_FACTORY {
@@ -111,7 +110,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                 }
 
                 let event = abi::factory::events::PoolCreated::must_decode(&call_log);
-
                 pools.pools.push(Pool {
                     address: Hex(&call_log.data[44..64]).to_string(),
                     token0_address: Hex(&event.token0).to_string(),
@@ -120,6 +118,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                     fee: event.fee.as_u32(),
                     block_num: block.number,
                     log_ordinal: call_log.block_index as u64,
+                    tick_spacing: i32::try_from(event.tick_spacing).unwrap(),
                     tick: "".to_string(),
                     sqrt_price: "".to_string()
                 });
@@ -133,7 +132,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
 #[substreams::handlers::map]
 pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut pools = pb::uniswap::Pools { pools: vec![] };
-
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs {
             if !abi::pool::events::Initialize::match_log(&log) {
@@ -149,6 +147,7 @@ pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Poo
                 fee: 0,
                 block_num: 0,
                 log_ordinal: 0,
+                tick_spacing: 0,
                 tick: event.tick.to_string(),
                 sqrt_price: event.sqrt_price_x96.to_string(),
             });
@@ -194,7 +193,6 @@ pub fn store_pools(pools_initialized: pb::uniswap::Pools, store_created: StoreGe
 #[substreams::handlers::map]
 pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
     let mut out = pb::uniswap::Events { events: vec![] };
-
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs.iter() {
             if abi::pool::events::Swap::match_log(log) {
@@ -534,18 +532,18 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
 
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
-            log::info!("call target: {}", Hex(&call.address).to_string());
+            log::debug!("call target: {}", Hex(&call.address).to_string());
             for call_log in call.logs.iter() {
                 if !abi::pool::events::Flash::match_log(&call_log) {
                     continue;
                 }
 
                 let ev = abi::pool::events::Flash::must_decode(&call_log);
-                log::info!("{:?}", ev);
+                log::debug!("{:?}", ev);
 
-                log::info!("trx id: {}", Hex(&trx.hash).to_string());
+                log::debug!("trx id: {}", Hex(&trx.hash).to_string());
                 for change in call.storage_changes.iter() {
-                    log::info!(
+                    log::debug!(
                         "storage change: {} {} {} {}",
                         Hex(&change.address).to_string(),
                         Hex(&change.key).to_string(),
