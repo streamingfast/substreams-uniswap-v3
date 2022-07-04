@@ -89,6 +89,21 @@ pub fn store_uniswap_tokens_whitelist_pools(uniswap_tokens: UniswapTokens, outpu
     }
 }
 
+// pub fn store_tokens_full(uniswap_tokens: UniswapTokens, whitelist_pools_store: StoreGet, output_set: StoreSet) {
+//     for uniswap_token in uniswap_tokens.uniswap_tokens {
+//
+//
+//         match whitelist_pools_store.get_last(&format!("token:{}", token_address)) {
+//             None => {
+//                 continue
+//             }
+//             Some(whitelist_pools_bytes) => {
+//                 whitelist_pools_proto_string = String::from_utf8(whitelist_pools_bytes.to_vec()).unwrap();
+//             }
+//         }
+//     }
+// }
+
 // todo: create a blacklist list which contains invalid pools
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
@@ -295,51 +310,6 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
     Ok(out)
 }
 
-#[substreams::handlers::map]
-pub fn map_swaps(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
-    let mut out = pb::uniswap::Events { events: vec![] };
-
-    for trx in block.transaction_traces {
-        for log in trx.receipt.unwrap().logs.iter() {
-            if !abi::pool::events::Swap::match_log(log) {
-                continue;
-            }
-
-            let swap = abi::pool::events::Swap::must_decode(log);
-
-            match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
-                None => {
-                    panic!("invalid swap. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
-                }
-                Some(pool_bytes) => {
-                    let pool: Pool = proto::decode(&pool_bytes).unwrap();
-
-                    out.events.push(Event{
-                        log_ordinal: log.block_index as u64,
-                        pool_address: pool.address.to_string(),
-                        token0: pool.token0_address.to_string(),
-                        token1: pool.token1_address.to_string(),
-                        fee: pool.fee.to_string(),
-                        transaction_id: Hex(&trx.hash).to_string(),
-                        timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
-                        r#type: Some(SwapEvent(Swap{
-                            sender: Hex(&swap.sender).to_string(),
-                            recipient: Hex(&swap.recipient).to_string(),
-                            amount_0: swap.amount0.to_string(),
-                            amount_1: swap.amount1.to_string(),
-                            amount_usd: "".to_string(),
-                            sqrt_price: swap.sqrt_price_x96.to_string(),
-                            tick: swap.tick.to_string(),
-                        })),
-                    });
-                }
-            }
-        }
-    }
-
-    Ok(out)
-}
-
 // todo: find a better name?
 #[substreams::handlers::store]
 pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
@@ -409,15 +379,13 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
 #[substreams::handlers::store]
 pub fn store_prices(
     block: ethpb::v1::Block,
-    swaps: pb::uniswap::Events,
+    swaps_burns_mints: pb::uniswap::Events,
     liquidity_store: StoreGet,
     pools_store: StoreGet,
     tokens_store: StoreGet,
     whitelist_pools_store: StoreGet,
     output: StoreSet
 ) {
-    //todo -> price stream for usd
-    // price seems to be in the event -> event.params.sqrtPriceX96
     let timestamp_seconds: i64 = block.header.unwrap().timestamp.unwrap().seconds;
     let hour_id: i64 = timestamp_seconds / 3600;
     let day_id: i64 = timestamp_seconds / 86400;
@@ -426,27 +394,34 @@ pub fn store_prices(
     // output.delete_prefix(0, &format!("pool_id:{}:", day_id - 1));
     // output.delete_prefix(0, &format!("token_id:{}:", day_id - 1));
 
-    for swap_event in swaps.events {
-        let token_0 = utils::get_last_token(&tokens_store, swap_event.token0.as_str());
-        let token_1 = utils::get_last_token(&tokens_store, swap_event.token1.as_str());
-
-        match swap_event.r#type.unwrap() {
+    for event in swaps_burns_mints.events {
+        log::info!("looking for swap event");
+        match event.r#type.unwrap() {
             Type::Swap(swap) => {
+                let token_0 = utils::get_last_token(&tokens_store, event.token0.as_str());
+                let token_1 = utils::get_last_token(&tokens_store, event.token1.as_str());
+
                 let sqrt_price = BigDecimal::from_str(swap.sqrt_price.as_str()).unwrap();
                 let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, &token_0, &token_1);
+                log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
+
+                //todo: is this interesting data to store?  these are the prices of tokens
+                // in relation to the other token in this specific pool.
+                // should we add the pool id to the key?
                 output.set(
-                    swap_event.log_ordinal,
-                    format!("token:{}:price", swap_event.token0),
+                    event.log_ordinal,
+                    format!("token:{}:price", event.token0),
                     &Vec::from(tokens_price.0.to_string())
                 );
                 output.set(
-                    swap_event.log_ordinal,
-                    format!("token:{}:price", swap_event.token1),
+                    event.log_ordinal,
+                    format!("token:{}:price", event.token1),
                     &Vec::from(tokens_price.1.to_string())
                 );
 
+
                 let token0_derived_eth_price = utils::find_eth_per_token(
-                    swap_event.log_ordinal,
+                    event.log_ordinal,
                     &token_0.address.as_str(),
                     &pools_store,
                     &tokens_store,
@@ -454,7 +429,7 @@ pub fn store_prices(
                     &liquidity_store,
                 );
                 let token1_derived_eth_price = utils::find_eth_per_token(
-                    swap_event.log_ordinal,
+                    event.log_ordinal,
                     &token_1.address.as_str(),
                     &pools_store,
                     &tokens_store,
@@ -462,22 +437,22 @@ pub fn store_prices(
                     &liquidity_store,
                 );
                 output.set(
-                    swap_event.log_ordinal,
-                    format!("token:{}:dprice:eth", swap_event.token0),
+                    event.log_ordinal,
+                    format!("token:{}:dprice:eth", event.token0),
                     &Vec::from(token0_derived_eth_price.to_string())
                 );
                 output.set(
-                    swap_event.log_ordinal,
-                    format!("token:{}:dprice:eth", swap_event.token1),
+                    event.log_ordinal,
+                    format!("token:{}:dprice:eth", event.token1),
                     &Vec::from(token1_derived_eth_price.to_string())
                 );
-
             }
-            Type::Burn(_) => {}
-            Type::Mint(_) => {}
+            Type::Burn(_) => {
+            }
+            Type::Mint(_) => {
+            }
         }
     }
-
 }
 
 #[substreams::handlers::map]

@@ -45,6 +45,14 @@ modules:
     inputs:
       - map: map_uniswap_tokens
 
+  - name: store_tokens_full
+    kind: store
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.UniswapTokens
+    inputs:
+      - map: map_uniswap_tokens
+      - store: store_uniswap_tokens_whitelist_pools
+
   - name: map_pools_created
     kind: map
     initialBlock: 12369621
@@ -84,14 +92,6 @@ modules:
     output:
       type: proto:uniswap.types.v1.Events
 
-  - name: map_swaps
-    kind: map
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-      - store: store_pools
-    output:
-      type: proto:uniswap.types.v1.Events
-
   - name: store_liquidity
     kind: store
     updatePolicy: add
@@ -106,7 +106,7 @@ modules:
     valueType: string
     inputs:
       - source: sf.ethereum.type.v1.Block
-      - map: map_swaps
+      - map: map_burns_swaps_mints
       - store: store_liquidity
       - store: store_pools
       - store: store_uniswap_tokens

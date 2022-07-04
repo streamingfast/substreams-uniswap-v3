@@ -70,8 +70,6 @@ pub fn compute_prices(
         .div(exponent_to_big_decimal(&token1_decimals));
     let price0 = safe_div(BigDecimal::one(), price1.clone());
 
-    log::debug!("Computed prices: {} {}", price0, price1);
-
     return (price0, price1);
 }
 
@@ -124,18 +122,18 @@ pub fn find_eth_per_token(
     let mut largest_liquidity_eth = BigDecimal::zero().with_prec(100);
     let mut price_so_far = BigDecimal::zero().with_prec(100);
     let mut whitelist_pools: Vec<&str> = vec![];
-    let mut whitelist_pools_proto: String = String::default();
+    let mut whitelist_pools_proto_string: String = String::default();
 
     match whitelist_pools_store.get_last(&format!("token:{}", token_address)) {
         None => {
             // do nothing
         }
         Some(whitelist_pools_bytes) => {
-            whitelist_pools_proto = proto::decode(&whitelist_pools_bytes).unwrap();
+            whitelist_pools_proto_string = String::from_utf8(whitelist_pools_bytes.to_vec()).unwrap();
         }
     }
 
-    for p in whitelist_pools_proto.split(";") {
+    for p in whitelist_pools_proto_string.split(";") {
         whitelist_pools.push(p);
     }
 
