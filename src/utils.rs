@@ -7,6 +7,7 @@ use substreams::{proto, store};
 use crate::{Pool, UniswapToken};
 use substreams::store::StoreGet;
 use crate::pb::tokens::Token;
+use substreams::log;
 
 const DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -55,6 +56,8 @@ pub fn compute_prices(
     token_0: &UniswapToken,
     token_1: &UniswapToken
 ) -> (BigDecimal, BigDecimal) {
+    log::debug!("Computing prices for {} {} and {} {}", token_0.symbol, token_0.decimals, token_1.symbol, token_1.decimals);
+
     let price: BigDecimal = BigDecimal::from(sqrt_price * sqrt_price);
 
     let token0_decimals: BigInt = BigInt::from(token_0.decimals);
@@ -66,6 +69,8 @@ pub fn compute_prices(
         .mul(exponent_to_big_decimal(&token0_decimals))
         .div(exponent_to_big_decimal(&token1_decimals));
     let price0 = safe_div(BigDecimal::one(), price1.clone());
+
+    log::debug!("Computed prices: {} {}", price0, price1);
 
     return (price0, price1);
 }
@@ -115,7 +120,7 @@ pub fn find_eth_per_token(
     }
 
     let bd_one = BigDecimal::one().with_prec(100);
-    let bi_zero= BigInt::zero();
+    let bd_zero= BigDecimal::zero().with_prec(100);
     let mut largest_liquidity_eth = BigDecimal::zero().with_prec(100);
     let mut price_so_far = BigDecimal::zero().with_prec(100);
     let mut whitelist_pools: Vec<&str> = vec![];
@@ -150,7 +155,7 @@ pub fn find_eth_per_token(
                 }
             };
 
-            if liquidity.gt(&BigDecimal::zero().with_prec(100)) {
+            if liquidity.gt(&bd_zero) {
                 let token0 : UniswapToken = get_last_token(tokens_store, &pool.token0_address);
                 let token1 : UniswapToken = get_last_token(tokens_store, &pool.token1_address);
                 let prices = compute_prices(
@@ -222,12 +227,12 @@ pub fn safe_div(amount0: BigDecimal, amount1: BigDecimal) -> BigDecimal {
 pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     let mut result = BigDecimal::one();
     let big_decimal_ten: &BigDecimal = &BigDecimal::from(10 as u64);
-    let big_int_zero: &BigInt = &BigInt::zero();
+    let big_int_one: &BigInt = &BigInt::one();
 
     let mut i = BigInt::zero();
     while i.lt(decimals.borrow()) {
         result = result.mul(big_decimal_ten);
-        i = i.add(big_int_zero);
+        i = i.add(big_int_one);
     }
 
     return result
