@@ -89,16 +89,34 @@ pub fn store_uniswap_tokens_whitelist_pools(uniswap_tokens: UniswapTokens, outpu
     }
 }
 
+// #[substreams::handlers::store]
 // pub fn store_tokens_full(uniswap_tokens: UniswapTokens, whitelist_pools_store: StoreGet, output_set: StoreSet) {
-//     for uniswap_token in uniswap_tokens.uniswap_tokens {
+//     for mut uniswap_token in uniswap_tokens.uniswap_tokens {
+//         log::info!("token: {}", uniswap_token.address);
 //
-//
-//         match whitelist_pools_store.get_last(&format!("token:{}", token_address)) {
+//         // get whitelist pools
+//         match whitelist_pools_store.get_last(&format!("token:{}", uniswap_token.address)) {
 //             None => {
 //                 continue
 //             }
 //             Some(whitelist_pools_bytes) => {
-//                 whitelist_pools_proto_string = String::from_utf8(whitelist_pools_bytes.to_vec()).unwrap();
+//                 let whitelist_pools_string = String::from_utf8(whitelist_pools_bytes.to_vec()).unwrap();
+//                 uniswap_token.whitelist_pools = whitelist_pools_string.split(";").map(|pool| pool.to_string()).collect();
+//                 log::info!(format!("whitelist pools: {:?}", uniswap_token.whitelist_pools));
+//
+//                 let token = &proto::encode(&uniswap_token);
+//                 let encoded = match token {
+//                     Ok(r) => r,
+//                     Err(err) => {
+//                         panic!("{:?}", err);
+//                     }
+//                 };
+//                 output_set.set(
+//                     1,
+//                     format!("token:{}", uniswap_token.address),
+//                     encoded,
+//                 );
+//
 //             }
 //         }
 //     }
