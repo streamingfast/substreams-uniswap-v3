@@ -45,14 +45,6 @@ modules:
     inputs:
       - map: map_uniswap_tokens
 
-#  - name: store_tokens_full
-#    kind: store
-#    updatePolicy: set
-#    valueType: proto:uniswap.types.v1.UniswapTokens
-#    inputs:
-#      - map: map_uniswap_tokens
-#      - store: store_uniswap_tokens_whitelist_pools
-
   - name: map_pools_created
     kind: map
     initialBlock: 12369621
