@@ -112,7 +112,10 @@ pub fn find_eth_per_token(
     tokens_store: &StoreGet,
     whitelist_pools_store: &StoreGet,
     liquidity_store: &StoreGet,
+    depth: u64,
 ) -> BigDecimal {
+    log::info!("Finding ETH per token for {} @ depth {}", token_address, depth);
+
     if token_address.eq(WETH_ADDRESS) {
         return BigDecimal::one();
     }
@@ -170,6 +173,7 @@ pub fn find_eth_per_token(
                         &tokens_store,
                         &whitelist_pools_store,
                         &liquidity_store,
+                        depth+1,
                     );
                     let eth_locked = match liquidity_store.get_last(&format!("pool:{}:token:{}:total_value_locked", pool_address, pool.token0_address)) {
                         None => {
@@ -192,6 +196,7 @@ pub fn find_eth_per_token(
                         &tokens_store,
                         &whitelist_pools_store,
                         &liquidity_store,
+                        depth+1
                     );
                     let eth_locked = match liquidity_store.get_last(&format!("pool:{}:token:{}:total_value_locked", pool_address, pool.token1_address)) {
                         None => {

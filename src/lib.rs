@@ -437,7 +437,6 @@ pub fn store_prices(
                     &Vec::from(tokens_price.1.to_string())
                 );
 
-
                 let token0_derived_eth_price = utils::find_eth_per_token(
                     event.log_ordinal,
                     &token_0.address.as_str(),
@@ -445,7 +444,10 @@ pub fn store_prices(
                     &tokens_store,
                     &whitelist_pools_store,
                     &liquidity_store,
+                    0,
                 );
+                log::info!("token0_derived_eth_price: {}", token0_derived_eth_price);
+
                 let token1_derived_eth_price = utils::find_eth_per_token(
                     event.log_ordinal,
                     &token_1.address.as_str(),
@@ -453,7 +455,10 @@ pub fn store_prices(
                     &tokens_store,
                     &whitelist_pools_store,
                     &liquidity_store,
+                    0,
                 );
+                log::info!("token1_derived_eth_price: {}", token1_derived_eth_price);
+
                 output.set(
                     event.log_ordinal,
                     format!("token:{}:dprice:eth", event.token0),
@@ -464,6 +469,8 @@ pub fn store_prices(
                     format!("token:{}:dprice:eth", event.token1),
                     &Vec::from(token1_derived_eth_price.to_string())
                 );
+
+                panic!("wot");
             }
             Type::Burn(_) => {
             }
