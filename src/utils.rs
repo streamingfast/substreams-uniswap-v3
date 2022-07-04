@@ -70,21 +70,37 @@ pub fn compute_prices(
     return (price0, price1);
 }
 
-// todo(colin): do we even need this function?
-// // can we do this differently and take the eth price from another place?
-// pub fn get_eth_price_in_usd(token_store: StoreGet) -> BigDecimal {
-//     return match token_store.get_last(&format!("token:{}", USDC_ADDRESS)) {
-//         None => {
-//             BigDecimal::zero()
-//         }
-//         Some(token_bytes) => {
-//             let token: Token = proto::decode(&token_bytes).unwrap();
-//             // let token0_price, _ = compute_prices();
-//
-//             BigDecimal::zero()
-//         }
-//     }
-// }
+pub fn get_eth_price_in_usd(pools_store: &StoreGet, tokens_store: &StoreGet) -> BigDecimal {
+    return match pools_store.get_last(&format!("token:{}", USDC_WETH_03_POOL)) {
+        None => {
+            BigDecimal::zero()
+        }
+        Some(pool_bytes) => {
+            let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+            let token_0: UniswapToken = match tokens_store.get_last(&pool.token0_address) {
+                None => {
+                    return BigDecimal::zero();
+                }
+                Some(token_bytes) => {
+                    proto::decode(&token_bytes).unwrap()
+                }
+            };
+
+            let token_1: UniswapToken = match tokens_store.get_last(&pool.token1_address) {
+                None => {
+                    return BigDecimal::zero();
+                }
+                Some(token_bytes) => {
+                    proto::decode(&token_bytes).unwrap()
+                }
+            };
+
+            let sqrt_price = BigDecimal::from_str(pool.sqrt_price.as_str()).unwrap();
+            compute_prices(&sqrt_price, &token_0, &token_1).0
+        }
+    }
+}
 
 pub fn find_eth_per_token(
     log_ordinal: u64,
@@ -105,8 +121,6 @@ pub fn find_eth_per_token(
     let mut whitelist_pools: Vec<&str> = vec![];
     let mut whitelist_pools_proto: String = String::default();
 
-    let eth_price_usd = BigDecimal::one(); // todo
-
     match whitelist_pools_store.get_last(&format!("token:{}", token_address)) {
         None => {
             // do nothing
@@ -121,6 +135,7 @@ pub fn find_eth_per_token(
     }
 
     if STABLE_COINS.contains(&token_address) {
+        let eth_price_usd = get_eth_price_in_usd(pools_store, tokens_store);
         price_so_far = safe_div(bd_one, eth_price_usd);
     } else {
         for pool_address in whitelist_pools.iter() {
