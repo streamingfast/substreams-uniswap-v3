@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
-  name: pcs
-  version: v0.5.1
+  name: uniswap-v3
+  version: v0.1.0
   url: https://github.com/streamingfast/substreams-uniswap-v3
   doc: |
     These substream modules compose all the things to build up the Uniswap v3 substreams.
