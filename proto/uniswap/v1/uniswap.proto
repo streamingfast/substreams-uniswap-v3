@@ -32,8 +32,18 @@ message Pool {
   string block_num = 6;
   uint64 log_ordinal = 7;
   int32 tick_spacing = 8;
-  string tick = 9; // BigDecimal
-  string sqrt_price = 10; // BigDecimal
+}
+
+message PoolDatas {
+  repeated PoolData pool_data = 1;
+}
+
+message PoolData {
+  string address = 1;
+  string initialization_transaction_id = 2;
+  uint64 log_ordinal = 3;
+  string tick = 4; // BigInteger
+  string sqrt_price = 5; // BigInteger
 }
 
 message Events {

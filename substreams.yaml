@@ -53,28 +53,27 @@ modules:
     output:
       type: proto:uniswap.types.v1.Pools
 
-  - name: map_pools_initialized
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-    output:
-      type: proto:uniswap.types.v1.Pools
-
-  - name: store_pools_created
+  - name: store_pools
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Pool
     inputs:
       - map: map_pools_created
 
-  - name: store_pools
+  - name: map_pools_initialized
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v1.Block
+    output:
+      type: proto:uniswap.types.v1.PoolDatas
+
+  - name: store_pools_data
     kind: store
     updatePolicy: set
-    valueType: proto:uniswap.types.v1.Pool
+    valueType: proto:uniswap.types.v1.PoolData
     inputs:
       - map: map_pools_initialized
-      - store: store_pools_created
 
   - name: map_burns_swaps_mints
     kind: map
@@ -101,6 +100,7 @@ modules:
       - map: map_burns_swaps_mints
       - store: store_liquidity
       - store: store_pools
+      - store: store_pools_data
       - store: store_uniswap_tokens
       - store: store_uniswap_tokens_whitelist_pools
 

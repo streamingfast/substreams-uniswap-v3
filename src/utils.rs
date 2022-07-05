@@ -2,12 +2,11 @@ use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul};
 use std::str::FromStr;
 use num_bigint::BigInt;
-use bigdecimal::{BigDecimal, FromPrimitive, Num, One, Zero};
+use bigdecimal::{BigDecimal, Num, One, Zero};
 use prost::DecodeError;
-use substreams::{proto, store};
-use crate::{Pool, UniswapToken};
+use substreams::{proto};
+use crate::{Pool, PoolData, UniswapToken};
 use substreams::store::StoreGet;
-use crate::pb::tokens::Token;
 use substreams::log;
 
 const DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
@@ -74,8 +73,8 @@ pub fn compute_prices(
     return (price0, price1);
 }
 
-pub fn get_eth_price_in_usd(pools_store: &StoreGet, tokens_store: &StoreGet) -> BigDecimal {
-    return match pools_store.get_last(&format!("token:{}", USDC_WETH_03_POOL)) {
+pub fn get_eth_price_in_usd(pools_store: &StoreGet, pools_data_store: &StoreGet, tokens_store: &StoreGet) -> BigDecimal {
+    return match pools_store.get_last(&format!("pool:{}", USDC_WETH_03_POOL)) {
         None => {
             BigDecimal::zero()
         }
@@ -100,7 +99,17 @@ pub fn get_eth_price_in_usd(pools_store: &StoreGet, tokens_store: &StoreGet) -> 
                 }
             };
 
-            let sqrt_price = BigDecimal::from_str(pool.sqrt_price.as_str()).unwrap();
+            let pool_data : PoolData = match pools_data_store.get_last(&format!("pool:{}", USDC_WETH_03_POOL)) {
+                None => {
+                    log::info!("No pool data for {}", USDC_WETH_03_POOL);
+                    return BigDecimal::zero();
+                }
+                Some(pool_data_bytes) => {
+                    proto::decode(&pool_data_bytes).unwrap()
+                }
+            };
+
+            let sqrt_price = BigDecimal::from_str(pool_data.sqrt_price.as_str()).unwrap();
             compute_prices(&sqrt_price, &token_0, &token_1).0
         }
     }
@@ -110,6 +119,7 @@ pub fn find_eth_per_token(
     log_ordinal: u64,
     token_address: &str,
     pools_store: &StoreGet,
+    pools_data_store: &StoreGet,
     tokens_store: &StoreGet,
     whitelist_pools_store: &StoreGet,
     liquidity_store: &StoreGet,
@@ -144,7 +154,7 @@ pub fn find_eth_per_token(
     }
 
     if STABLE_COINS.contains(&token_address) {
-        let eth_price_usd = get_eth_price_in_usd(pools_store, tokens_store);
+        let eth_price_usd = get_eth_price_in_usd(pools_store, pools_data_store, tokens_store);
         price_so_far = safe_div(bd_one, eth_price_usd);
     } else {
         for pool_address in whitelist_pools.iter() {
@@ -165,10 +175,20 @@ pub fn find_eth_per_token(
             };
 
             if liquidity.gt(&bd_zero) {
+                let pool_data: PoolData = match pools_data_store.get_last(&format!("pool:{}", pool_address)) {
+                    None => {
+                        log::info!("No pool data for {}", pool_address);
+                        continue;
+                    }
+                    Some(pool_data_bytes) => {
+                        proto::decode(&pool_data_bytes).unwrap()
+                    }
+                };
+
                 let token0 : UniswapToken = get_last_token(tokens_store, &pool.token0_address).unwrap();
                 let token1 : UniswapToken = get_last_token(tokens_store, &pool.token1_address).unwrap();
                 let prices = compute_prices(
-                    &BigDecimal::from_str_radix(&pool.sqrt_price, 10).unwrap(),
+                    &BigDecimal::from_str_radix(&pool_data.sqrt_price, 10).unwrap(),
                     &token0,
                     &token1,
                 );
@@ -178,6 +198,7 @@ pub fn find_eth_per_token(
                         log_ordinal,
                         &pool.token1_address,
                         &pools_store,
+                        &pools_data_store,
                         &tokens_store,
                         &whitelist_pools_store,
                         &liquidity_store,
@@ -201,6 +222,7 @@ pub fn find_eth_per_token(
                         log_ordinal,
                         &pool.token0_address,
                         &pools_store,
+                        &pools_data_store,
                         &tokens_store,
                         &whitelist_pools_store,
                         &liquidity_store,
