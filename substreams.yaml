@@ -1,6 +1,6 @@
 specVersion: v0.1.0
 package:
-  name: uniswap-v3
+  name: uniswap_v3
   version: v0.1.0
   url: https://github.com/streamingfast/substreams-uniswap-v3
   doc: |
