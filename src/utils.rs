@@ -14,13 +14,13 @@ const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 
-pub const STABLE_COINS: [&str; 6] = [
+pub const STABLE_COINS: [&str; 5] = [
     "6b175474e89094c44da98b954eedeac495271d0f",
     "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
     "dac17f958d2ee523a2206206994597c13d831ec7",
     "0000000000085d4780b73119b644ae5ecd22b376",
     "956f47f50a910163d8bf957cf5846d573e7f87ca",
-    "4dd28568d05f09b02220b09c2cb307bfd837cb95",
+    // "4dd28568d05f09b02220b09c2cb307bfd837cb95",
 ];
 
 pub const WHITELIST_TOKENS: [&str; 21] = [
@@ -145,6 +145,7 @@ pub fn find_eth_per_token(
         price_so_far = safe_div(bd_one, eth_price_usd);
     } else {
         for pool_address in whitelist_pools.iter() {
+            log::info!("token_address: {} pool_address: {}", token_address.to_string(), pool_address.to_string());
             let pool = get_last_pool(&pools_store, pool_address);
 
             let liquidity : BigDecimal = match liquidity_store.get_last(&format!("pool:{}:liquidity", pool_address)) {
@@ -168,7 +169,7 @@ pub fn find_eth_per_token(
                 if pool.token0_address == token_address {
                     let token_1_derived_eth = find_eth_per_token(
                         log_ordinal,
-                        &pool.token0_address,
+                        &pool.token1_address,
                         &pools_store,
                         &tokens_store,
                         &whitelist_pools_store,
@@ -191,7 +192,7 @@ pub fn find_eth_per_token(
                 if pool.token1_address == token_address {
                     let token0_derived_eth = find_eth_per_token(
                         log_ordinal,
-                        &pool.token1_address,
+                        &pool.token0_address,
                         &pools_store,
                         &tokens_store,
                         &whitelist_pools_store,
