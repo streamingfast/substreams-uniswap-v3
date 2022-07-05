@@ -3,6 +3,7 @@ use std::ops::{Add, Div, Mul};
 use std::str::FromStr;
 use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, FromPrimitive, Num, One, Zero};
+use prost::DecodeError;
 use substreams::{proto, store};
 use crate::{Pool, UniswapToken};
 use substreams::store::StoreGet;
@@ -148,7 +149,11 @@ pub fn find_eth_per_token(
     } else {
         for pool_address in whitelist_pools.iter() {
             log::info!("token_address: {} pool_address: {}", token_address.to_string(), pool_address.to_string());
-            let pool = get_last_pool(&pools_store, pool_address);
+            let pool_result = get_last_pool(&pools_store, pool_address);
+            if !pool_result.is_ok() {
+                continue;
+            }
+            let pool: Pool = pool_result.unwrap();
 
             let liquidity : BigDecimal = match liquidity_store.get_last(&format!("pool:{}:liquidity", pool_address)) {
                 None => {
@@ -160,8 +165,8 @@ pub fn find_eth_per_token(
             };
 
             if liquidity.gt(&bd_zero) {
-                let token0 : UniswapToken = get_last_token(tokens_store, &pool.token0_address);
-                let token1 : UniswapToken = get_last_token(tokens_store, &pool.token1_address);
+                let token0 : UniswapToken = get_last_token(tokens_store, &pool.token0_address).unwrap();
+                let token1 : UniswapToken = get_last_token(tokens_store, &pool.token1_address).unwrap();
                 let prices = compute_prices(
                     &BigDecimal::from_str_radix(&pool.sqrt_price, 10).unwrap(),
                     &token0,
@@ -244,10 +249,10 @@ pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     return result
 }
 
-pub fn get_last_token(tokens_store: &StoreGet, token_address: &str) -> UniswapToken {
-    proto::decode(&tokens_store.get_last(&format!("token:{}", token_address)).unwrap()).unwrap()
+pub fn get_last_token(tokens_store: &StoreGet, token_address: &str) -> Result<UniswapToken, DecodeError> {
+    proto::decode(&tokens_store.get_last(&format!("token:{}", token_address)).unwrap())
 }
 
-pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Pool {
-    proto::decode(&pools_store.get_last(&format!("pool:{}", pool_address)).unwrap()).unwrap()
+pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool, DecodeError> {
+    proto::decode(&pools_store.get_last(&format!("pool:{}", pool_address)).unwrap())
 }

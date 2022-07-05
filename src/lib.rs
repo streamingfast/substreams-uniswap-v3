@@ -384,8 +384,8 @@ pub fn store_prices(
         log::info!("looking for swap event");
         match event.r#type.unwrap() {
             Type::Swap(swap) => {
-                let token_0 = utils::get_last_token(&tokens_store, event.token0.as_str());
-                let token_1 = utils::get_last_token(&tokens_store, event.token1.as_str());
+                let token_0 = utils::get_last_token(&tokens_store, event.token0.as_str()).unwrap();
+                let token_1 = utils::get_last_token(&tokens_store, event.token1.as_str()).unwrap();
 
                 let sqrt_price = BigDecimal::from_str(swap.sqrt_price.as_str()).unwrap();
                 let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, &token_0, &token_1);
@@ -394,16 +394,16 @@ pub fn store_prices(
                 //todo: is this interesting data to store?  these are the prices of tokens
                 // in relation to the other token in this specific pool.
                 // should we add the pool id to the key?
-                output.set(
-                    event.log_ordinal,
-                    format!("token:{}:price", event.token0),
-                    &Vec::from(tokens_price.0.to_string())
-                );
-                output.set(
-                    event.log_ordinal,
-                    format!("token:{}:price", event.token1),
-                    &Vec::from(tokens_price.1.to_string())
-                );
+                // output.set(
+                //     event.log_ordinal,
+                //     format!("token:{}:price", event.token0),
+                //     &Vec::from(tokens_price.0.to_string())
+                // );
+                // output.set(
+                //     event.log_ordinal,
+                //     format!("token:{}:price", event.token1),
+                //     &Vec::from(tokens_price.1.to_string())
+                // );
 
                 let token0_derived_eth_price = utils::find_eth_per_token(
                     event.log_ordinal,
