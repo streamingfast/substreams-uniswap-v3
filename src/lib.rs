@@ -436,8 +436,6 @@ pub fn store_prices(
                     format!("token:{}:dprice:eth", event.token1),
                     &Vec::from(token1_derived_eth_price.to_string())
                 );
-
-                panic!("wot");
             }
             Type::Burn(_) => {
             }
