@@ -29,7 +29,7 @@ message Pool {
   string token1_address = 3;
   string creation_transaction_id = 4;
   uint32 fee = 5;
-  uint64 block_num = 6;
+  string block_num = 6;
   uint64 log_ordinal = 7;
   int32 tick_spacing = 8;
   string tick = 9; // BigDecimal

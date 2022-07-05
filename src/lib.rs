@@ -116,7 +116,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                     token1_address: Hex(&event.token1).to_string(),
                     creation_transaction_id: Hex(&trx.hash).to_string(),
                     fee: event.fee.as_u32(),
-                    block_num: block.number,
+                    block_num: block.number.to_string(),
                     log_ordinal: call_log.block_index as u64,
                     tick_spacing: i32::try_from(event.tick_spacing).unwrap(),
                     tick: "".to_string(),
@@ -145,7 +145,7 @@ pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Poo
                 token1_address: "".to_string(),
                 creation_transaction_id: Hex(&trx.hash).to_string(),
                 fee: 0,
-                block_num: 0,
+                block_num: 0.to_string(),
                 log_ordinal: 0,
                 tick_spacing: 0,
                 tick: event.tick.to_string(),
@@ -203,6 +203,7 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
                         panic!("invalid swap. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
                     }
                     Some(pool_bytes) => {
+                        // log::info!("trx id: {}", &Hex(trx.hash.clone()).to_string());
                         let pool: Pool = proto::decode(&pool_bytes).unwrap();
 
                         out.events.push(Event{

@@ -137,7 +137,9 @@ pub fn find_eth_per_token(
     }
 
     for p in whitelist_pools_proto_string.split(";") {
-        whitelist_pools.push(p);
+        if !p.is_empty() {
+            whitelist_pools.push(p);
+        }
     }
 
     if STABLE_COINS.contains(&token_address) {
