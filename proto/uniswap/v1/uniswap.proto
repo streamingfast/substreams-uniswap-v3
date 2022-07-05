@@ -42,8 +42,8 @@ message PoolData {
   string address = 1;
   string initialization_transaction_id = 2;
   uint64 log_ordinal = 3;
-  string tick = 4; // BigInteger
-  string sqrt_price = 5; // BigInteger
+  string tick = 4; // BigDecimal
+  string sqrt_price = 5; // BigDecimal
 }
 
 message Events {
