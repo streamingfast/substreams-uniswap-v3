@@ -34,11 +34,11 @@ message Pool {
   int32 tick_spacing = 8;
 }
 
-message PoolDatas {
-  repeated PoolData pool_data = 1;
+message PoolInitializations {
+  repeated PoolInitialization pool_initializations = 1;
 }
 
-message PoolData {
+message PoolInitialization {
   string address = 1;
   string initialization_transaction_id = 2;
   uint64 log_ordinal = 3;

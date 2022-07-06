@@ -14,11 +14,12 @@ use substreams::errors::Error;
 use substreams::{Hex, log, proto, store};
 use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
-use crate::pb::uniswap::{Burn, Event, Mint, Pool, PoolData, UniswapToken, UniswapTokens};
+use crate::pb::uniswap::{Burn, Event, Mint, Pool, PoolInitialization, UniswapToken, UniswapTokens};
 use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 use crate::pb::uniswap::event::Type::Burn as BurnEvent;
 use crate::pb::uniswap::event::Type::Mint as MintEvent;
+use crate::utils::{get_last_swap, get_last_pool_tick};
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
@@ -125,8 +126,8 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
 }
 
 #[substreams::handlers::map]
-pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::PoolDatas, Error> {
-    let mut output = pb::uniswap::PoolDatas { pool_data: vec![] };
+pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::PoolInitializations, Error> {
+    let mut output = pb::uniswap::PoolInitializations { pool_initializations: vec![] };
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs {
             if !abi::pool::events::Initialize::match_log(&log) {
@@ -134,7 +135,7 @@ pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Poo
             }
 
             let event = abi::pool::events::Initialize::must_decode(&log);
-            output.pool_data.push(PoolData{
+            output.pool_initializations.push(PoolInitialization{
                 address: Hex(&log.address).to_string(),
                 initialization_transaction_id: Hex(&trx.hash).to_string(),
                 log_ordinal: log.block_index as u64,
@@ -148,12 +149,12 @@ pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Poo
 }
 
 #[substreams::handlers::store]
-pub fn store_pools_data(pools: pb::uniswap::PoolDatas, output_set: StoreSet) {
-    for data in pools.pool_data {
+pub fn store_pools_initialization(pools: pb::uniswap::PoolInitializations, output_set: StoreSet) {
+    for init in pools.pool_initializations {
         output_set.set(
-            data.log_ordinal,
-            format!("pool_init:{}", data.address),
-            &proto::encode(&data).unwrap()
+            1,
+            format!("pool_init:{}", init.address),
+            &proto::encode(&init).unwrap()
         );
     }
 }
@@ -170,14 +171,13 @@ pub fn store_pools(pools: pb::uniswap::Pools, output: StoreSet) {
 }
 
 #[substreams::handlers::map]
-pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result<pb::uniswap::Events, Error> {
+pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> Result<pb::uniswap::Events, Error> {
     let mut output = pb::uniswap::Events { events: vec![] };
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs.iter() {
             if abi::pool::events::Swap::match_log(log) {
                 let swap = abi::pool::events::Swap::must_decode(log);
-
-                match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                match pools_store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
                     None => {
                         panic!("invalid swap. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
                     }
@@ -210,7 +210,7 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
             if abi::pool::events::Burn::match_log(log) {
                 let burn = abi::pool::events::Burn::must_decode(log);
 
-                match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                match pools_store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
                     None => {
                         panic!("invalid burn. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
                     }
@@ -241,7 +241,7 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
             if abi::pool::events::Mint::match_log(log) {
                 let mint = abi::pool::events::Mint::must_decode(log);
 
-                match store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
+                match pools_store.get_last(&format!("pool:{}", Hex(&log.address).to_string())) {
                     None => {
                         panic!("invalid mint. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
                     }
@@ -276,7 +276,24 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
 }
 
 #[substreams::handlers::store]
-pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
+pub fn store_swaps(events: pb::uniswap::Events, output_set: StoreSet) {
+    for event in events.events {
+        match event.r#type.unwrap() {
+            Type::Swap(swap) => {
+                output_set.set(
+                    event.log_ordinal,
+                    format!("pool:{}", event.pool_address),
+                    &proto::encode(&swap).unwrap(),
+                );
+            }
+            Type::Burn(_) => {}
+            Type::Mint(_) => {}
+        }
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_init_store: StoreGet, output: StoreAddBigFloat) {
     for event in events.events {
         if event.r#type.is_some() {
             match event.r#type.unwrap() {
@@ -301,17 +318,21 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
                     );
                 }
                 Type::Burn(burn) => {
+                    //get pool info from last swap event
                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
+                    let tick_lower = BigDecimal::from_str(burn.tick_lower.as_str()).unwrap();
+                    let tick_upper = BigDecimal::from_str(burn.tick_upper.as_str()).unwrap();
+                    let tick = get_last_pool_tick(&pool_init_store, &swap_store, &event.pool_address).unwrap();
 
-                    ///todo(colin): only do this if the burn tick range contains pool's current tick
-                    output.add(
-                        event.log_ordinal,
-                        format!("pool:{}:liquidity", event.pool_address),
-                        &amount.neg()
-                    );
-
+                    if tick_lower <= tick && tick <= tick_upper {
+                        output.add(
+                            event.log_ordinal,
+                            format!("pool:{}:liquidity", event.pool_address),
+                            &amount.neg()
+                        );
+                    }
 
                     output.add(
                         event.log_ordinal,
@@ -325,17 +346,21 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
                     );
                 }
                 Type::Mint(mint) => {
+                    //get pool info from last swap event
                     let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
+                    let tick_lower = BigDecimal::from_str(mint.tick_lower.as_str()).unwrap();
+                    let tick_upper = BigDecimal::from_str(mint.tick_upper.as_str()).unwrap();
+                    let tick = get_last_pool_tick(&pool_init_store, &swap_store, &event.pool_address).unwrap();
 
-                    ///todo(colin): only do this if the mint tick range contains pool's current tick
-                    output.add(
-                        event.log_ordinal,
-                        format!("pool:{}:liquidity", event.pool_address),
-                        &amount
-                    );
-
+                    if tick_lower <= tick && tick <= tick_upper {
+                        output.add(
+                            event.log_ordinal,
+                            format!("pool:{}:liquidity", event.pool_address),
+                            &amount
+                        );
+                    }
 
                     output.add(
                         event.log_ordinal,
@@ -359,7 +384,8 @@ pub fn store_prices(
     swaps_burns_mints: pb::uniswap::Events,
     liquidity_store: StoreGet,
     pools_store: StoreGet,
-    pools_data_store: StoreGet,
+    pools_init_store: StoreGet,
+    swap_store: StoreGet,
     tokens_store: StoreGet,
     whitelist_pools_store: StoreGet,
     output: StoreSet
@@ -398,7 +424,8 @@ pub fn store_prices(
                     event.log_ordinal,
                     &token_0.address.as_str(),
                     &pools_store,
-                    &pools_data_store,
+                    &pools_init_store,
+                    &swap_store,
                     &tokens_store,
                     &whitelist_pools_store,
                     &liquidity_store,
@@ -410,7 +437,8 @@ pub fn store_prices(
                     event.log_ordinal,
                     &token_1.address.as_str(),
                     &pools_store,
-                    &pools_data_store,
+                    &pools_init_store,
+                    &swap_store,
                     &tokens_store,
                     &whitelist_pools_store,
                     &liquidity_store,

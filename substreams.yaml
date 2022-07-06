@@ -66,12 +66,12 @@ modules:
     inputs:
       - source: sf.ethereum.type.v1.Block
     output:
-      type: proto:uniswap.types.v1.PoolDatas
+      type: proto:uniswap.types.v1.PoolInitializations
 
-  - name: store_pools_data
+  - name: store_pools_initialization
     kind: store
     updatePolicy: set
-    valueType: proto:uniswap.types.v1.PoolData
+    valueType: proto:uniswap.types.v1.PoolInitialization
     inputs:
       - map: map_pools_initialized
 
@@ -83,12 +83,21 @@ modules:
     output:
       type: proto:uniswap.types.v1.Events
 
+  - name: store_swaps
+    kind: store
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.Swap
+    inputs:
+      - map: map_burns_swaps_mints
+
   - name: store_liquidity
     kind: store
     updatePolicy: add
     valueType: bigfloat
     inputs:
       - map: map_burns_swaps_mints
+      - store: store_swaps
+      - store: store_pools_initialization
 
   - name: store_prices
     kind: store
@@ -100,7 +109,8 @@ modules:
       - map: map_burns_swaps_mints
       - store: store_liquidity
       - store: store_pools
-      - store: store_pools_data
+      - store: store_pools_initialization
+      - store: store_swaps
       - store: store_uniswap_tokens
       - store: store_uniswap_tokens_whitelist_pools
 
