@@ -74,18 +74,18 @@ message Swap {
   string recipient = 2;
   string amount_0 = 3;
   string amount_1 = 4;
-  string amount_usd = 5;
   string sqrt_price = 6;
-  string tick = 7;
+  string liquidity = 7;
+  string tick = 8;
 }
 
 message Burn {
   string owner = 1;
   string amount_0 = 2;
   string amount_1 = 3;
-  string amount_usd = 4;
-  string amount = 5;
-  string tick = 6;
+  string tick_lower = 4; //BigDecimal
+  string tick_upper = 5; //BigDecimal
+  string amount = 6;
 }
 
 message Mint {
@@ -94,9 +94,9 @@ message Mint {
 //  string origin = 3; // should be the transaction origin, do we need this?
   string amount_0 = 4;
   string amount_1 = 5;
-  string amount_usd = 6;
-  string amount = 7;
-  string tick = 8;
+  string tick_lower = 6; //BigDecimal
+  string tick_upper = 7; //BigDecimal
+  string amount = 8;
 }
 
 message Fees {

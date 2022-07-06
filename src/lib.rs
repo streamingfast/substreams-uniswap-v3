@@ -198,8 +198,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
                                 recipient: Hex(&swap.recipient).to_string(),
                                 amount_0: swap.amount0.to_string(), // big_decimal?
                                 amount_1: swap.amount1.to_string(), // big_decimal?
-                                amount_usd: "".to_string(),
                                 sqrt_price: swap.sqrt_price_x96.to_string(), // big_decimal?
+                                liquidity: swap.liquidity.to_string(),
                                 tick: swap.tick.to_string(),
                             })),
                         });
@@ -229,9 +229,9 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
                                 owner: Hex(&burn.owner).to_string(),
                                 amount_0: burn.amount0.to_string(), // big_decimal?
                                 amount_1: burn.amount1.to_string(), // big_decimal?
-                                amount_usd: "".to_string(),
+                                tick_lower: burn.tick_lower.to_string(),
+                                tick_upper: burn.tick_upper.to_string(),
                                 amount: burn.amount.to_string(), // big_decimal?
-                                tick: "".to_string()
                             })),
                         });
                     }
@@ -261,9 +261,9 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
                                 sender: Hex(&mint.sender).to_string(),
                                 amount_0: mint.amount0.to_string(), // big_decimal?
                                 amount_1: mint.amount1.to_string(), // big_decimal?
-                                amount_usd: "".to_string(),
+                                tick_lower: mint.tick_lower.to_string(),
+                                tick_upper: mint.tick_upper.to_string(),
                                 amount: mint.amount.to_string(), // big_decimal?
-                                tick: "".to_string()
                             })),
                         });
                     }
@@ -275,7 +275,6 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, store: StoreGet) -> Result
     Ok(output)
 }
 
-// todo: find a better name?
 #[substreams::handlers::store]
 pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
     for event in events.events {
