@@ -102,16 +102,6 @@ pub fn get_eth_price_in_usd(swap_store: &StoreGet, pools_store: &StoreGet, pools
                 }
             };
 
-            // let pool_liquidity : Liquidity = match liquidity_store.get_last(&format!("pool:{}:liquidity", USDC_WETH_03_POOL)) {
-            //     None => {
-            //         log::info!("No liquidity data for {}", USDC_WETH_03_POOL);
-            //         return BigDecimal::zero();
-            //     }
-            //     Some(pool_liquidity_bytes) => {
-            //         proto::decode(&pool_liquidity_bytes).unwrap()
-            //     }
-            // };
-
             let sqrt_price = get_last_pool_sqrt_price(pools_init_store, swap_store, USDC_WETH_03_POOL).unwrap();
             compute_prices(&sqrt_price, &token_0, &token_1).0
         }
