@@ -283,6 +283,7 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
                 Type::Swap(swap) => {
                     let amount0 = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+                    let liquidity = BigDecimal::from_str(swap.liquidity.as_str()).unwrap();
                     output.add(
                         event.log_ordinal,
                         format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token0),
@@ -293,16 +294,25 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
                         format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token1),
                         &amount1
                     );
+                    output.add(
+                        event.log_ordinal,
+                        format!("pool:{}:liquidity", event.pool_address),
+                        &liquidity
+                    );
                 }
                 Type::Burn(burn) => {
                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
+
+                    ///todo(colin): only do this if the burn tick range contains pool's current tick
                     output.add(
                         event.log_ordinal,
                         format!("pool:{}:liquidity", event.pool_address),
                         &amount.neg()
                     );
+
+
                     output.add(
                         event.log_ordinal,
                         format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token0),
@@ -319,11 +329,14 @@ pub fn store_liquidity(events: pb::uniswap::Events, output: StoreAddBigFloat) {
                     let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
 
+                    ///todo(colin): only do this if the mint tick range contains pool's current tick
                     output.add(
                         event.log_ordinal,
                         format!("pool:{}:liquidity", event.pool_address),
                         &amount
                     );
+
+
                     output.add(
                         event.log_ordinal,
                         format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token0),
