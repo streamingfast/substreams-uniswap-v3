@@ -383,17 +383,14 @@ pub fn store_prices(
                 let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, &token_0, &token_1);
                 log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
 
-                //todo: is this interesting data to store?  these are the prices of tokens
-                // in relation to the other token in this specific pool.
-                // should we add the pool id to the key?
                 output.set(
                     event.log_ordinal,
-                    format!("token:{}:price", event.token0),
+                    format!("pool:{}:token:{}:price", event.pool_address, event.token0),
                     &Vec::from(tokens_price.0.to_string())
                 );
                 output.set(
                     event.log_ordinal,
-                    format!("token:{}:price", event.token1),
+                    format!("pool:{}:token:{}:price", event.pool_address, event.token1),
                     &Vec::from(tokens_price.1.to_string())
                 );
 
