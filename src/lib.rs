@@ -311,6 +311,8 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
                         format!("pool:{}:token:{}:total_value_locked", event.pool_address, event.token1),
                         &amount1
                     );
+
+                    // todo(colin): this is incorrect
                     output.add(
                         event.log_ordinal,
                         format!("pool:{}:liquidity", event.pool_address),
@@ -429,7 +431,6 @@ pub fn store_prices(
                     &tokens_store,
                     &whitelist_pools_store,
                     &liquidity_store,
-                    0,
                 );
                 log::info!("token0_derived_eth_price: {}", token0_derived_eth_price);
 
@@ -442,7 +443,6 @@ pub fn store_prices(
                     &tokens_store,
                     &whitelist_pools_store,
                     &liquidity_store,
-                    0,
                 );
                 log::info!("token1_derived_eth_price: {}", token1_derived_eth_price);
 
