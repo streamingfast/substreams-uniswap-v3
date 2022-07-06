@@ -3,7 +3,6 @@ extern crate core;
 mod pb;
 mod abi;
 mod utils;
-mod event;
 mod rpc;
 mod eth;
 
