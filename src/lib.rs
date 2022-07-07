@@ -21,7 +21,7 @@ use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 use crate::pb::uniswap::event::Type::Burn as BurnEvent;
 use crate::pb::uniswap::event::Type::Mint as MintEvent;
-use crate::utils::{get_last_swap, get_last_pool_tick, big_decimal_exponated, safe_div};
+use crate::utils::{get_last_swap, get_last_pool_tick, big_decimal_exponated, safe_div, convert_eth_int_to_int32};
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
@@ -141,7 +141,7 @@ pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Poo
                 address: Hex(&log.address).to_string(),
                 initialization_transaction_id: Hex(&trx.hash).to_string(),
                 log_ordinal: log.block_index as u64,
-                tick: event.tick.to_string(),
+                tick: convert_eth_int_to_int32(event.tick).to_string(),
                 sqrt_price: event.sqrt_price_x96.to_string(),
             });
         }
