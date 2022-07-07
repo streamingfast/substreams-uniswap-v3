@@ -9,17 +9,19 @@ mod eth;
 use std::collections::HashMap;
 use std::ops::Neg;
 use std::str::FromStr;
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, FromPrimitive};
+use num_bigint::BigInt;
 use substreams::errors::Error;
 use substreams::{Hex, log, proto, store};
+use substreams::pb::substreams::module::input::Store;
 use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
-use crate::pb::uniswap::{Burn, Event, Mint, Pool, PoolInitialization, UniswapToken, UniswapTokens};
+use crate::pb::uniswap::{Burn, Event, Mint, Pool, PoolInitialization, Tick, UniswapToken, UniswapTokens};
 use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 use crate::pb::uniswap::event::Type::Burn as BurnEvent;
 use crate::pb::uniswap::event::Type::Mint as MintEvent;
-use crate::utils::{get_last_swap, get_last_pool_tick};
+use crate::utils::{get_last_swap, get_last_pool_tick, big_decimal_exponated, safe_div};
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
@@ -227,11 +229,11 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                             timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
                             r#type: Some(BurnEvent(Burn{
                                 owner: Hex(&burn.owner).to_string(),
-                                amount_0: burn.amount0.to_string(), // big_decimal?
-                                amount_1: burn.amount1.to_string(), // big_decimal?
-                                tick_lower: burn.tick_lower.to_string(),
-                                tick_upper: burn.tick_upper.to_string(),
-                                amount: burn.amount.to_string(), // big_decimal?
+                                amount_0: burn.amount0.to_string(),
+                                amount_1: burn.amount1.to_string(),
+                                tick_lower: utils::convert_eth_int_to_int32(burn.tick_lower).to_string(),
+                                tick_upper: utils::convert_eth_int_to_int32(burn.tick_upper).to_string(),
+                                amount: burn.amount.to_string(),
                             })),
                         });
                     }
@@ -261,8 +263,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                                 sender: Hex(&mint.sender).to_string(),
                                 amount_0: mint.amount0.to_string(), // big_decimal?
                                 amount_1: mint.amount1.to_string(), // big_decimal?
-                                tick_lower: mint.tick_lower.to_string(),
-                                tick_upper: mint.tick_upper.to_string(),
+                                tick_lower: utils::convert_eth_int_to_int32(mint.tick_lower).to_string(),
+                                tick_upper: utils::convert_eth_int_to_int32(mint.tick_upper).to_string(),
                                 amount: mint.amount.to_string(), // big_decimal?
                             })),
                         });
@@ -288,6 +290,50 @@ pub fn store_swaps(events: pb::uniswap::Events, output_set: StoreSet) {
             }
             Type::Burn(_) => {}
             Type::Mint(_) => {}
+        }
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_ticks(events: pb::uniswap::Events, output_set: StoreSet) {
+    for event in events.events {
+        match event.r#type.unwrap() {
+            Type::Swap(_) => {}
+            Type::Burn(_) => {}
+            Type::Mint(mint) => {
+                let tick_lower_big_int = BigInt::from_str(&mint.tick_lower).unwrap();
+                let tick_lower_price0=  big_decimal_exponated(BigDecimal::from_f64(1.0001).unwrap().with_prec(100), tick_lower_big_int);
+                let tick_lower_price1 = safe_div(BigDecimal::from(1 as i32), tick_lower_price0.clone());
+
+                let tickLower: Tick = Tick{
+                    pool_address: event.pool_address.to_string(),
+                    idx: mint.tick_lower.to_string(),
+                    price0: tick_lower_price0.to_string(),
+                    price1: tick_lower_price1.to_string(),
+                };
+
+                output_set.set(
+                    event.log_ordinal,
+                    format!("tick:{}:pool:{}", mint.tick_lower.to_string(), event.pool_address.to_string()),
+                    &proto::encode(&tickLower).unwrap(),
+                );
+
+                let tick_upper_big_int = BigInt::from_str(&mint.tick_upper).unwrap();
+                let tick_upper_price0=  big_decimal_exponated(BigDecimal::from_f64(1.0001).unwrap().with_prec(100), tick_upper_big_int);
+                let tick_upper_price1 = safe_div(BigDecimal::from(1 as i32), tick_upper_price0.clone());
+                let tick_upper: Tick = Tick{
+                    pool_address: event.pool_address.to_string(),
+                    idx: mint.tick_upper.to_string(),
+                    price0: tick_upper_price0.to_string(),
+                    price1: tick_upper_price1.to_string(),
+                };
+
+                output_set.set(
+                    event.log_ordinal,
+                    format!("tick:{}:pool:{}", mint.tick_upper.to_string(), event.pool_address.to_string()),
+                    &proto::encode(&tick_upper).unwrap(),
+                );
+            }
         }
     }
 }

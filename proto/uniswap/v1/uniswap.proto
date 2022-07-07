@@ -83,8 +83,8 @@ message Burn {
   string owner = 1;
   string amount_0 = 2;
   string amount_1 = 3;
-  string tick_lower = 4; //BigDecimal
-  string tick_upper = 5; //BigDecimal
+  string tick_lower = 4;
+  string tick_upper = 5;
   string amount = 6;
 }
 
@@ -94,9 +94,20 @@ message Mint {
 //  string origin = 3; // should be the transaction origin, do we need this?
   string amount_0 = 4;
   string amount_1 = 5;
-  string tick_lower = 6; //BigDecimal
-  string tick_upper = 7; //BigDecimal
+  string tick_lower = 6;
+  string tick_upper = 7;
   string amount = 8;
+}
+
+message Ticks {
+  repeated Tick ticks = 1;
+}
+
+message Tick {
+  string pool_address = 1;
+  string idx = 2; //BigInteger
+  string price0 = 3; //BigDecimal
+  string price1 = 4; //BigDecimal
 }
 
 message Fees {

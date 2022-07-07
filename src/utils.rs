@@ -1,9 +1,10 @@
 use std::borrow::Borrow;
 use std::mem::swap;
-use std::ops::{Add, Div, Mul};
+use std::ops::{Add, Div, Mul, Neg};
 use std::str::FromStr;
 use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, Num, One, Zero};
+use ethabi::Int;
 use prost::DecodeError;
 use substreams::{proto};
 use crate::{pb, Pool, PoolInitialization, UniswapToken};
@@ -17,13 +18,13 @@ const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 
-pub const STABLE_COINS: [&str; 5] = [
+pub const STABLE_COINS: [&str; 6] = [
     "6b175474e89094c44da98b954eedeac495271d0f",
     "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
     "dac17f958d2ee523a2206206994597c13d831ec7",
     "0000000000085d4780b73119b644ae5ecd22b376",
     "956f47f50a910163d8bf957cf5846d573e7f87ca",
-    // "4dd28568d05f09b02220b09c2cb307bfd837cb95",
+    "4dd28568d05f09b02220b09c2cb307bfd837cb95",
 ];
 
 pub const WHITELIST_TOKENS: [&str; 21] = [
@@ -243,6 +244,30 @@ pub fn safe_div(amount0: BigDecimal, amount1: BigDecimal) -> BigDecimal {
     }
 }
 
+pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
+    if exponent.is_zero() {
+        return BigDecimal::one().with_prec(100);
+    }
+    if exponent.is_one() {
+        return amount;
+    }
+    if exponent.lt(&BigInt::zero()) {
+        return safe_div(BigDecimal::one().with_prec(100), big_decimal_exponated(amount, exponent.neg()));
+    }
+
+    let mut result = amount.clone();
+    let big_int_one: &BigInt = &BigInt::one();
+
+    let mut i = BigInt::zero();
+    while i.lt(exponent.borrow()) {
+
+        result = result.mul(amount.clone()).with_prec(100);
+        i = i.add(big_int_one);
+    }
+
+    return result
+}
+
 pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     let mut result = BigDecimal::one();
     let big_decimal_ten: &BigDecimal = &BigDecimal::from(10 as u64);
@@ -346,4 +371,24 @@ pub fn get_last_pool_tick(pool_init_store: &StoreGet, swap_store: &StoreGet, poo
             }
         }
     }
+}
+
+fn convert_eth_int_to_bytes(eth_int: Int) -> Vec<u8> {
+    let mut bytes = vec![32; 32];
+    eth_int.to_big_endian(&mut bytes);
+    return bytes;
+}
+
+fn take_last_four_bytes(bytes: &[u8]) -> Vec<u8> {
+    let mut last_four_bytes = vec![];
+    last_four_bytes.append(&mut bytes[bytes.len() - 4..].to_vec());
+    return last_four_bytes;
+}
+
+fn bytes_to_int32(bytes: &[u8]) -> i32 {
+    return i32::from_be_bytes(take_last_four_bytes(bytes).as_slice().try_into().unwrap());
+}
+
+pub fn convert_eth_int_to_int32(eth_int: Int) -> i32 {
+    bytes_to_int32(convert_eth_int_to_bytes(eth_int).as_slice())
 }

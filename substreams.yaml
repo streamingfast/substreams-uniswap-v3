@@ -90,6 +90,13 @@ modules:
     inputs:
       - map: map_burns_swaps_mints
 
+  - name: store_ticks
+    kind: store
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.Tick
+    inputs:
+      - map: map_burns_swaps_mints
+
   - name: store_liquidity
     kind: store
     updatePolicy: add
