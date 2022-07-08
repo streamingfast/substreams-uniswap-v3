@@ -372,23 +372,3 @@ pub fn get_last_pool_tick(pool_init_store: &StoreGet, swap_store: &StoreGet, poo
         }
     }
 }
-
-fn convert_eth_int_to_bytes(eth_int: Int) -> Vec<u8> {
-    let mut bytes = vec![32; 32];
-    eth_int.to_big_endian(&mut bytes);
-    return bytes;
-}
-
-fn take_last_four_bytes(bytes: &[u8]) -> Vec<u8> {
-    let mut last_four_bytes = vec![];
-    last_four_bytes.append(&mut bytes[bytes.len() - 4..].to_vec());
-    return last_four_bytes;
-}
-
-fn bytes_to_int32(bytes: &[u8]) -> i32 {
-    return i32::from_be_bytes(take_last_four_bytes(bytes).as_slice().try_into().unwrap());
-}
-
-pub fn convert_eth_int_to_int32(eth_int: Int) -> i32 {
-    bytes_to_int32(convert_eth_int_to_bytes(eth_int).as_slice())
-}
