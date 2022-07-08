@@ -31,7 +31,7 @@ message Pool {
   uint32 fee = 5;
   string block_num = 6;
   uint64 log_ordinal = 7;
-  string tick_spacing = 8;
+  int32 tick_spacing = 8;
 }
 
 message PoolInitializations {
@@ -76,15 +76,15 @@ message Swap {
   string amount_1 = 4;
   string sqrt_price = 6;
   string liquidity = 7;
-  string tick = 8;
+  int32 tick = 8;
 }
 
 message Burn {
   string owner = 1;
   string amount_0 = 2;
   string amount_1 = 3;
-  string tick_lower = 4;
-  string tick_upper = 5;
+  int32 tick_lower = 4;
+  int32 tick_upper = 5;
   string amount = 6;
 }
 
@@ -94,8 +94,8 @@ message Mint {
 //  string origin = 3; // should be the transaction origin, do we need this?
   string amount_0 = 4;
   string amount_1 = 5;
-  string tick_lower = 6;
-  string tick_upper = 7;
+  int32 tick_lower = 6;
+  int32 tick_upper = 7;
   string amount = 8;
 }
 
