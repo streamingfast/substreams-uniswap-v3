@@ -17,7 +17,7 @@ use substreams::pb::substreams::module::input::Store;
 use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
 use bigdecimal::ToPrimitive;
-use crate::pb::uniswap::{Burn, Event, Mint, Pool, PoolInitialization, Tick, UniswapToken, UniswapTokens};
+use crate::pb::uniswap::{Burn, Event, Flash, Mint, Pool, PoolInitialization, Tick, UniswapToken, UniswapTokens};
 use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 use crate::pb::uniswap::event::Type::Burn as BurnEvent;
@@ -564,25 +564,24 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
 
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
-            log::debug!("call target: {}", Hex(&call.address).to_string());
             for call_log in call.logs.iter() {
                 if !abi::pool::events::Flash::match_log(&call_log) {
                     continue;
                 }
 
-                let ev = abi::pool::events::Flash::must_decode(&call_log);
-                log::debug!("{:?}", ev);
+                let flash = abi::pool::events::Flash::must_decode(&call_log);
+                log::debug!("{:?}", flash);
 
-                log::debug!("trx id: {}", Hex(&trx.hash).to_string());
-                for change in call.storage_changes.iter() {
-                    log::debug!(
-                        "storage change: {} {} {} {}",
-                        Hex(&change.address).to_string(),
-                        Hex(&change.key).to_string(),
-                        Hex(&change.old_value).to_string(),
-                        Hex(&change.new_value).to_string(),
-                    );
-                }
+                out.flashes.push(Flash{
+                    sender: Hex(&flash.sender).to_string(),
+                    recipient: Hex(&flash.recipient).to_string(),
+                    amount_0: "".to_string(),
+                    amount_1: "".to_string(),
+                    paid_0: "".to_string(),
+                    paid_1: "".to_string(),
+                    transaction_id: Hex(&trx.hash).to_string(),
+                    log_ordinal: call_log.log_ordinal as u64,
+                });
             }
         }
     }
