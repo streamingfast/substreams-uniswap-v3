@@ -16,12 +16,13 @@ use substreams::{Hex, log, proto, store};
 use substreams::pb::substreams::module::input::Store;
 use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
+use bigdecimal::ToPrimitive;
 use crate::pb::uniswap::{Burn, Event, Mint, Pool, PoolInitialization, Tick, UniswapToken, UniswapTokens};
 use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 use crate::pb::uniswap::event::Type::Burn as BurnEvent;
 use crate::pb::uniswap::event::Type::Mint as MintEvent;
-use crate::utils::{get_last_swap, get_last_pool_tick, big_decimal_exponated, safe_div, convert_eth_int_to_int32};
+use crate::utils::{get_last_swap, get_last_pool_tick, big_decimal_exponated, safe_div};
 
 const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
@@ -118,7 +119,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                     fee: event.fee.as_u32(),
                     block_num: block.number.to_string(),
                     log_ordinal: call_log.block_index as u64,
-                    tick_spacing: i32::try_from(event.tick_spacing).unwrap(),
+                    tick_spacing: event.tick_spacing.to_i32().unwrap(),
                 });
             }
         }
@@ -141,7 +142,7 @@ pub fn map_pools_initialized(block: ethpb::v1::Block) -> Result<pb::uniswap::Poo
                 address: Hex(&log.address).to_string(),
                 initialization_transaction_id: Hex(&trx.hash).to_string(),
                 log_ordinal: log.block_index as u64,
-                tick: convert_eth_int_to_int32(event.tick).to_string(),
+                tick: event.tick.to_string(),
                 sqrt_price: event.sqrt_price_x96.to_string(),
             });
         }
@@ -202,7 +203,7 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                                 amount_1: swap.amount1.to_string(), // big_decimal?
                                 sqrt_price: swap.sqrt_price_x96.to_string(), // big_decimal?
                                 liquidity: swap.liquidity.to_string(),
-                                tick: swap.tick.to_string(),
+                                tick: swap.tick.to_i32().unwrap(),
                             })),
                         });
                     }
@@ -231,8 +232,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                                 owner: Hex(&burn.owner).to_string(),
                                 amount_0: burn.amount0.to_string(),
                                 amount_1: burn.amount1.to_string(),
-                                tick_lower: utils::convert_eth_int_to_int32(burn.tick_lower).to_string(),
-                                tick_upper: utils::convert_eth_int_to_int32(burn.tick_upper).to_string(),
+                                tick_lower: burn.tick_lower.to_i32().unwrap(),
+                                tick_upper: burn.tick_upper.to_i32().unwrap(),
                                 amount: burn.amount.to_string(),
                             })),
                         });
@@ -263,8 +264,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                                 sender: Hex(&mint.sender).to_string(),
                                 amount_0: mint.amount0.to_string(), // big_decimal?
                                 amount_1: mint.amount1.to_string(), // big_decimal?
-                                tick_lower: utils::convert_eth_int_to_int32(mint.tick_lower).to_string(),
-                                tick_upper: utils::convert_eth_int_to_int32(mint.tick_upper).to_string(),
+                                tick_lower: mint.tick_lower.to_i32().unwrap(),
+                                tick_upper: mint.tick_upper.to_i32().unwrap(),
                                 amount: mint.amount.to_string(), // big_decimal?
                             })),
                         });
@@ -301,7 +302,7 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: StoreSet) {
             Type::Swap(_) => {}
             Type::Burn(_) => {}
             Type::Mint(mint) => {
-                let tick_lower_big_int = BigInt::from_str(&mint.tick_lower).unwrap();
+                let tick_lower_big_int = BigInt::from_str(&mint.tick_lower.to_string()).unwrap();
                 let tick_lower_price0=  big_decimal_exponated(BigDecimal::from_f64(1.0001).unwrap().with_prec(100), tick_lower_big_int);
                 let tick_lower_price1 = safe_div(BigDecimal::from(1 as i32), tick_lower_price0.clone());
 
@@ -318,7 +319,7 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: StoreSet) {
                     &proto::encode(&tickLower).unwrap(),
                 );
 
-                let tick_upper_big_int = BigInt::from_str(&mint.tick_upper).unwrap();
+                let tick_upper_big_int = BigInt::from_str(&mint.tick_upper.to_string()).unwrap();
                 let tick_upper_price0=  big_decimal_exponated(BigDecimal::from_f64(1.0001).unwrap().with_prec(100), tick_upper_big_int);
                 let tick_upper_price1 = safe_div(BigDecimal::from(1 as i32), tick_upper_price0.clone());
                 let tick_upper: Tick = Tick{
@@ -370,8 +371,8 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
-                    let tick_lower = BigDecimal::from_str(burn.tick_lower.as_str()).unwrap();
-                    let tick_upper = BigDecimal::from_str(burn.tick_upper.as_str()).unwrap();
+                    let tick_lower = BigDecimal::from_str(burn.tick_lower.to_string().as_str()).unwrap();
+                    let tick_upper = BigDecimal::from_str(burn.tick_upper.to_string().as_str()).unwrap();
                     let tick = get_last_pool_tick(&pool_init_store, &swap_store, &event.pool_address).unwrap();
 
                     if tick_lower <= tick && tick <= tick_upper {
@@ -398,8 +399,8 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
                     let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
-                    let tick_lower = BigDecimal::from_str(mint.tick_lower.as_str()).unwrap();
-                    let tick_upper = BigDecimal::from_str(mint.tick_upper.as_str()).unwrap();
+                    let tick_lower = BigDecimal::from_str(mint.tick_lower.to_string().as_str()).unwrap();
+                    let tick_upper = BigDecimal::from_str(mint.tick_upper.to_string().as_str()).unwrap();
                     let tick = get_last_pool_tick(&pool_init_store, &swap_store, &event.pool_address).unwrap();
 
                     if tick_lower <= tick && tick <= tick_upper {
@@ -525,7 +526,7 @@ pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
 
             out.fees.push(pb::uniswap::Fee {
                 fee: ev.fee.as_u32(),
-                tick_spacing: ev.tick_spacing.as_u32() as i32,
+                tick_spacing: ev.tick_spacing.to_i32().unwrap(),
             });
         }
     }
@@ -545,7 +546,7 @@ pub fn store_fees(block: ethpb::v1::Block, output: store::StoreSet) {
 
             let fee = pb::uniswap::Fee {
                 fee: event.fee.as_u32(),
-                tick_spacing: event.tick_spacing.as_u32() as i32
+                tick_spacing: event.tick_spacing.to_i32().unwrap()
             };
 
             output.set(

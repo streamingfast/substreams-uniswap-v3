@@ -357,7 +357,7 @@ pub fn get_last_pool_sqrt_price(pool_init_store: &StoreGet, swap_store: &StoreGe
 pub fn get_last_pool_tick(pool_init_store: &StoreGet, swap_store: &StoreGet, pool_address: &str) -> Result<BigDecimal, DecodeError> {
     return match get_last_swap(swap_store, pool_address) {
         Ok(swap) => {
-            Ok(BigDecimal::from_str_radix(&swap.tick, 10).unwrap())
+            Ok(BigDecimal::from_str_radix(swap.tick.to_string().as_str(), 10).unwrap())
         }
         Err(_) => {
             //fallback to pool init
