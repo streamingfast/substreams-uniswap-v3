@@ -31,7 +31,7 @@ message Pool {
   uint32 fee = 5;
   string block_num = 6;
   uint64 log_ordinal = 7;
-  int32 tick_spacing = 8;
+  string tick_spacing = 8;
 }
 
 message PoolInitializations {
