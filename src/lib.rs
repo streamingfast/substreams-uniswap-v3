@@ -105,11 +105,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                     continue
                 }
 
-                log::debug!("pool address: {}", &Hex(&call_log.data[44..64]).to_string());
-                if utils::BLACKLISTED_POOLS.contains(&Hex(&call_log.data[44..64]).to_string().as_str()) {
-                    continue;
-                }
-
                 let event = abi::factory::events::PoolCreated::must_decode(&call_log);
                 output.pools.push(Pool {
                     address: Hex(&call_log.data[44..64]).to_string(),
@@ -580,7 +575,7 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
                     paid_0: "".to_string(),
                     paid_1: "".to_string(),
                     transaction_id: Hex(&trx.hash).to_string(),
-                    log_ordinal: call_log.log_ordinal as u64,
+                    log_ordinal: call_log.ordinal,
                 });
             }
         }

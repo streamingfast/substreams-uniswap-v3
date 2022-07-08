@@ -51,10 +51,6 @@ pub const WHITELIST_TOKENS: [&str; 21] = [
     "fe2e637202056d30016725477c5da089ab0a043a", // sETH2
 ];
 
-pub const BLACKLISTED_POOLS: [&str; 1] = [
-    "1c74dde716d3f2a1df5097b7c2543c5d97cfa4d3" // WBTC-UNI-V3-POS
-];
-
 pub fn compute_prices(
     sqrt_price: &BigDecimal,
     token_0: &UniswapToken,
