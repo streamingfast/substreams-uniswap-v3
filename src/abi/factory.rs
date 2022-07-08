@@ -6,7 +6,7 @@
         #[derive(Debug, Clone, PartialEq)]
         pub struct FeeAmountEnabled {
             pub fee: ethabi::Uint,
-            pub tick_spacing: ethabi::Int,
+            pub tick_spacing: num_bigint::BigInt,
         }
         impl FeeAmountEnabled {
             const TOPIC_ID: [u8; 32] = [
@@ -71,20 +71,9 @@
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    tick_spacing: ethabi::decode(
-                            &[ethabi::ParamType::Int(24usize)],
-                            log.topics[2usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'tick_spacing' from topic of type 'int24': {}",
-                                e
-                            )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
+                    tick_spacing: num_bigint::BigInt::from_signed_bytes_be(
+                        log.topics[2usize].as_ref(),
+                    ),
                 })
             }
             pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
@@ -163,7 +152,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
                     new_owner: ethabi::decode(
@@ -179,7 +168,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
                 })
@@ -196,7 +185,7 @@
             pub token0: Vec<u8>,
             pub token1: Vec<u8>,
             pub fee: ethabi::Uint,
-            pub tick_spacing: ethabi::Int,
+            pub tick_spacing: num_bigint::BigInt,
             pub pool: Vec<u8>,
         }
         impl PoolCreated {
@@ -252,6 +241,7 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
                     token0: ethabi::decode(
                             &[ethabi::ParamType::Address],
@@ -266,7 +256,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
                     token1: ethabi::decode(
@@ -282,7 +272,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
                     fee: ethabi::decode(
@@ -299,18 +289,19 @@
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
+                    tick_spacing: {
+                        values.pop().expect(INTERNAL_ERR);
+                        num_bigint::BigInt::from_signed_bytes_be(
+                            log.data[0usize..32usize].as_ref(),
+                        )
+                    },
                     pool: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
-                    tick_spacing: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
                 })
             }
             pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {

@@ -6,8 +6,8 @@
         #[derive(Debug, Clone, PartialEq)]
         pub struct Burn {
             pub owner: Vec<u8>,
-            pub tick_lower: ethabi::Int,
-            pub tick_upper: ethabi::Int,
+            pub tick_lower: num_bigint::BigInt,
+            pub tick_upper: num_bigint::BigInt,
             pub amount: ethabi::Uint,
             pub amount0: ethabi::Uint,
             pub amount1: ethabi::Uint,
@@ -69,6 +69,7 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
                     owner: ethabi::decode(
                             &[ethabi::ParamType::Address],
@@ -83,38 +84,16 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
-                    tick_lower: ethabi::decode(
-                            &[ethabi::ParamType::Int(24usize)],
-                            log.topics[2usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'tick_lower' from topic of type 'int24': {}",
-                                e
-                            )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
-                    tick_upper: ethabi::decode(
-                            &[ethabi::ParamType::Int(24usize)],
-                            log.topics[3usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'tick_upper' from topic of type 'int24': {}",
-                                e
-                            )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
-                    amount1: values
+                    tick_lower: num_bigint::BigInt::from_signed_bytes_be(
+                        log.topics[2usize].as_ref(),
+                    ),
+                    tick_upper: num_bigint::BigInt::from_signed_bytes_be(
+                        log.topics[3usize].as_ref(),
+                    ),
+                    amount: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -124,7 +103,7 @@
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    amount: values
+                    amount1: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -142,8 +121,8 @@
         pub struct Collect {
             pub owner: Vec<u8>,
             pub recipient: Vec<u8>,
-            pub tick_lower: ethabi::Int,
-            pub tick_upper: ethabi::Int,
+            pub tick_lower: num_bigint::BigInt,
+            pub tick_upper: num_bigint::BigInt,
             pub amount0: ethabi::Uint,
             pub amount1: ethabi::Uint,
         }
@@ -204,6 +183,7 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
                     owner: ethabi::decode(
                             &[ethabi::ParamType::Address],
@@ -218,54 +198,32 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
-                    tick_lower: ethabi::decode(
-                            &[ethabi::ParamType::Int(24usize)],
-                            log.topics[2usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'tick_lower' from topic of type 'int24': {}",
-                                e
-                            )
-                        })?
+                    tick_lower: num_bigint::BigInt::from_signed_bytes_be(
+                        log.topics[2usize].as_ref(),
+                    ),
+                    tick_upper: num_bigint::BigInt::from_signed_bytes_be(
+                        log.topics[3usize].as_ref(),
+                    ),
+                    recipient: values
                         .pop()
                         .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
-                    tick_upper: ethabi::decode(
-                            &[ethabi::ParamType::Int(24usize)],
-                            log.topics[3usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'tick_upper' from topic of type 'int24': {}",
-                                e
-                            )
-                        })?
+                        .into_address()
+                        .unwrap()
+                        .as_bytes()
+                        .to_vec(),
+                    amount0: values
                         .pop()
                         .expect(INTERNAL_ERR)
-                        .into_int()
+                        .into_uint()
                         .expect(INTERNAL_ERR),
                     amount1: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    amount0: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
-                    recipient: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_address()
-                        .expect(INTERNAL_ERR)
-                        .as_bytes()
-                        .to_vec(),
                 })
             }
             pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
@@ -338,6 +296,7 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
                     sender: ethabi::decode(
                             &[ethabi::ParamType::Address],
@@ -352,7 +311,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
                     recipient: ethabi::decode(
@@ -368,15 +327,15 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
-                    amount1: values
+                    amount0: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    amount0: values
+                    amount1: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -459,6 +418,7 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
                     sender: ethabi::decode(
                             &[ethabi::ParamType::Address],
@@ -473,7 +433,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
                     recipient: ethabi::decode(
@@ -489,15 +449,10 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
-                    paid1: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
-                    paid0: values
+                    amount0: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -507,7 +462,12 @@
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    amount0: values
+                    paid0: values
+                        .pop()
+                        .expect(INTERNAL_ERR)
+                        .into_uint()
+                        .expect(INTERNAL_ERR),
+                    paid1: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -582,13 +542,14 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
-                    observation_cardinality_next_new: values
+                    observation_cardinality_next_old: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    observation_cardinality_next_old: values
+                    observation_cardinality_next_new: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -610,7 +571,7 @@
         #[derive(Debug, Clone, PartialEq)]
         pub struct Initialize {
             pub sqrt_price_x96: ethabi::Uint,
-            pub tick: ethabi::Int,
+            pub tick: num_bigint::BigInt,
         }
         impl Initialize {
             const TOPIC_ID: [u8; 32] = [
@@ -668,17 +629,19 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
-                    tick: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
                     sqrt_price_x96: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
+                    tick: {
+                        values.pop().expect(INTERNAL_ERR);
+                        num_bigint::BigInt::from_signed_bytes_be(
+                            log.data[32usize..64usize].as_ref(),
+                        )
+                    },
                 })
             }
             pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
@@ -692,8 +655,8 @@
         pub struct Mint {
             pub sender: Vec<u8>,
             pub owner: Vec<u8>,
-            pub tick_lower: ethabi::Int,
-            pub tick_upper: ethabi::Int,
+            pub tick_lower: num_bigint::BigInt,
+            pub tick_upper: num_bigint::BigInt,
             pub amount: ethabi::Uint,
             pub amount0: ethabi::Uint,
             pub amount1: ethabi::Uint,
@@ -756,6 +719,7 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
                     owner: ethabi::decode(
                             &[ethabi::ParamType::Address],
@@ -770,38 +734,23 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
-                    tick_lower: ethabi::decode(
-                            &[ethabi::ParamType::Int(24usize)],
-                            log.topics[2usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'tick_lower' from topic of type 'int24': {}",
-                                e
-                            )
-                        })?
+                    tick_lower: num_bigint::BigInt::from_signed_bytes_be(
+                        log.topics[2usize].as_ref(),
+                    ),
+                    tick_upper: num_bigint::BigInt::from_signed_bytes_be(
+                        log.topics[3usize].as_ref(),
+                    ),
+                    sender: values
                         .pop()
                         .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
-                    tick_upper: ethabi::decode(
-                            &[ethabi::ParamType::Int(24usize)],
-                            log.topics[3usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'tick_upper' from topic of type 'int24': {}",
-                                e
-                            )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
-                    amount1: values
+                        .into_address()
+                        .unwrap()
+                        .as_bytes()
+                        .to_vec(),
+                    amount: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -811,18 +760,11 @@
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    amount: values
+                    amount1: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    sender: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_address()
-                        .expect(INTERNAL_ERR)
-                        .as_bytes()
-                        .to_vec(),
                 })
             }
             pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
@@ -897,13 +839,9 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
-                    fee_protocol1_new: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
-                    fee_protocol0_new: values
+                    fee_protocol0_old: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -913,7 +851,12 @@
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    fee_protocol0_old: values
+                    fee_protocol0_new: values
+                        .pop()
+                        .expect(INTERNAL_ERR)
+                        .into_uint()
+                        .expect(INTERNAL_ERR),
+                    fee_protocol1_new: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
@@ -933,11 +876,11 @@
         pub struct Swap {
             pub sender: Vec<u8>,
             pub recipient: Vec<u8>,
-            pub amount0: ethabi::Int,
-            pub amount1: ethabi::Int,
+            pub amount0: num_bigint::BigInt,
+            pub amount1: num_bigint::BigInt,
             pub sqrt_price_x96: ethabi::Uint,
             pub liquidity: ethabi::Uint,
-            pub tick: ethabi::Int,
+            pub tick: num_bigint::BigInt,
         }
         impl Swap {
             const TOPIC_ID: [u8; 32] = [
@@ -998,6 +941,7 @@
                         log.data.as_ref(),
                     )
                     .map_err(|e| format!("unable to decode log.data: {}", e))?;
+                values.reverse();
                 Ok(Self {
                     sender: ethabi::decode(
                             &[ethabi::ParamType::Address],
@@ -1012,7 +956,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
                     recipient: ethabi::decode(
@@ -1028,34 +972,37 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .expect(INTERNAL_ERR)
+                        .unwrap()
                         .as_bytes()
                         .to_vec(),
-                    tick: values
+                    amount0: {
+                        values.pop().expect(INTERNAL_ERR);
+                        num_bigint::BigInt::from_signed_bytes_be(
+                            log.data[0usize..32usize].as_ref(),
+                        )
+                    },
+                    amount1: {
+                        values.pop().expect(INTERNAL_ERR);
+                        num_bigint::BigInt::from_signed_bytes_be(
+                            log.data[32usize..64usize].as_ref(),
+                        )
+                    },
+                    sqrt_price_x96: values
                         .pop()
                         .expect(INTERNAL_ERR)
-                        .into_int()
+                        .into_uint()
                         .expect(INTERNAL_ERR),
                     liquidity: values
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_uint()
                         .expect(INTERNAL_ERR),
-                    sqrt_price_x96: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
-                    amount1: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
-                    amount0: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_int()
-                        .expect(INTERNAL_ERR),
+                    tick: {
+                        values.pop().expect(INTERNAL_ERR);
+                        num_bigint::BigInt::from_signed_bytes_be(
+                            log.data[128usize..160usize].as_ref(),
+                        )
+                    },
                 })
             }
             pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
