@@ -112,7 +112,6 @@ modules:
     initialBlock: 12369621
     valueType: string
     inputs:
-      - source: sf.ethereum.type.v1.Block
       - map: map_burns_swaps_mints
       - store: store_liquidity
       - store: store_pools
