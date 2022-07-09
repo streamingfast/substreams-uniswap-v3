@@ -1,6 +1,4 @@
 use std::convert::TryInto;
-use std::ops::Index;
-use substreams::log;
 
 pub fn read_uint32(input: &[u8]) -> Result<u32, String> {
     if input.len() != 32 {
