@@ -1,22 +1,19 @@
 use std::borrow::Borrow;
-use std::mem::swap;
 use std::ops::{Add, Div, Mul, Neg};
-use std::str::FromStr;
 use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, Num, One, Zero};
-use ethabi::Int;
 use prost::DecodeError;
 use substreams::{proto};
-use crate::{pb, Pool, PoolInitialization, UniswapToken};
+use crate::{pb, Pool, UniswapToken};
 use substreams::store::StoreGet;
 use substreams::log;
-use substreams::pb::substreams::module::input::Store;
-use crate::pb::uniswap::{Liquidity, Swap};
 
-const DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
-const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
+const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
+
+pub const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
 pub const STABLE_COINS: [&str; 6] = [
     "6b175474e89094c44da98b954eedeac495271d0f",
@@ -58,17 +55,16 @@ pub fn compute_prices(
 ) -> (BigDecimal, BigDecimal) {
     log::debug!("Computing prices for {} {} and {} {}", token_0.symbol, token_0.decimals, token_1.symbol, token_1.decimals);
 
-    let price: BigDecimal = BigDecimal::from(sqrt_price * sqrt_price);
-
+    let price: BigDecimal = sqrt_price.mul(sqrt_price);
     let token0_decimals: BigInt = BigInt::from(token_0.decimals);
     let token1_decimals: BigInt = BigInt::from(token_1.decimals);
-    let q192: BigDecimal = BigDecimal::from((2 ^ 192) as u64);
+    let denominator: BigDecimal = BigDecimal::from(2 ^ 192);
 
     let price1 = price
-        .div(q192)
+        .div(denominator)
         .mul(exponent_to_big_decimal(&token0_decimals))
         .div(exponent_to_big_decimal(&token1_decimals));
-    let price0 = safe_div(BigDecimal::one(), price1.clone());
+    let price0 = safe_div(BigDecimal::one(), &price1);
 
     return (price0, price1);
 }
@@ -146,7 +142,7 @@ pub fn find_eth_per_token(
 
     if STABLE_COINS.contains(&token_address) {
         let eth_price_usd = get_eth_price_in_usd(swap_store, pools_store, pools_init_store, tokens_store);
-        price_so_far = safe_div(bd_one, eth_price_usd);
+        price_so_far = safe_div(bd_one, &eth_price_usd);
     } else {
         for pool_address in whitelist_pools.iter() {
             let pool_result = get_last_pool(&pools_store, pool_address);
@@ -231,10 +227,10 @@ pub fn find_eth_per_token(
     return price_so_far;
 }
 
-pub fn safe_div(amount0: BigDecimal, amount1: BigDecimal) -> BigDecimal {
-    let big_decimal_zero_ptr: &BigDecimal = &BigDecimal::zero().with_prec(100);
-    return if amount1.eq(big_decimal_zero_ptr) {
-        BigDecimal::from(0 as u64)
+pub fn safe_div(amount0: BigDecimal, amount1: &BigDecimal) -> BigDecimal {
+    let big_decimal_zero: &BigDecimal = &BigDecimal::zero();
+    return if amount1.eq(big_decimal_zero) {
+        BigDecimal::zero()
     } else {
         amount0.div(amount1)
     }
@@ -248,7 +244,7 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
         return amount;
     }
     if exponent.lt(&BigInt::zero()) {
-        return safe_div(BigDecimal::one().with_prec(100), big_decimal_exponated(amount, exponent.neg()));
+        return safe_div(BigDecimal::one().with_prec(100), &big_decimal_exponated(amount, exponent.neg()));
     }
 
     let mut result = amount.clone();
@@ -266,11 +262,11 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
 
 pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     let mut result = BigDecimal::one();
-    let big_decimal_ten: &BigDecimal = &BigDecimal::from(10 as u64);
+    let big_decimal_ten: &BigDecimal = &BigDecimal::from(10);
     let big_int_one: &BigInt = &BigInt::one();
 
     let mut i = BigInt::zero();
-    while i.lt(decimals.borrow()) {
+    while i.lt(decimals) {
         result = result.mul(big_decimal_ten);
         i = i.add(big_int_one);
     }

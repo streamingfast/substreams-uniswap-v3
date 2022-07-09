@@ -13,7 +13,6 @@ use bigdecimal::{BigDecimal, FromPrimitive};
 use num_bigint::BigInt;
 use substreams::errors::Error;
 use substreams::{Hex, log, proto, store};
-use substreams::pb::substreams::module::input::Store;
 use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
 use bigdecimal::ToPrimitive;
@@ -22,9 +21,7 @@ use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 use crate::pb::uniswap::event::Type::Burn as BurnEvent;
 use crate::pb::uniswap::event::Type::Mint as MintEvent;
-use crate::utils::{get_last_swap, get_last_pool_tick, big_decimal_exponated, safe_div};
-
-const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
+use crate::utils::{get_last_pool_tick, big_decimal_exponated, safe_div};
 
 #[substreams::handlers::map]
 pub fn map_uniswap_tokens(pools: pb::uniswap::Pools) -> Result<UniswapTokens, Error> {
@@ -96,7 +93,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
     let mut output = pb::uniswap::Pools { pools: vec![] };
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
-            if hex::encode(&call.address) != UNISWAP_V3_FACTORY {
+            if hex::encode(&call.address) != utils::UNISWAP_V3_FACTORY {
                 continue;
             }
 
@@ -299,9 +296,9 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: StoreSet) {
             Type::Mint(mint) => {
                 let tick_lower_big_int = BigInt::from_str(&mint.tick_lower.to_string()).unwrap();
                 let tick_lower_price0=  big_decimal_exponated(BigDecimal::from_f64(1.0001).unwrap().with_prec(100), tick_lower_big_int);
-                let tick_lower_price1 = safe_div(BigDecimal::from(1 as i32), tick_lower_price0.clone());
+                let tick_lower_price1 = safe_div(BigDecimal::from(1 as i32), &tick_lower_price0);
 
-                let tickLower: Tick = Tick{
+                let tick_lower: Tick = Tick{
                     pool_address: event.pool_address.to_string(),
                     idx: mint.tick_lower.to_string(),
                     price0: tick_lower_price0.to_string(),
@@ -311,12 +308,12 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: StoreSet) {
                 output_set.set(
                     event.log_ordinal,
                     format!("tick:{}:pool:{}", mint.tick_lower.to_string(), event.pool_address.to_string()),
-                    &proto::encode(&tickLower).unwrap(),
+                    &proto::encode(&tick_lower).unwrap(),
                 );
 
                 let tick_upper_big_int = BigInt::from_str(&mint.tick_upper.to_string()).unwrap();
                 let tick_upper_price0=  big_decimal_exponated(BigDecimal::from_f64(1.0001).unwrap().with_prec(100), tick_upper_big_int);
-                let tick_upper_price1 = safe_div(BigDecimal::from(1 as i32), tick_upper_price0.clone());
+                let tick_upper_price1 = safe_div(BigDecimal::from(1 as i32), &tick_upper_price0);
                 let tick_upper: Tick = Tick{
                     pool_address: event.pool_address.to_string(),
                     idx: mint.tick_upper.to_string(),
@@ -424,7 +421,6 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
 
 #[substreams::handlers::store]
 pub fn store_prices(
-    block: ethpb::v1::Block,
     swaps_burns_mints: pb::uniswap::Events,
     liquidity_store: StoreGet,
     pools_store: StoreGet,
@@ -434,14 +430,6 @@ pub fn store_prices(
     whitelist_pools_store: StoreGet,
     output: StoreSet
 ) {
-    let timestamp_seconds: i64 = block.header.unwrap().timestamp.unwrap().seconds;
-    let hour_id: i64 = timestamp_seconds / 3600;
-    let day_id: i64 = timestamp_seconds / 86400;
-
-    // output.delete_prefix(0, &format!("pool_id:{}:", hour_id - 1));
-    // output.delete_prefix(0, &format!("pool_id:{}:", day_id - 1));
-    // output.delete_prefix(0, &format!("token_id:{}:", day_id - 1));
-
     for event in swaps_burns_mints.events {
         log::info!("looking for swap event");
         match event.r#type.unwrap() {
@@ -449,7 +437,14 @@ pub fn store_prices(
                 let token_0 = utils::get_last_token(&tokens_store, event.token0.as_str()).unwrap();
                 let token_1 = utils::get_last_token(&tokens_store, event.token1.as_str()).unwrap();
 
+                log::info!("token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}", token_0.address, token_0.decimals, token_0.symbol, token_0.name);
+                log::info!("token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}", token_1.address, token_1.decimals, token_1.symbol, token_1.name);
+
                 let sqrt_price = BigDecimal::from_str(swap.sqrt_price.as_str()).unwrap();
+                log::info!("sqrtPrice: {}", sqrt_price.to_string());
+
+                // sqrtPrice from subgraph:    31726435882393352962081481336689260
+                // sqrtPrice in substreams BD: 31726435882393352962081481336689260
                 let tokens_price: (BigDecimal, BigDecimal) = utils::compute_prices(&sqrt_price, &token_0, &token_1);
                 log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
 
