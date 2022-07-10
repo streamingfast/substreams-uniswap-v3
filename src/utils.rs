@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul, Neg};
+use std::str::FromStr;
 use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, Num, One, Zero};
 use prost::DecodeError;
@@ -48,7 +49,7 @@ pub const WHITELIST_TOKENS: [&str; 21] = [
     "fe2e637202056d30016725477c5da089ab0a043a", // sETH2
 ];
 
-pub fn compute_prices(
+pub fn sqrt_price_x96_to_token_prices(
     sqrt_price: &BigDecimal,
     token_0: &UniswapToken,
     token_1: &UniswapToken
@@ -58,12 +59,14 @@ pub fn compute_prices(
     let price: BigDecimal = sqrt_price.mul(sqrt_price);
     let token0_decimals: BigInt = BigInt::from(token_0.decimals);
     let token1_decimals: BigInt = BigInt::from(token_1.decimals);
-    let denominator: BigDecimal = BigDecimal::from(2 ^ 192);
+    let denominator: BigDecimal = BigDecimal::from_str("6277101735386680763835789423207666416102355444464034512896").unwrap();
 
     let price1 = price
         .div(denominator)
         .mul(exponent_to_big_decimal(&token0_decimals))
         .div(exponent_to_big_decimal(&token1_decimals));
+
+    log::info!("price1: {}", price1);
     let price0 = safe_div(BigDecimal::one(), &price1);
 
     return (price0, price1);
@@ -96,7 +99,7 @@ pub fn get_eth_price_in_usd(swap_store: &StoreGet, pools_store: &StoreGet, pools
             };
 
             let sqrt_price = get_last_pool_sqrt_price(pools_init_store, swap_store, USDC_WETH_03_POOL).unwrap();
-            compute_prices(&sqrt_price, &token_0, &token_1).0
+            sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1).0
         }
     }
 }
@@ -167,7 +170,7 @@ pub fn find_eth_per_token(
                 }
             };
 
-            let prices = compute_prices(
+            let prices = sqrt_price_x96_to_token_prices(
                 &sqrt_price,
                 &token0,
                 &token1,
