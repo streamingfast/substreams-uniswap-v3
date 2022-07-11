@@ -443,8 +443,6 @@ pub fn store_prices(
                 let sqrt_price = BigDecimal::from_str(swap.sqrt_price.as_str()).unwrap();
                 log::info!("sqrtPrice: {}", sqrt_price.to_string());
 
-                // sqrtPrice from subgraph:    31726435882393352962081481336689260
-                // sqrtPrice in substreams BD: 31726435882393352962081481336689260
                 let tokens_price: (BigDecimal, BigDecimal) = utils::sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1);
                 log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
 
