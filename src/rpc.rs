@@ -2,7 +2,12 @@ use substreams::{log, Hex};
 use substreams_ethereum::pb::eth as ethpb;
 use crate::{eth, UniswapToken};
 
-pub fn create_uniswap_token(token_address: &String) -> UniswapToken {
+// note: on uniswap-v3-subgraph, if the token decimal doesn't exist, they simply
+// ignore the token? and don't create the pool... is this something we want to do?
+// Also some tokens have a decimal value of 0... is this legit ? The subgraph will store
+// the token nonetheless
+
+pub fn create_uniswap_token(token_address: &String) -> Option<UniswapToken> {
     let rpc_calls = create_rpc_calls(&hex::decode(token_address).unwrap());
 
     let rpc_responses_unmarshalled: ethpb::rpc::RpcResponses =
@@ -21,7 +26,7 @@ pub fn create_uniswap_token(token_address: &String) -> UniswapToken {
             name_error,
             symbol_error,
         );
-        panic!("pool contains tokens which do not exist on chain addr {}", token_address)
+        return None;
     };
 
     let decoded_decimals = eth::read_uint32(responses[0].raw.as_ref());
@@ -31,7 +36,7 @@ pub fn create_uniswap_token(token_address: &String) -> UniswapToken {
             &token_address,
             decoded_decimals.err().unwrap(),
         );
-        panic!("pool contains tokens which do not exist on chain")
+        return None;
     }
     log::debug!("decoded_decimals ok");
 
@@ -42,7 +47,7 @@ pub fn create_uniswap_token(token_address: &String) -> UniswapToken {
             &token_address,
             decoded_name.err().unwrap(),
         );
-        panic!("pool contains tokens which do not exist on chain")
+        return None;
     }
     log::debug!("decoded_name ok");
 
@@ -53,7 +58,7 @@ pub fn create_uniswap_token(token_address: &String) -> UniswapToken {
             &token_address,
             decoded_symbol.err().unwrap(),
         );
-        panic!("pool contains tokens which do not exist on chain")
+        return None;
     }
     log::debug!("decoded_symbol ok");
 
@@ -61,13 +66,13 @@ pub fn create_uniswap_token(token_address: &String) -> UniswapToken {
     let symbol = decoded_symbol.unwrap();
     let name = decoded_name.unwrap();
 
-    return UniswapToken{
+    return Some(UniswapToken{
         address: String::from(token_address),
         name,
         symbol,
         decimals,
         whitelist_pools: vec![]
-    };
+    });
 }
 
 fn create_rpc_calls(addr: &Vec<u8>) -> ethpb::rpc::RpcCalls {
