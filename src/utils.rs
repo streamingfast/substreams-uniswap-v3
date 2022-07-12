@@ -363,7 +363,7 @@ pub fn get_last_pool_tick(pool_init_store: &StoreGet, swap_store: &StoreGet, poo
                     Ok(BigDecimal::from_str_radix(&pool_init.tick, 10).unwrap())
                 }
                 Err(_) => {
-                    Err(DecodeError::new("No pool init or swap"))
+                    Err(DecodeError::new(format!("No pool init or swap: {}", pool_address)))
                 }
             }
         }
