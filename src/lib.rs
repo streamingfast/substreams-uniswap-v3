@@ -122,7 +122,6 @@ pub fn map_uniswap_tokens(pools: pb::uniswap::Pools) -> Result<UniswapTokens, Er
             output.uniswap_tokens.push(uniswap_token0);
             output.uniswap_tokens.push(uniswap_token1);
         }
-
     }
 
     Ok(output)

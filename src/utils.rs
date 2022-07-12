@@ -175,6 +175,7 @@ pub fn find_eth_per_token(
                         &token1,
                     );
 
+                    // FIXME: gonna need to remove the recursion here
                     if pool.token0_address == token_address {
                         let token_1_derived_eth = find_eth_per_token(
                             log_ordinal,
@@ -200,6 +201,7 @@ pub fn find_eth_per_token(
                         }
                     }
 
+                    // FIXME: gonna need to remove the recursion here
                     if pool.token1_address == token_address {
                         let token0_derived_eth = find_eth_per_token(
                             log_ordinal,
