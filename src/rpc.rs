@@ -2,10 +2,12 @@ use substreams::{log, Hex};
 use substreams_ethereum::pb::eth as ethpb;
 use crate::{eth, UniswapToken};
 
-// note: on uniswap-v3-subgraph, if the token decimal doesn't exist, they simply
-// ignore the token? and don't create the pool... is this something we want to do?
-// Also some tokens have a decimal value of 0... is this legit ? The subgraph will store
-// the token nonetheless
+// NOTE: on uniswap-v3-subgraph, if the token decimal doesn't exist, they simply
+//  ignore the token? and don't create the pool... is this something we want to do?
+//  Also some tokens have a decimal value of 0... is this legit ? The subgraph will store
+//  the token nonetheless. In our case, check substreams `map_uniswap_tokens`
+//  we only decide to output/store the pool when both tokens are valid, if not
+//  it makes no sense to store the pool
 
 pub fn create_uniswap_token(token_address: &String) -> Option<UniswapToken> {
     let rpc_calls = create_rpc_calls(&hex::decode(token_address).unwrap());
@@ -18,7 +20,6 @@ pub fn create_uniswap_token(token_address: &String) -> Option<UniswapToken> {
         let decimals_error = String::from_utf8_lossy(responses[0].raw.as_ref());
         let name_error = String::from_utf8_lossy(responses[1].raw.as_ref());
         let symbol_error = String::from_utf8_lossy(responses[2].raw.as_ref());
-
         log::debug!(
             "{} is not a an ERC20 token contract because of 'eth_call' failures [decimals: {}, name: {}, symbol: {}]",
             Hex(&token_address),
