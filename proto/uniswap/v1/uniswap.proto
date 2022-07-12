@@ -46,6 +46,17 @@ message PoolInitialization {
   string sqrt_price = 5; // BigDecimal
 }
 
+message SqrtPriceUpdates {
+  repeated SqrtPriceUpdate sqrt_prices = 1;
+}
+
+message SqrtPriceUpdate {
+  string pool_address = 1;
+  uint64 ordinal = 2;
+  string sqrt_price = 3;
+  string tick = 4;
+}
+
 message Events {
   repeated Event events = 1;
 }
