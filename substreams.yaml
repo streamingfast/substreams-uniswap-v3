@@ -23,6 +23,14 @@ binaries:
     file: target/wasm32-unknown-unknown/release/substreams_uniswap_v3.wasm
 
 modules:
+  - name: map_pools_created
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v1.Block
+    output:
+      type: proto:uniswap.types.v1.Pools
+
   - name: map_uniswap_tokens
     kind: map
     initialBlock: 12369621
@@ -45,20 +53,13 @@ modules:
     inputs:
       - map: map_uniswap_tokens
 
-  - name: map_pools_created
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-    output:
-      type: proto:uniswap.types.v1.Pools
-
   - name: store_pools
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Pool
     inputs:
       - map: map_pools_created
+      - store: store_uniswap_tokens
 
   - name: map_pools_initialized
     kind: map
@@ -67,6 +68,21 @@ modules:
       - source: sf.ethereum.type.v1.Block
     output:
       type: proto:uniswap.types.v1.PoolInitializations
+
+  - name: map_sqrt_price
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v1.Block
+    output:
+      type: proto:uniswap.types.v1.SqrtPriceUpdates
+
+  - name: store_sqrt_price
+    kind: store
+    updatePolicy: set
+    valueType: proto:pb.uniswap.v1.SqrtPriceUpdates
+    inputs:
+      - map: map_sqrt_price
 
   - name: store_pools_initialization
     kind: store
@@ -112,7 +128,17 @@ modules:
     initialBlock: 12369621
     valueType: string
     inputs:
-      - map: map_burns_swaps_mints
+      - map: map_sqrt_price
+      - store: store_pools
+      - store: store_uniswap_tokens
+
+  - name: store_derived_eth_prices
+    kind: store
+    updatePolicy: set
+    initialBlock: 12369621
+    valueType: string
+    inputs:
+      - map: map_sqrt_price
       - store: store_liquidity
       - store: store_pools
       - store: store_pools_initialization
