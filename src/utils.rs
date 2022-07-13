@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul, Neg};
+use std::str;
 use std::str::FromStr;
 use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, Num, One, Zero};
@@ -67,7 +68,7 @@ pub fn sqrt_price_x96_to_token_prices(
         .div(exponent_to_big_decimal(&token1_decimals));
 
     log::info!("price1: {}", price1);
-    let price0 = safe_div(BigDecimal::one(), &price1);
+    let price0 = safe_div(&BigDecimal::one(), &price1);
 
     return (price0, price1);
 }
@@ -99,7 +100,7 @@ pub fn get_eth_price_in_usd(sqrt_price_store: &StoreGet, pools_store: &StoreGet,
             };
 
             let sqrt_price = get_last_sqrt_price(sqrt_price_store, USDC_WETH_03_POOL).unwrap();
-            sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1).0
+            sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1).0 // token 0 is USDC
         }
     }
 }
@@ -107,12 +108,7 @@ pub fn get_eth_price_in_usd(sqrt_price_store: &StoreGet, pools_store: &StoreGet,
 pub fn find_eth_per_token(
     log_ordinal: u64,
     token_address: &str,
-    pools_store: &StoreGet,
-    pools_init_store: &StoreGet,
-    sqrt_price_store: &StoreGet,
-    tokens_store: &StoreGet,
-    whitelist_pools_store: &StoreGet,
-    liquidity_store: &StoreGet,
+    prices_store: &StoreGet,
 ) -> BigDecimal {
     log::debug!("Finding ETH per token for {}", token_address);
 
@@ -120,121 +116,83 @@ pub fn find_eth_per_token(
         return BigDecimal::one();
     }
 
-    let bd_one = BigDecimal::one().with_prec(100);
-    let bd_zero= BigDecimal::zero().with_prec(100);
-    let minimum_eth_locked = &BigDecimal::from(60 as i64).with_prec(100);
-    let mut largest_liquidity_eth = BigDecimal::zero().with_prec(100);
-    let mut price_so_far = BigDecimal::zero().with_prec(100);
-    let mut whitelist_pools: Vec<&str> = vec![];
-    let mut whitelist_pools_proto_string: String = String::default();
+    let bd_zero= BigDecimal::zero();
 
-    match whitelist_pools_store.get_last(&format!("token:{}", token_address)) {
-        None => {
-            // do nothing
-        }
-        Some(whitelist_pools_bytes) => {
-            whitelist_pools_proto_string = String::from_utf8(whitelist_pools_bytes.to_vec()).unwrap();
-        }
+    let direct_to_eth_price = match prices_store.get_last(
+        &format!("price:{}:{}", WETH_ADDRESS, token_address)
+    ) {
+        None => bd_zero, // maybe do the check the other way around
+        Some(price_bytes) => decode_price_bytes_to_big_decimal(&price_bytes)
+    };
+
+    if direct_to_eth_price.ne(&zero_big_decimal()) {
+        return direct_to_eth_price;
     }
 
-    for p in whitelist_pools_proto_string.split(";") {
-        if !p.is_empty() {
-            whitelist_pools.push(p);
-        }
-    }
-
-    if STABLE_COINS.contains(&token_address) {
-        let eth_price_usd = get_eth_price_in_usd(sqrt_price_store, pools_store, tokens_store);
-        price_so_far = safe_div(bd_one, &eth_price_usd);
-    } else {
-        for pool_address in whitelist_pools.iter() {
-            match get_last_pool(&pools_store, pool_address) {
-                Err(_) => {
-                    continue;
+    // loop all whitelist for a matching pool
+    for major_token in WHITELIST_TOKENS {
+        // not sure about the double match here
+        let major_to_eth_price = match prices_store.get_at(
+            log_ordinal,
+            &format!("price:{}:{}", major_token, token_address)
+        ) {
+            None => {
+                log::info!("major_to_eth_price price no match for price:{}:{}", token_address, major_token);
+                match prices_store.get_at(
+                    log_ordinal,
+                    &format!("price:{}:{}", major_token, token_address)
+                ) {
+                    None => {
+                        log::info!("major_to_eth_price no match for price:{}:{}", major_token, token_address);
+                        continue
+                    },
+                    Some(price_bytes) => {
+                        log::info!("major_to_eth_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
+                        decode_price_bytes_to_big_decimal(&price_bytes)
+                    },
                 }
-                Ok(pool) => {
-                    let liquidity : BigDecimal = get_last_liquidity_or_zero(liquidity_store, pool_address);
-                    if !liquidity.gt(&bd_zero) {
-                        continue;
-                    }
+            },
+            Some(price_bytes) => {
+                log::info!("major_to_eth_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
+                decode_price_bytes_to_big_decimal(&price_bytes)
+            },
+        };
 
-                    let token0 : UniswapToken = get_last_token(tokens_store, &pool.token0_address).unwrap();
-                    let token1 : UniswapToken = get_last_token(tokens_store, &pool.token1_address).unwrap();
-                    let sqrt_price = match get_last_sqrt_price(sqrt_price_store, pool_address) {
-                        Err(_) => {
-                            panic!("pool {} has {} liquidity but no sqrt price. this makes no sense", pool_address, liquidity);
-                        }
-                        Ok(sqrt_price) => {
-                            sqrt_price
-                        }
-                    };
-
-                    let prices = sqrt_price_x96_to_token_prices(
-                        &sqrt_price,
-                        &token0,
-                        &token1,
-                    );
-
-                    // FIXME: gonna need to remove the recursion here
-                    if pool.token0_address == token_address {
-                        let token_1_derived_eth = find_eth_per_token(
-                            log_ordinal,
-                            &pool.token1_address,
-                            &pools_store,
-                            &pools_init_store,
-                            &sqrt_price_store,
-                            &tokens_store,
-                            &whitelist_pools_store,
-                            &liquidity_store,
-                        );
-                        log::info!("token_1_derived_eth : {}", token_1_derived_eth);
-
-                        let eth_locked = get_last_total_value_locked_or_zero(
-                            liquidity_store,
-                            pool_address,
-                            &pool.token0_address,
-                        ).mul(&token_1_derived_eth);
-
-                        if eth_locked.gt(&largest_liquidity_eth) && eth_locked.gt( minimum_eth_locked) {
-                            largest_liquidity_eth = eth_locked;
-                            price_so_far = prices.1.mul(token_1_derived_eth);
-                        }
-                    }
-
-                    // FIXME: gonna need to remove the recursion here
-                    if pool.token1_address == token_address {
-                        let token0_derived_eth = find_eth_per_token(
-                            log_ordinal,
-                            &pool.token0_address,
-                            &pools_store,
-                            &pools_init_store,
-                            &sqrt_price_store,
-                            &tokens_store,
-                            &whitelist_pools_store,
-                            &liquidity_store,
-                        );
-
-                        log::info!("token0_derived_eth : {}", token0_derived_eth);
-                        let eth_locked = get_last_total_value_locked_or_zero(
-                            liquidity_store,
-                            pool_address,
-                            &pool.token1_address,
-                        ).mul(&token0_derived_eth);
-
-                        if eth_locked.gt(&largest_liquidity_eth) && eth_locked.gt(minimum_eth_locked) {
-                            largest_liquidity_eth = eth_locked;
-                            price_so_far = prices.0.mul(token0_derived_eth);
-                        }
-                    }
+        // not sure about the double match here
+        let tiny_to_major_price = match prices_store.get_at(
+            log_ordinal,
+            &format!("price:{}:{}", token_address, major_token)
+        ) {
+            None => {
+                log::info!("tiny_to_major_price no match for price:{}:{}", token_address, major_token);
+                match prices_store.get_at(
+                    log_ordinal,
+                    &format!("price:{}:{}", major_token, token_address)
+                ) {
+                    None => {
+                        log::info!("tiny_to_major_price no match for price:{}:{}", major_token, token_address);
+                        continue
+                    },
+                    Some(price_bytes) => {
+                        log::info!("tiny_to_major_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
+                        decode_price_bytes_to_big_decimal(&price_bytes)
+                    },
                 }
-            }
-        }
+            },
+            Some(price_bytes) => {
+                log::info!("tiny_to_major_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
+                decode_price_bytes_to_big_decimal(&price_bytes)
+            },
+        };
+
+        log::info!("tiny to major price: {}, major to eth price: {}", tiny_to_major_price, major_to_eth_price);
+        return tiny_to_major_price.mul(major_to_eth_price);
     }
 
-    return price_so_far;
+    return zero_big_decimal();
 }
 
-pub fn safe_div(amount0: BigDecimal, amount1: &BigDecimal) -> BigDecimal {
+pub fn safe_div(amount0: &BigDecimal, amount1: &BigDecimal) -> BigDecimal {
     let big_decimal_zero: &BigDecimal = &BigDecimal::zero();
     return if amount1.eq(big_decimal_zero) {
         BigDecimal::zero()
@@ -251,7 +209,7 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
         return amount;
     }
     if exponent.lt(&BigInt::zero()) {
-        return safe_div(BigDecimal::one().with_prec(100), &big_decimal_exponated(amount, exponent.neg()));
+        return safe_div(&BigDecimal::one().with_prec(100), &big_decimal_exponated(amount, exponent.neg()));
     }
 
     let mut result = amount.clone();
@@ -385,4 +343,22 @@ pub fn get_last_pool_tick(pool_init_store: &StoreGet, swap_store: &StoreGet, poo
             }
         }
     }
+}
+
+pub fn generate_tokens_key(token0: &str, token1: &str) -> String {
+    if token0 > token1 {
+        return format!("{}:{}", token1, token0);
+    }
+    return format!("{}:{}", token0, token1);
+}
+
+fn decode_price_bytes_to_big_decimal(price_bytes: &Vec<u8>) -> BigDecimal {
+    let price_from_store_decoded = str::from_utf8(price_bytes.as_slice()).unwrap();
+    return BigDecimal::from_str(price_from_store_decoded)
+        .unwrap()
+        .with_prec(100);
+}
+
+fn zero_big_decimal() -> BigDecimal {
+    BigDecimal::zero().with_prec(100)
 }

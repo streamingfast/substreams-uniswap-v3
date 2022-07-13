@@ -139,12 +139,9 @@ modules:
     valueType: string
     inputs:
       - map: map_sqrt_price
-      - store: store_liquidity
       - store: store_pools
-      - store: store_pools_initialization
-      - store: store_sqrt_price
+      - store: store_prices
       - store: store_uniswap_tokens
-      - store: store_uniswap_tokens_whitelist_pools
 
   - name: map_fees
     kind: map
