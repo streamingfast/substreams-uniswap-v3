@@ -142,7 +142,7 @@ modules:
       - store: store_liquidity
       - store: store_pools
       - store: store_pools_initialization
-      - store: store_swaps
+      - store: store_sqrt_price
       - store: store_uniswap_tokens
       - store: store_uniswap_tokens_whitelist_pools
 

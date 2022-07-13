@@ -5,7 +5,7 @@ use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, Num, One, Zero};
 use prost::DecodeError;
 use substreams::{proto};
-use crate::{pb, Pool, UniswapToken};
+use crate::{pb, Pool, SqrtPriceUpdate, SqrtPriceUpdates, UniswapToken};
 use substreams::store::StoreGet;
 use substreams::log;
 
@@ -72,7 +72,7 @@ pub fn sqrt_price_x96_to_token_prices(
     return (price0, price1);
 }
 
-pub fn get_eth_price_in_usd(swap_store: &StoreGet, pools_store: &StoreGet, pools_init_store: &StoreGet, tokens_store: &StoreGet) -> BigDecimal {
+pub fn get_eth_price_in_usd(sqrt_price_store: &StoreGet, pools_store: &StoreGet, tokens_store: &StoreGet) -> BigDecimal {
     return match pools_store.get_last(&format!("pool:{}", USDC_WETH_03_POOL)) {
         None => {
             BigDecimal::zero()
@@ -98,7 +98,7 @@ pub fn get_eth_price_in_usd(swap_store: &StoreGet, pools_store: &StoreGet, pools
                 }
             };
 
-            let sqrt_price = get_last_pool_sqrt_price(pools_init_store, swap_store, USDC_WETH_03_POOL).unwrap();
+            let sqrt_price = get_last_sqrt_price(sqrt_price_store, USDC_WETH_03_POOL).unwrap();
             sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1).0
         }
     }
@@ -109,7 +109,7 @@ pub fn find_eth_per_token(
     token_address: &str,
     pools_store: &StoreGet,
     pools_init_store: &StoreGet,
-    swap_store: &StoreGet,
+    sqrt_price_store: &StoreGet,
     tokens_store: &StoreGet,
     whitelist_pools_store: &StoreGet,
     liquidity_store: &StoreGet,
@@ -144,7 +144,7 @@ pub fn find_eth_per_token(
     }
 
     if STABLE_COINS.contains(&token_address) {
-        let eth_price_usd = get_eth_price_in_usd(swap_store, pools_store, pools_init_store, tokens_store);
+        let eth_price_usd = get_eth_price_in_usd(sqrt_price_store, pools_store, tokens_store);
         price_so_far = safe_div(bd_one, &eth_price_usd);
     } else {
         for pool_address in whitelist_pools.iter() {
@@ -160,7 +160,7 @@ pub fn find_eth_per_token(
 
                     let token0 : UniswapToken = get_last_token(tokens_store, &pool.token0_address).unwrap();
                     let token1 : UniswapToken = get_last_token(tokens_store, &pool.token1_address).unwrap();
-                    let sqrt_price = match get_last_pool_sqrt_price(pools_init_store, swap_store, pool_address) {
+                    let sqrt_price = match get_last_sqrt_price(sqrt_price_store, pool_address) {
                         Err(_) => {
                             panic!("pool {} has {} liquidity but no sqrt price. this makes no sense", pool_address, liquidity);
                         }
@@ -182,7 +182,7 @@ pub fn find_eth_per_token(
                             &pool.token1_address,
                             &pools_store,
                             &pools_init_store,
-                            &swap_store,
+                            &sqrt_price_store,
                             &tokens_store,
                             &whitelist_pools_store,
                             &liquidity_store,
@@ -208,7 +208,7 @@ pub fn find_eth_per_token(
                             &pool.token0_address,
                             &pools_store,
                             &pools_init_store,
-                            &swap_store,
+                            &sqrt_price_store,
                             &tokens_store,
                             &whitelist_pools_store,
                             &liquidity_store,
@@ -289,7 +289,11 @@ pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool,
     proto::decode(&pools_store.get_last(&format!("pool:{}", pool_address)).unwrap())
 }
 
-pub fn get_last_swap(swap_store: &StoreGet, pool_address: &str) -> Result<pb::uniswap::Swap, DecodeError> {
+fn get_last_sqrt_price_update(sqrt_price_store: &StoreGet, pool_address: &str) -> Result<SqrtPriceUpdate, DecodeError> {
+    proto::decode(&sqrt_price_store.get_last(&format!("sqrt_price:{}", pool_address)).unwrap())
+}
+
+fn get_last_swap(swap_store: &StoreGet, pool_address: &str) -> Result<pb::uniswap::Swap, DecodeError> {
     return match &swap_store.get_last(&format!("swap:{}", pool_address)) {
         None => {
             Err(DecodeError::new("No swap found"))
@@ -329,6 +333,17 @@ pub fn get_pool_init(pool_init_store: &StoreGet, pool_address: &str) -> Result<p
         }
         Some(pool_init_bytes) => {
             Ok(proto::decode(pool_init_bytes).unwrap())
+        }
+    }
+}
+
+pub fn get_last_sqrt_price(sqrt_price_store: &StoreGet, pool_address: &str) -> Result<BigDecimal, DecodeError> {
+    return match get_last_sqrt_price_update(sqrt_price_store, pool_address) {
+        Ok(sqrt_price_update) => {
+            Ok(BigDecimal::from_str(sqrt_price_update.sqrt_price.as_str()).unwrap())
+        }
+        Err(_) => {
+            Err(DecodeError::new(format!("no pool init or swap for the pool: {}", pool_address)))
         }
     }
 }
