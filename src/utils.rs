@@ -116,7 +116,7 @@ pub fn find_eth_per_token(
         return BigDecimal::one();
     }
 
-    let bd_zero= BigDecimal::zero();
+    let bd_zero = BigDecimal::zero();
 
     let direct_to_eth_price = match prices_store.get_last(
         &format!("price:{}:{}", WETH_ADDRESS, token_address)

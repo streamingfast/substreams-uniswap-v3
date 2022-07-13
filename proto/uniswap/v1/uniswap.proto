@@ -6,11 +6,13 @@ message UniswapTokens {
   repeated UniswapToken uniswapTokens = 1;
 }
 
+// FIXME: rename to `ERC20Token` ..
 message UniswapToken {
   string address = 1;
   string name = 2;
   string symbol = 3;
   uint64 decimals = 4;
+  // FIXME: remove this as we're going to loop through them all each time now
   repeated string whitelist_pools = 5;
 }
 
@@ -25,8 +27,8 @@ message Pools {
 
 message Pool {
   string address = 1;
-  string token0_address = 2;
-  string token1_address = 3;
+  UniswapToken token0 = 2;
+  UniswapToken token1 = 3;
   string creation_transaction_id = 4;
   uint32 fee = 5;
   string block_num = 6;
