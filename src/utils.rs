@@ -136,22 +136,7 @@ pub fn find_eth_per_token(
             log_ordinal,
             &format!("price:{}:{}", major_token, token_address)
         ) {
-            None => {
-                log::info!("major_to_eth_price price no match for price:{}:{}", token_address, major_token);
-                match prices_store.get_at(
-                    log_ordinal,
-                    &format!("price:{}:{}", major_token, token_address)
-                ) {
-                    None => {
-                        log::info!("major_to_eth_price no match for price:{}:{}", major_token, token_address);
-                        continue
-                    },
-                    Some(price_bytes) => {
-                        log::info!("major_to_eth_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
-                        decode_price_bytes_to_big_decimal(&price_bytes)
-                    },
-                }
-            },
+            None => continue,
             Some(price_bytes) => {
                 log::info!("major_to_eth_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
                 decode_price_bytes_to_big_decimal(&price_bytes)
@@ -163,22 +148,7 @@ pub fn find_eth_per_token(
             log_ordinal,
             &format!("price:{}:{}", token_address, major_token)
         ) {
-            None => {
-                log::info!("tiny_to_major_price no match for price:{}:{}", token_address, major_token);
-                match prices_store.get_at(
-                    log_ordinal,
-                    &format!("price:{}:{}", major_token, token_address)
-                ) {
-                    None => {
-                        log::info!("tiny_to_major_price no match for price:{}:{}", major_token, token_address);
-                        continue
-                    },
-                    Some(price_bytes) => {
-                        log::info!("tiny_to_major_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
-                        decode_price_bytes_to_big_decimal(&price_bytes)
-                    },
-                }
-            },
+            None => continue,
             Some(price_bytes) => {
                 log::info!("tiny_to_major_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
                 decode_price_bytes_to_big_decimal(&price_bytes)
