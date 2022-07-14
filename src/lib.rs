@@ -26,12 +26,12 @@ use crate::utils::{get_last_pool_tick, big_decimal_exponated, safe_div};
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut output = pb::uniswap::Pools { pools: vec![] };
+    let mut cached_tokens = HashMap::new();
+    let mut uniswap_tokens = UniswapTokens { uniswap_tokens: vec![] };
+
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
-
-	    // FIXME: check if call successful, and was not reverted.
-	    
-            if hex::encode(&call.address) != utils::UNISWAP_V3_FACTORY {
+            if call.state_reverted || hex::encode(&call.address) != utils::UNISWAP_V3_FACTORY {
                 continue;
             }
 
@@ -41,117 +41,85 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                 }
 
                 let event = abi::factory::events::PoolCreated::must_decode(&call_log);
-                output.pools.push(Pool {
+                let mut pool: Pool = Pool {
                     address: Hex(&call_log.data[44..64]).to_string(),
-                    token0_address: Hex(&event.token0).to_string(),
-                    token1_address: Hex(&event.token1).to_string(),
+                    token0: None,
+                    token1: None,
                     creation_transaction_id: Hex(&trx.hash).to_string(),
                     fee: event.fee.as_u32(),
                     block_num: block.number.to_string(),
                     log_ordinal: call_log.ordinal,
                     tick_spacing: event.tick_spacing.to_i32().unwrap(),
-                });
+                };
+
+                // section to check the validity of the token0 and token1
+                // maybe extract in a method called validate_token(...)
+                // we will ONLY add a pool if both tokens are considered
+                // valid ERC20 Tokens, if not
+                let mut can_add_pool = true;
+                let mut uniswap_token0_option: Option<UniswapToken> = None;
+                let mut uniswap_token1_option: Option<UniswapToken> = None;
+                let mut uniswap_token0 = UniswapToken {
+                    address: "".to_string(),
+                    name: "".to_string(),
+                    symbol: "".to_string(),
+                    decimals: 0,
+                    whitelist_pools: vec![]
+                };
+                let mut uniswap_token1 = UniswapToken {
+                    address: "".to_string(),
+                    name: "".to_string(),
+                    symbol: "".to_string(),
+                    decimals: 0,
+                    whitelist_pools: vec![]
+                };
+
+                let token0_address: String = Hex(&event.token0).to_string();
+                if !cached_tokens.contains_key(&token0_address) {
+                    uniswap_token0_option = rpc::create_uniswap_token(&token0_address);
+                    if uniswap_token0_option.is_none() {
+                        can_add_pool = false;
+                    } else {
+                        uniswap_token0 = uniswap_token0_option.unwrap();
+                        cached_tokens.insert(String::from(&token0_address), true);
+
+                        if !uniswap_tokens.uniswap_tokens.contains(&uniswap_token0) {
+                            if utils::WHITELIST_TOKENS.contains(&token0_address.as_str()) {
+                                uniswap_token0.whitelist_pools.push(String::from(&pool.address))
+                            }
+                        }
+                    }
+                }
+
+                let token1_address: String = Hex(&event.token1).to_string();
+                if !cached_tokens.contains_key(&token1_address) {
+                    uniswap_token1_option = rpc::create_uniswap_token(&token1_address);
+                    if uniswap_token1_option.is_none() {
+                        can_add_pool = false;
+                    } else {
+                        uniswap_token1 = uniswap_token1_option.unwrap();
+                        cached_tokens.insert(String::from(&token1_address), true);
+
+                        if !uniswap_tokens.uniswap_tokens.contains(&uniswap_token1) {
+                            if utils::WHITELIST_TOKENS.contains(&token1_address.as_str()) {
+                                uniswap_token1.whitelist_pools.push(String::from(&pool.address))
+                            }
+                        }
+                    }
+                }
+
+                if can_add_pool {
+                    pool.token0 = Some(uniswap_token0.clone());
+                    pool.token1 = Some(uniswap_token1.clone());
+                    output.pools.push(pool);
+                    uniswap_tokens.uniswap_tokens.push(uniswap_token0);
+                    uniswap_tokens.uniswap_tokens.push(uniswap_token1);
+                }
             }
         }
     }
 
     Ok(output)
-}
-
-#[substreams::handlers::map]
-pub fn map_uniswap_tokens(pools: pb::uniswap::Pools) -> Result<UniswapTokens, Error> {
-    let mut output = UniswapTokens { uniswap_tokens: vec![] };
-
-    //todo(colin): do we really care enough to cache tokens?
-    let mut cached_tokens = HashMap::new();
-
-    for pool in pools.pools {
-        log::info!("pool address: {}, trx_hash: {}", pool.address, pool.creation_transaction_id);
-
-        // TODO: refactor this...
-        let mut can_add_pool = true;
-        let mut uniswap_token0_option: Option<UniswapToken> = None;
-        let mut uniswap_token1_option: Option<UniswapToken> = None;
-        let mut uniswap_token0 = UniswapToken {
-            address: "".to_string(),
-            name: "".to_string(),
-            symbol: "".to_string(),
-            decimals: 0,
-            whitelist_pools: vec![]
-        };
-        let mut uniswap_token1 = UniswapToken {
-            address: "".to_string(),
-            name: "".to_string(),
-            symbol: "".to_string(),
-            decimals: 0,
-            whitelist_pools: vec![]
-        };
-
-        let token0_address: String = pool.token0_address;
-        if !cached_tokens.contains_key(&token0_address) {
-            uniswap_token0_option = rpc::create_uniswap_token(&token0_address);
-            if uniswap_token0_option.is_none() {
-                can_add_pool = false;
-            } else {
-                uniswap_token0 = uniswap_token0_option.unwrap();
-                cached_tokens.insert(String::from(&token0_address), true);
-
-                if !output.uniswap_tokens.contains(&uniswap_token0) {
-                    if utils::WHITELIST_TOKENS.contains(&token0_address.as_str()) {
-                        uniswap_token0.whitelist_pools.push(String::from(&pool.address))
-                    }
-                }
-            }
-        }
-
-        let token1_address: String = pool.token1_address;
-        if !cached_tokens.contains_key(&token1_address) {
-            uniswap_token1_option = rpc::create_uniswap_token(&token1_address);
-            if uniswap_token1_option.is_none() {
-                can_add_pool = false;
-            } else {
-                uniswap_token1 = uniswap_token1_option.unwrap();
-                cached_tokens.insert(String::from(&token1_address), true);
-
-                if !output.uniswap_tokens.contains(&uniswap_token1) {
-                    if utils::WHITELIST_TOKENS.contains(&token1_address.as_str()) {
-                        uniswap_token1.whitelist_pools.push(String::from(&pool.address))
-                    }
-                }
-            }
-        }
-
-        if can_add_pool {
-            output.uniswap_tokens.push(uniswap_token0);
-            output.uniswap_tokens.push(uniswap_token1);
-        }
-    }
-
-    Ok(output)
-}
-
-#[substreams::handlers::store]
-pub fn store_uniswap_tokens(uniswap_tokens: UniswapTokens, output_set: StoreSet) {
-    for uniswap_token in uniswap_tokens.uniswap_tokens {
-        output_set.set(
-            1,
-            format!("token:{}", uniswap_token.address),
-            &proto::encode(&uniswap_token).unwrap()
-        );
-    }
-}
-
-#[substreams::handlers::store]
-pub fn store_uniswap_tokens_whitelist_pools(uniswap_tokens: UniswapTokens, output_append: StoreAppend) {
-    for uniswap_token in uniswap_tokens.uniswap_tokens {
-        for pools in uniswap_token.whitelist_pools {
-            output_append.append(
-                1,
-                format!("token:{}", uniswap_token.address),
-                &format!("{};", pools.to_string())
-            )
-        }
-    }
 }
 
 #[substreams::handlers::map]
@@ -221,6 +189,8 @@ pub fn store_sqrt_price(sqrt_prices: SqrtPriceUpdates, output: StoreSet) {
     }
 }
 
+/// Keyspace
+///     pool_init:{pool_init.address} -> stores an encoded value of the pool_init
 #[substreams::handlers::store]
 pub fn store_pools_initialization(pools: pb::uniswap::PoolInitializations, output_set: StoreSet) {
     for init in pools.pool_initializations {
@@ -232,42 +202,28 @@ pub fn store_pools_initialization(pools: pb::uniswap::PoolInitializations, outpu
     }
 }
 
-// note: here we do something a bit different than the unisap-v3-subgraph,
-// we have to ONLY set the pools which contain valid tokens and not just any pool OR do we want to
-// store pools with invalid tokens? this is what the uniswap-v3-subgraph seems to be doing...
+/// Keyspace
+///     pool:{pool.address} -> stores an encoded value of the pool
+///     tokens:{}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
 #[substreams::handlers::store]
-pub fn store_pools(pools: pb::uniswap::Pools, tokens_store: StoreGet, output: StoreSet) {
+pub fn store_pools(pools: pb::uniswap::Pools, output: StoreSet) {
     for pool in pools.pools {
-        match tokens_store.get_last(&format!("token:{}", pool.token0_address)) {
-            None => {
-                continue
-            }
-            Some(_) => {
-                match tokens_store.get_last(&format!("token:{}", pool.token1_address)) {
-                    None => {
-                        continue
-                    }
-                    Some(_) => {
-                        output.set(
-                            pool.log_ordinal,
-                            format!("pool:{}", pool.address),
-                            &proto::encode(&pool).unwrap(),
-                        );
-                        output.set(
-                            pool.log_ordinal,
-                            format!(
-                                "tokens:{}",
-                                utils::generate_tokens_key(
-                                    pool.token0_address.as_str(),
-                                    pool.token1_address.as_str(),
-                                )
-                            ),
-                            &proto::encode(&pool).unwrap(),
-                        )
-                    }
-                }
-            }
-        }
+        output.set(
+            pool.log_ordinal,
+            format!("pool:{}", pool.address),
+            &proto::encode(&pool).unwrap(),
+        );
+        output.set(
+            pool.log_ordinal,
+            format!(
+                "tokens:{}",
+                utils::generate_tokens_key(
+                    pool.token0.as_ref().unwrap().address.as_str(),
+                    pool.token1.as_ref().unwrap().address.as_str(),
+                )
+            ),
+            &proto::encode(&pool).unwrap(),
+        )
     }
 }
 
@@ -288,13 +244,13 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                         // log::info!("trx id: {}", &Hex(trx.hash.clone()).to_string());
                         let pool: Pool = proto::decode(&pool_bytes).unwrap();
 
-			// FIXME: get the `token0` and `token1` decimals, so we can pass down the `amount_0` and `amount_1` with the proper decimal values.
+			            // FIXME: get the `token0` and `token1` decimals, so we can pass down the `amount_0` and `amount_1` with the proper decimal values.
 
                         output.events.push(Event{
                             log_ordinal: log.ordinal,
                             pool_address: pool.address.to_string(),
-                            token0: pool.token0_address.to_string(),
-                            token1: pool.token1_address.to_string(),
+                            token0: pool.token0.as_ref().unwrap().address.to_string(),
+                            token1: pool.token1.as_ref().unwrap().address.to_string(),
                             fee: pool.fee.to_string(),
                             transaction_id: Hex(&trx.hash).to_string(),
                             timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
@@ -324,12 +280,12 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
 
 			// FIXME: get the decimals from the `pool.token0.decimals` and bake it into
 			// `amount_0`
-			
+
                         output.events.push(Event{
                             log_ordinal: log.ordinal,
                             pool_address: pool.address.to_string(),
-                            token0: pool.token0_address.to_string(),
-                            token1: pool.token1_address.to_string(),
+                            token0: pool.token0.as_ref().unwrap().address.to_string(),
+                            token1: pool.token1.as_ref().unwrap().address.to_string(),
                             fee: pool.fee.to_string(),
                             transaction_id: Hex(&trx.hash).to_string(),
                             timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
@@ -355,14 +311,13 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                     }
                     Some(pool_bytes) => {
                         let pool: Pool = proto::decode(&pool_bytes).unwrap();
-
-			// FIXME: see above, bake in decimals
+			            // FIXME: see above, bake in decimals
 
                         output.events.push(Event{
                             log_ordinal: log.ordinal,
                             pool_address: pool.address.to_string(),
-                            token0: pool.token0_address.to_string(),
-                            token1: pool.token1_address.to_string(),
+                            token0: pool.token0.unwrap().address,
+                            token1: pool.token1.unwrap().address,
                             fee: pool.fee.to_string(),
                             transaction_id: Hex(&trx.hash).to_string(),
                             timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
@@ -447,10 +402,10 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: StoreSet) {
     }
 }
 
-// Keyspace:
-//
-//    total_value_locked:{tokenA}:{tokenB} => 0.1231 (tokenA total value locked, summed for all pools dealing with tokenA:tokenB, in floating point decimal taking tokenA's decimals in consideration).
-//
+/// Keyspace:
+///
+///    total_value_locked:{tokenA}:{tokenB} => 0.1231 (tokenA total value locked, summed for all pools dealing with tokenA:tokenB, in floating point decimal taking tokenA's decimals in consideration).
+///
 #[substreams::handlers::store]
 pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_init_store: StoreGet, output: StoreAddBigFloat) {
     for event in events.events {
@@ -462,13 +417,13 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
 		    // FIXME: Fetch the token0 and token1 decimals FROM the pool, and bake in
 		    // the token decimals into those amounts here, so we pass down
 		    // only right and properly decimalized values.
-		    
+
 		    // WHOOPS FIXME: if managed at the
 		    // `map_swaps_mints_burns` above, then we can
 		    // avoid doing it here.. It's best done in MAPPERS
 		    // actually, which can be parallelized more than
 		    // stores.
-		    
+
                     //get pool info from last swap event
                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
@@ -545,18 +500,15 @@ pub fn store_prices(
 ) {
     for sqrt_price_update in sqrt_price_updates.sqrt_prices {
         let pool = utils::get_last_pool(&pools_store, sqrt_price_update.pool_address.as_str()).unwrap();
-
-        log::debug!("pool addr: {}, token0 addr: {}, token1 addr: {}", pool.address, pool.token0_address, pool.token1_address);
-        let token_0 = utils::get_last_token(&tokens_store, pool.token0_address.as_str()).unwrap();
-        let token_1 = utils::get_last_token(&tokens_store, pool.token1_address.as_str()).unwrap();
-
-        log::info!("token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}", token_0.address, token_0.decimals, token_0.symbol, token_0.name);
-        log::info!("token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}", token_1.address, token_1.decimals, token_1.symbol, token_1.name);
+        log::info!("token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}",
+            pool.token0.as_ref().unwrap().address, pool.token0.as_ref().unwrap().decimals, pool.token0.as_ref().unwrap().symbol, pool.token0.as_ref().unwrap().name);
+        log::info!("token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}",
+            pool.token1.as_ref().unwrap().address, pool.token1.as_ref().unwrap().decimals, pool.token1.as_ref().unwrap().symbol, pool.token1.as_ref().unwrap().name);
 
         let sqrt_price = BigDecimal::from_str(sqrt_price_update.sqrt_price.as_str()).unwrap();
         log::info!("sqrtPrice: {}", sqrt_price.to_string());
 
-        let tokens_price: (BigDecimal, BigDecimal) = utils::sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1);
+        let tokens_price: (BigDecimal, BigDecimal) = utils::sqrt_price_x96_to_token_prices(&sqrt_price, &pool.token0.as_ref().unwrap(), &pool.token1.as_ref().unwrap());
         log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
 
         // output.set(
@@ -569,15 +521,15 @@ pub fn store_prices(
         //     format!("pool:{}:token:{}:price", pool.address, token_1.address),
         //     &Vec::from(tokens_price.1.to_string())
         // );
-	
+
         output.set(
             sqrt_price_update.ordinal,
-            format!("price:{}:{}", token_0.address, token_1.address),
+            format!("price:{}:{}", pool.token0.as_ref().unwrap().address, pool.token1.as_ref().unwrap().address),
             &Vec::from(tokens_price.0.to_string())
         );
         output.set(
             sqrt_price_update.ordinal,
-            format!("price:{}:{}", token_1.address, token_0.address),
+            format!("price:{}:{}", pool.token1.as_ref().unwrap().address, pool.token0.as_ref().unwrap().address),
             &Vec::from(tokens_price.1.to_string())
         );
 	// perhaps? set `sqrt_price:{pair}:{tokenA} => 0.123`
@@ -585,10 +537,6 @@ pub fn store_prices(
     }
 }
 
-// use my pricing store
-// like the find_bnb but no reserves and put in the price store
-// then
-//
 // Sets keys:
 //    dprice:
 #[substreams::handlers::store]
@@ -596,18 +544,18 @@ pub fn store_derived_eth_prices(
     sqrt_price_updates: SqrtPriceUpdates,
     pools_store: StoreGet,
     prices_store: StoreGet,
-    tokens_store: StoreGet,
     output: StoreSet
 ) {
     for sqrt_price_update in sqrt_price_updates.sqrt_prices {
         log::debug!("fetching pool: {}", sqrt_price_update.pool_address);
         let pool = utils::get_last_pool(&pools_store, sqrt_price_update.pool_address.as_str()).unwrap();
+        let token_0 = pool.token0.as_ref().unwrap();
+        let token_1 = pool.token1.as_ref().unwrap();
 
-        let token_0 = utils::get_last_token(&tokens_store, pool.token0_address.as_str()).unwrap();
-        let token_1 = utils::get_last_token(&tokens_store, pool.token1_address.as_str()).unwrap();
-
-        log::info!("token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}", token_0.address, token_0.decimals, token_0.symbol, token_0.name);
-        log::info!("token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}", token_1.address, token_1.decimals, token_1.symbol, token_1.name);
+        log::info!("token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}",
+            token_0.address, token_0.decimals, token_0.symbol, token_0.name);
+        log::info!("token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}",
+            token_1.address, token_1.decimals, token_1.symbol, token_1.name);
 
         let token0_derived_eth_price = utils::find_eth_per_token(
             sqrt_price_update.ordinal,

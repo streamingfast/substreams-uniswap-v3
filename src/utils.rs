@@ -73,37 +73,37 @@ pub fn sqrt_price_x96_to_token_prices(
     return (price0, price1);
 }
 
-pub fn get_eth_price_in_usd(sqrt_price_store: &StoreGet, pools_store: &StoreGet, tokens_store: &StoreGet) -> BigDecimal {
-    return match pools_store.get_last(&format!("pool:{}", USDC_WETH_03_POOL)) {
-        None => {
-            BigDecimal::zero()
-        }
-        Some(pool_bytes) => {
-            let pool: Pool = proto::decode(&pool_bytes).unwrap();
-
-            let token_0: UniswapToken = match tokens_store.get_last(&pool.token0_address) {
-                None => {
-                    return BigDecimal::zero();
-                }
-                Some(token_bytes) => {
-                    proto::decode(&token_bytes).unwrap()
-                }
-            };
-
-            let token_1: UniswapToken = match tokens_store.get_last(&pool.token1_address) {
-                None => {
-                    return BigDecimal::zero();
-                }
-                Some(token_bytes) => {
-                    proto::decode(&token_bytes).unwrap()
-                }
-            };
-
-            let sqrt_price = get_last_sqrt_price(sqrt_price_store, USDC_WETH_03_POOL).unwrap();
-            sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1).0 // token 0 is USDC
-        }
-    }
-}
+// pub fn get_eth_price_in_usd(sqrt_price_store: &StoreGet, pools_store: &StoreGet, tokens_store: &StoreGet) -> BigDecimal {
+//     return match pools_store.get_last(&format!("pool:{}", USDC_WETH_03_POOL)) {
+//         None => {
+//             BigDecimal::zero()
+//         }
+//         Some(pool_bytes) => {
+//             let pool: Pool = proto::decode(&pool_bytes).unwrap();
+//
+//             let token_0: UniswapToken = match tokens_store.get_last(&pool.token0_address) {
+//                 None => {
+//                     return BigDecimal::zero();
+//                 }
+//                 Some(token_bytes) => {
+//                     proto::decode(&token_bytes).unwrap()
+//                 }
+//             };
+//
+//             let token_1: UniswapToken = match tokens_store.get_last(&pool.token1_address) {
+//                 None => {
+//                     return BigDecimal::zero();
+//                 }
+//                 Some(token_bytes) => {
+//                     proto::decode(&token_bytes).unwrap()
+//                 }
+//             };
+//
+//             let sqrt_price = get_last_sqrt_price(sqrt_price_store, USDC_WETH_03_POOL).unwrap();
+//             sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1).0 // token 0 is USDC
+//         }
+//     }
+// }
 
 pub fn find_eth_per_token(
     log_ordinal: u64,
@@ -154,6 +154,10 @@ pub fn find_eth_per_token(
                 decode_price_bytes_to_big_decimal(&price_bytes)
             },
         };
+
+        // do the check here for the total_value_locked and check
+        // if there is a value, if there isn't continue the next loop
+        // iteration, if there is then continue and simply compute
 
         log::info!("tiny to major price: {}, major to eth price: {}", tiny_to_major_price, major_to_eth_price);
         return tiny_to_major_price.mul(major_to_eth_price);
@@ -209,8 +213,8 @@ pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     return result
 }
 
-pub fn get_last_token(tokens_store: &StoreGet, token_address: &str) -> Result<UniswapToken, DecodeError> {
-    proto::decode(&tokens_store.get_last(&format!("token:{}", token_address)).unwrap())
+pub fn get_last_token(pools_store: &StoreGet, token_address: &str) -> Result<UniswapToken, DecodeError> {
+    proto::decode(&pools_store.get_last(&format!("token:{}", token_address)).unwrap())
 }
 
 pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool, DecodeError> {
