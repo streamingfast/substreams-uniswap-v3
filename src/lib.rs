@@ -13,7 +13,7 @@ use bigdecimal::{BigDecimal, FromPrimitive};
 use num_bigint::BigInt;
 use substreams::errors::Error;
 use substreams::{Hex, log, proto, store};
-use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
+use substreams::store::{StoreAddBigFloat, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
 use bigdecimal::ToPrimitive;
 use crate::pb::uniswap::{Burn, Event, Flash, Mint, Pool, PoolInitialization, SqrtPriceUpdate, SqrtPriceUpdates, Tick, UniswapToken, UniswapTokens};
@@ -241,10 +241,10 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                         panic!("invalid swap. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
                     }
                     Some(pool_bytes) => {
-                        // log::info!("trx id: {}", &Hex(trx.hash.clone()).to_string());
                         let pool: Pool = proto::decode(&pool_bytes).unwrap();
 
-			            // FIXME: get the `token0` and `token1` decimals, so we can pass down the `amount_0` and `amount_1` with the proper decimal values.
+			            //FIXME: get the `token0` and `token1` decimals, so we can pass down the
+                        // `amount_0` and `amount_1` with the proper decimal values.
 
                         output.events.push(Event{
                             log_ordinal: log.ordinal,
@@ -259,7 +259,7 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                                 recipient: Hex(&swap.recipient).to_string(),
                                 amount_0: swap.amount0.to_string(), // big_decimal?
                                 amount_1: swap.amount1.to_string(), // big_decimal?
-                                sqrt_price: swap.sqrt_price_x96.to_string(), // big_decimal?
+                                sqrt_price: swap.sqrt_price_x96.to_string(),
                                 liquidity: swap.liquidity.to_string(),
                                 tick: swap.tick.to_i32().unwrap(),
                             })),
@@ -278,8 +278,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                     Some(pool_bytes) => {
                         let pool: Pool = proto::decode(&pool_bytes).unwrap();
 
-			// FIXME: get the decimals from the `pool.token0.decimals` and bake it into
-			// `amount_0`
+                        // FIXME: get the decimals from the `pool.token0.decimals` and bake it into
+                        //`amount_0`
 
                         output.events.push(Event{
                             log_ordinal: log.ordinal,
@@ -311,8 +311,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                     }
                     Some(pool_bytes) => {
                         let pool: Pool = proto::decode(&pool_bytes).unwrap();
-			            // FIXME: see above, bake in decimals
 
+                        // FIXME: see above, bake in decimals
                         output.events.push(Event{
                             log_ordinal: log.ordinal,
                             pool_address: pool.address.to_string(),
@@ -324,11 +324,11 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                             r#type: Some(MintEvent(Mint{
                                 owner: Hex(&mint.owner).to_string(),
                                 sender: Hex(&mint.sender).to_string(),
+                                amount: mint.amount.to_string(), // big_decimal?
                                 amount_0: mint.amount0.to_string(), // big_decimal?
                                 amount_1: mint.amount1.to_string(), // big_decimal?
                                 tick_lower: mint.tick_lower.to_i32().unwrap(),
                                 tick_upper: mint.tick_upper.to_i32().unwrap(),
-                                amount: mint.amount.to_string(), // big_decimal?
                             })),
                         });
                     }
@@ -414,15 +414,15 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
         if event.r#type.is_some() {
             match event.r#type.unwrap() {
                 Type::Burn(burn) => {
-		    // FIXME: Fetch the token0 and token1 decimals FROM the pool, and bake in
-		    // the token decimals into those amounts here, so we pass down
-		    // only right and properly decimalized values.
+                    //FIXME: Fetch the token0 and token1 decimals FROM the pool, and bake in
+                    // the token decimals into those amounts here, so we pass down
+                    // only right and properly decimalized values.
 
-		    // WHOOPS FIXME: if managed at the
-		    // `map_swaps_mints_burns` above, then we can
-		    // avoid doing it here.. It's best done in MAPPERS
-		    // actually, which can be parallelized more than
-		    // stores.
+                    //FIXME: if managed at the
+                    // `map_swaps_mints_burns` above, then we can
+                    // avoid doing it here.. It's best done in MAPPERS
+                    // actually, which can be parallelized more than
+                    // stores.
 
                     //get pool info from last swap event
                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
@@ -469,48 +469,45 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
 
                     output.add(
                         event.log_ordinal,
-			// FIXME: revise the consumers, so they use the new name (was "pool:{}:token:{}:total_value_locked")
-                        format!("amount_locked:{}:{}", event.pool_address, event.token0),
+			            // FIXME: revise the consumers, so they use the new name (was "pool:{}:token:{}:total_value_locked")
+                        format!("total_value_locked:{}:{}", event.pool_address, event.token0),
                         &amount0
                     );
                     output.add(
                         event.log_ordinal,
-                        format!("amount_locked:{}:{}", event.pool_address, event.token1),
+                        format!("total_value_locked:{}:{}", event.pool_address, event.token1),
                         &amount1
                     );
                 }
-                Type::Swap(swap) => {}
+                Type::Swap(_) => {}
             }
         }
     }
 }
 
-// Produces keys:
-//  price:{tokenA_address}:{tokenB_address}
-//
-//todo: alex wants this store split, have a store which computes the prices (maybe this store)
-// which will simply calculate the prices AND have another store which calculates the
-// `derivedEth`price of each token
+/// Keyspace
+///     price:{token0_addr}:{token1_addr} -> stores the tokens price 0 for token 1
+///     price:{token1_addr}:{token0_addr} -> stores the tokens price 1 for token 0
 #[substreams::handlers::store]
 pub fn store_prices(
     sqrt_price_updates: SqrtPriceUpdates,
     pools_store: StoreGet,
-    tokens_store: StoreGet,
     output: StoreSet
 ) {
     for sqrt_price_update in sqrt_price_updates.sqrt_prices {
         let pool = utils::get_last_pool(&pools_store, sqrt_price_update.pool_address.as_str()).unwrap();
-        log::info!("token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}",
-            pool.token0.as_ref().unwrap().address, pool.token0.as_ref().unwrap().decimals, pool.token0.as_ref().unwrap().symbol, pool.token0.as_ref().unwrap().name);
-        log::info!("token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}",
-            pool.token1.as_ref().unwrap().address, pool.token1.as_ref().unwrap().decimals, pool.token1.as_ref().unwrap().symbol, pool.token1.as_ref().unwrap().name);
+
+        let token0 = pool.token0.as_ref().unwrap();
+        let token1 = pool.token1.as_ref().unwrap();
+        log::info!("pool addr: {}, token 0 addr: {}, token 1 addr: {}", pool.address, token0.address, token1.address);
 
         let sqrt_price = BigDecimal::from_str(sqrt_price_update.sqrt_price.as_str()).unwrap();
         log::info!("sqrtPrice: {}", sqrt_price.to_string());
 
-        let tokens_price: (BigDecimal, BigDecimal) = utils::sqrt_price_x96_to_token_prices(&sqrt_price, &pool.token0.as_ref().unwrap(), &pool.token1.as_ref().unwrap());
+        let tokens_price: (BigDecimal, BigDecimal) = utils::sqrt_price_x96_to_token_prices(&sqrt_price, &token0, &token1);
         log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
 
+        // TODO: check if these keys are actually used anywhere
         // output.set(
         //     sqrt_price_update.ordinal,
         //     format!("pool:{}:token:{}:price", pool.address, token_0.address),
@@ -532,8 +529,8 @@ pub fn store_prices(
             format!("price:{}:{}", pool.token1.as_ref().unwrap().address, pool.token0.as_ref().unwrap().address),
             &Vec::from(tokens_price.1.to_string())
         );
-	// perhaps? set `sqrt_price:{pair}:{tokenA} => 0.123`
-	// We did that in Uniswap v2, we'll see if useful in the future.
+        // perhaps? set `sqrt_price:{pair}:{tokenA} => 0.123`
+        // We did that in Uniswap v2, we'll see if useful in the future.
     }
 }
 
@@ -544,6 +541,7 @@ pub fn store_derived_eth_prices(
     sqrt_price_updates: SqrtPriceUpdates,
     pools_store: StoreGet,
     prices_store: StoreGet,
+    liquidity_store: StoreGet,
     output: StoreSet
 ) {
     for sqrt_price_update in sqrt_price_updates.sqrt_prices {
@@ -559,14 +557,18 @@ pub fn store_derived_eth_prices(
 
         let token0_derived_eth_price = utils::find_eth_per_token(
             sqrt_price_update.ordinal,
+            &pool.address,
             &token_0.address.as_str(),
+            &liquidity_store,
             &prices_store,
         );
         log::info!("token0_derived_eth_price: {}", token0_derived_eth_price);
 
         let token1_derived_eth_price = utils::find_eth_per_token(
             sqrt_price_update.ordinal,
+            &pool.address,
             &token_1.address.as_str(),
+            &liquidity_store,
             &prices_store,
         );
         log::info!("token1_derived_eth_price: {}", token1_derived_eth_price);

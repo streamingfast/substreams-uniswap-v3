@@ -117,6 +117,7 @@ modules:
       - map: map_sqrt_price
       - store: store_pools
       - store: store_prices
+      - store: store_liquidity
 
   - name: map_fees
     kind: map

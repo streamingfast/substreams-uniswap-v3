@@ -15,7 +15,6 @@ prost-types = "0.10.1"
 hex = "0.4.3"
 substreams = { git = "https://github.com/streamingfast/substreams/", branch = "develop"  }
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum", branch = "feature/num_big_int_type" }
-
 num-bigint = "0.4"
 bigdecimal = "0.3"
 pad = "0.1"

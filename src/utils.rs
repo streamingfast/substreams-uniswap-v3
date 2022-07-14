@@ -73,41 +73,11 @@ pub fn sqrt_price_x96_to_token_prices(
     return (price0, price1);
 }
 
-// pub fn get_eth_price_in_usd(sqrt_price_store: &StoreGet, pools_store: &StoreGet, tokens_store: &StoreGet) -> BigDecimal {
-//     return match pools_store.get_last(&format!("pool:{}", USDC_WETH_03_POOL)) {
-//         None => {
-//             BigDecimal::zero()
-//         }
-//         Some(pool_bytes) => {
-//             let pool: Pool = proto::decode(&pool_bytes).unwrap();
-//
-//             let token_0: UniswapToken = match tokens_store.get_last(&pool.token0_address) {
-//                 None => {
-//                     return BigDecimal::zero();
-//                 }
-//                 Some(token_bytes) => {
-//                     proto::decode(&token_bytes).unwrap()
-//                 }
-//             };
-//
-//             let token_1: UniswapToken = match tokens_store.get_last(&pool.token1_address) {
-//                 None => {
-//                     return BigDecimal::zero();
-//                 }
-//                 Some(token_bytes) => {
-//                     proto::decode(&token_bytes).unwrap()
-//                 }
-//             };
-//
-//             let sqrt_price = get_last_sqrt_price(sqrt_price_store, USDC_WETH_03_POOL).unwrap();
-//             sqrt_price_x96_to_token_prices(&sqrt_price, &token_0, &token_1).0 // token 0 is USDC
-//         }
-//     }
-// }
-
 pub fn find_eth_per_token(
     log_ordinal: u64,
+    pool_address: &str,
     token_address: &str,
+    liquidity_store: &StoreGet,
     prices_store: &StoreGet,
 ) -> BigDecimal {
     log::debug!("Finding ETH per token for {}", token_address);
@@ -129,9 +99,10 @@ pub fn find_eth_per_token(
         return direct_to_eth_price;
     }
 
-    // loop all whitelist for a matching pool
+    let minimum_eth_locked = BigDecimal::from_str("60").unwrap();
+
+    // loop all whitelist for a matching token
     for major_token in WHITELIST_TOKENS {
-        // not sure about the double match here
         let major_to_eth_price = match prices_store.get_at(
             log_ordinal,
             &format!("price:{}:{}", major_token, token_address)
@@ -143,7 +114,6 @@ pub fn find_eth_per_token(
             },
         };
 
-        // not sure about the double match here
         let tiny_to_major_price = match prices_store.get_at(
             log_ordinal,
             &format!("price:{}:{}", token_address, major_token)
@@ -155,9 +125,12 @@ pub fn find_eth_per_token(
             },
         };
 
-        // do the check here for the total_value_locked and check
-        // if there is a value, if there isn't continue the next loop
-        // iteration, if there is then continue and simply compute
+        let major_reserve = get_last_total_value_locked_or_zero(liquidity_store, pool_address, token_address);
+
+        let eth_reserve_in_major_pair = major_to_eth_price.borrow().mul(major_reserve);
+        if eth_reserve_in_major_pair.le(&minimum_eth_locked) {
+            continue;
+        }
 
         log::info!("tiny to major price: {}, major to eth price: {}", tiny_to_major_price, major_to_eth_price);
         return tiny_to_major_price.mul(major_to_eth_price);
@@ -199,105 +172,8 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
     return result
 }
 
-pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
-    let mut result = BigDecimal::one();
-    let big_decimal_ten: &BigDecimal = &BigDecimal::from(10);
-    let big_int_one: &BigInt = &BigInt::one();
-
-    let mut i = BigInt::zero();
-    while i.lt(decimals) {
-        result = result.mul(big_decimal_ten);
-        i = i.add(big_int_one);
-    }
-
-    return result
-}
-
-pub fn get_last_token(pools_store: &StoreGet, token_address: &str) -> Result<UniswapToken, DecodeError> {
-    proto::decode(&pools_store.get_last(&format!("token:{}", token_address)).unwrap())
-}
-
 pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool, DecodeError> {
     proto::decode(&pools_store.get_last(&format!("pool:{}", pool_address)).unwrap())
-}
-
-fn get_last_sqrt_price_update(sqrt_price_store: &StoreGet, pool_address: &str) -> Result<SqrtPriceUpdate, DecodeError> {
-    proto::decode(&sqrt_price_store.get_last(&format!("sqrt_price:{}", pool_address)).unwrap())
-}
-
-fn get_last_swap(swap_store: &StoreGet, pool_address: &str) -> Result<pb::uniswap::Swap, DecodeError> {
-    return match &swap_store.get_last(&format!("swap:{}", pool_address)) {
-        None => {
-            Err(DecodeError::new("No swap found"))
-        }
-        Some(swap_bytes) => {
-            Ok(proto::decode(swap_bytes).unwrap())
-        }
-    }
-}
-
-pub fn get_last_liquidity_or_zero(liquidity_store: &StoreGet, pool_address: &str) -> BigDecimal {
-    return match &liquidity_store.get_last(&format!("pool:{}:liquidity", pool_address)) {
-        None => {
-            BigDecimal::zero().with_prec(100)
-        }
-        Some(liquidity_bytes) => {
-            BigDecimal::parse_bytes(liquidity_bytes.as_slice(), 10).unwrap().with_prec(100)
-        }
-    }
-}
-
-pub fn get_last_total_value_locked_or_zero(liquidity_store: &StoreGet, pool_address: &str, token_address: &str) -> BigDecimal {
-    return match &liquidity_store.get_last(&format!("pool:{}:token:{}:total_value_locked", pool_address, token_address)) {
-        None => {
-            BigDecimal::zero().with_prec(100)
-        }
-        Some(tvl_bytes) => {
-            BigDecimal::parse_bytes(tvl_bytes.as_slice(), 10).unwrap().with_prec(100)
-        }
-    }
-}
-
-pub fn get_pool_init(pool_init_store: &StoreGet, pool_address: &str) -> Result<pb::uniswap::PoolInitialization, DecodeError> {
-    return match &pool_init_store.get_last(&format!("pool_init:{}", pool_address)) {
-        None => {
-            Err(DecodeError::new("No pool init found"))
-        }
-        Some(pool_init_bytes) => {
-            Ok(proto::decode(pool_init_bytes).unwrap())
-        }
-    }
-}
-
-pub fn get_last_sqrt_price(sqrt_price_store: &StoreGet, pool_address: &str) -> Result<BigDecimal, DecodeError> {
-    return match get_last_sqrt_price_update(sqrt_price_store, pool_address) {
-        Ok(sqrt_price_update) => {
-            Ok(BigDecimal::from_str(sqrt_price_update.sqrt_price.as_str()).unwrap())
-        }
-        Err(_) => {
-            Err(DecodeError::new(format!("no pool init or swap for the pool: {}", pool_address)))
-        }
-    }
-}
-
-pub fn get_last_pool_sqrt_price(pool_init_store: &StoreGet, swap_store: &StoreGet, pool_address: &str) -> Result<BigDecimal, DecodeError> {
-    return match get_last_swap(swap_store, pool_address) {
-        Ok(swap) => {
-            Ok(BigDecimal::from_str_radix(&swap.sqrt_price, 10).unwrap())
-        }
-        Err(_) => {
-            //fallback to pool init
-            println!("No swap found, falling back to pool init");
-            match get_pool_init(pool_init_store, pool_address) {
-                Ok(pool_init) => {
-                    Ok(BigDecimal::from_str_radix(&pool_init.sqrt_price, 10).unwrap())
-                }
-                Err(_) => {
-                    Err(DecodeError::new("No pool init or swap"))
-                }
-            }
-        }
-    }
 }
 
 pub fn get_last_pool_tick(pool_init_store: &StoreGet, swap_store: &StoreGet, pool_address: &str) -> Result<BigDecimal, DecodeError> {
@@ -324,6 +200,53 @@ pub fn generate_tokens_key(token0: &str, token1: &str) -> String {
         return format!("{}:{}", token1, token0);
     }
     return format!("{}:{}", token0, token1);
+}
+
+fn get_last_total_value_locked_or_zero(liquidity_store: &StoreGet, pool_address: &str, token_address: &str) -> BigDecimal {
+    return match &liquidity_store.get_last(&format!("total_value_locked:{}:{}", pool_address, token_address)) {
+        None => {
+            BigDecimal::zero().with_prec(100)
+        }
+        Some(tvl_bytes) => {
+            BigDecimal::parse_bytes(tvl_bytes.as_slice(), 10).unwrap().with_prec(100)
+        }
+    }
+}
+
+fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
+    let mut result = BigDecimal::one();
+    let big_decimal_ten: &BigDecimal = &BigDecimal::from(10);
+    let big_int_one: &BigInt = &BigInt::one();
+
+    let mut i = BigInt::zero();
+    while i.lt(decimals) {
+        result = result.mul(big_decimal_ten);
+        i = i.add(big_int_one);
+    }
+
+    return result
+}
+
+fn get_last_swap(swap_store: &StoreGet, pool_address: &str) -> Result<pb::uniswap::Swap, DecodeError> {
+    return match &swap_store.get_last(&format!("swap:{}", pool_address)) {
+        None => {
+            Err(DecodeError::new("No swap found"))
+        }
+        Some(swap_bytes) => {
+            Ok(proto::decode(swap_bytes).unwrap())
+        }
+    }
+}
+
+fn get_pool_init(pool_init_store: &StoreGet, pool_address: &str) -> Result<pb::uniswap::PoolInitialization, DecodeError> {
+    return match &pool_init_store.get_last(&format!("pool_init:{}", pool_address)) {
+        None => {
+            Err(DecodeError::new("No pool init found"))
+        }
+        Some(pool_init_bytes) => {
+            Ok(proto::decode(pool_init_bytes).unwrap())
+        }
+    }
 }
 
 fn decode_price_bytes_to_big_decimal(price_bytes: &Vec<u8>) -> BigDecimal {
