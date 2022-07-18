@@ -12,8 +12,6 @@ message UniswapToken {
   string name = 2;
   string symbol = 3;
   uint64 decimals = 4;
-  // FIXME: remove this as we're going to loop through them all each time now
-  repeated string whitelist_pools = 5;
 }
 
 message Liquidity {
