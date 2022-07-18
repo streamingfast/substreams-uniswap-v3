@@ -50,6 +50,50 @@ pub const WHITELIST_TOKENS: [&str; 21] = [
     "fe2e637202056d30016725477c5da089ab0a043a", // sETH2
 ];
 
+// hard-coded tokens which have various behaviours but for which a UniswapV3 valid pool
+// exists, some are tokens which were migrated to a new address, etc.
+pub fn get_static_uniswap_tokens(token_address: &str) -> Option<UniswapToken> {
+    return match token_address {
+        "e0b7927c4af23765cb51314a0e0521a9645f0e2a" => Some(UniswapToken{ // add DGD
+            address: "e0b7927c4af23765cb51314a0e0521a9645f0e2a".to_string(),
+            name: "DGD".to_string(),
+            symbol: "DGD".to_string(),
+            decimals: 9
+        }),
+        "7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9" => Some(UniswapToken{ // add AAVE
+            address: "7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9".to_string(),
+            name: "Aave Token".to_string(),
+            symbol: "AAVE".to_string(),
+            decimals: 18
+        }),
+        "eb9951021698b42e4399f9cbb6267aa35f82d59d" => Some(UniswapToken{ // add LIF
+            address: "eb9951021698b42e4399f9cbb6267aa35f82d59d".to_string(),
+            name: "LIF".to_string(),
+            symbol: "LIF".to_string(),
+            decimals: 18
+        }),
+        "bdeb4b83251fb146687fa19d1c660f99411eefe3" => Some(UniswapToken{ // add SVD
+            address: "bdeb4b83251fb146687fa19d1c660f99411eefe3".to_string(),
+            name: "savedroid".to_string(),
+            symbol: "SVD".to_string(),
+            decimals: 18
+        }),
+        "bb9bc244d798123fde783fcc1c72d3bb8c189413" => Some(UniswapToken{ // add TheDAO
+            address: "bb9bc244d798123fde783fcc1c72d3bb8c189413".to_string(),
+            name: "TheDAO".to_string(),
+            symbol: "TheDAO".to_string(),
+            decimals: 16
+        }),
+        "38c6a68304cdefb9bec48bbfaaba5c5b47818bb2" => Some(UniswapToken{ // add HPB
+            address: "38c6a68304cdefb9bec48bbfaaba5c5b47818bb2".to_string(),
+            name: "HPBCoin".to_string(),
+            symbol: "HPB".to_string(),
+            decimals: 18
+        }),
+        _ => None,
+    };
+}
+
 pub fn sqrt_price_x96_to_token_prices(
     sqrt_price: &BigDecimal,
     token_0: &UniswapToken,

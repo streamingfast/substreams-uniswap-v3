@@ -26,8 +26,12 @@ use crate::utils::{get_last_pool_tick, big_decimal_exponated, safe_div};
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, Error> {
     let mut output = pb::uniswap::Pools { pools: vec![] };
-    let mut cached_tokens = HashMap::new();
     let mut uniswap_tokens = UniswapTokens { uniswap_tokens: vec![] };
+
+    // optimization and make sure to not add the same token twice
+    // it is possible to have multiple pools created with the same
+    // tokens (USDC, WETH, etc.)
+    let mut cached_tokens = HashMap::new();
 
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
@@ -52,40 +56,35 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                     tick_spacing: event.tick_spacing.to_i32().unwrap(),
                 };
 
-                // section to check the validity of the token0 and token1
-                // maybe extract in a method called validate_token(...)
-                // we will ONLY add a pool if both tokens are considered
-                // valid ERC20 Tokens, if not
+                // check the validity of the token0 and token1
                 let mut can_add_pool = true;
                 let mut uniswap_token0 = UniswapToken {
                     address: "".to_string(),
                     name: "".to_string(),
                     symbol: "".to_string(),
-                    decimals: 0,
-                    whitelist_pools: vec![]
+                    decimals: 0
                 };
                 let mut uniswap_token1 = UniswapToken {
                     address: "".to_string(),
                     name: "".to_string(),
                     symbol: "".to_string(),
-                    decimals: 0,
-                    whitelist_pools: vec![]
+                    decimals: 0
                 };
 
                 let token0_address: String = Hex(&event.token0).to_string();
                 if !cached_tokens.contains_key(&token0_address) {
                     let uniswap_token0_option = rpc::create_uniswap_token(&token0_address);
                     if uniswap_token0_option.is_none() {
-                        can_add_pool = false;
+                        let static_uniswap_token = utils::get_static_uniswap_tokens(token0_address.as_str());
+                        if static_uniswap_token.is_some() {
+                            uniswap_token0 = static_uniswap_token.unwrap();
+                            cached_tokens.insert(String::from(&token0_address), true);
+                        } else {
+                            can_add_pool = false;
+                        }
                     } else {
                         uniswap_token0 = uniswap_token0_option.unwrap();
                         cached_tokens.insert(String::from(&token0_address), true);
-
-                        if !uniswap_tokens.uniswap_tokens.contains(&uniswap_token0) {
-                            if utils::WHITELIST_TOKENS.contains(&token0_address.as_str()) {
-                                uniswap_token0.whitelist_pools.push(String::from(&pool.address))
-                            }
-                        }
                     }
                 }
 
@@ -93,16 +92,16 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                 if !cached_tokens.contains_key(&token1_address) {
                     let uniswap_token1_option = rpc::create_uniswap_token(&token1_address);
                     if uniswap_token1_option.is_none() {
-                        can_add_pool = false;
+                        let static_uniswap_token = utils::get_static_uniswap_tokens(token1_address.as_str());
+                        if static_uniswap_token.is_some() {
+                            uniswap_token1 = static_uniswap_token.unwrap();
+                            cached_tokens.insert(String::from(&token1_address), true);
+                        } else {
+                            can_add_pool = false;
+                        }
                     } else {
                         uniswap_token1 = uniswap_token1_option.unwrap();
                         cached_tokens.insert(String::from(&token1_address), true);
-
-                        if !uniswap_tokens.uniswap_tokens.contains(&uniswap_token1) {
-                            if utils::WHITELIST_TOKENS.contains(&token1_address.as_str()) {
-                                uniswap_token1.whitelist_pools.push(String::from(&pool.address))
-                            }
-                        }
                     }
                 }
 
@@ -152,7 +151,7 @@ pub fn map_sqrt_price(block: ethpb::v1::Block) -> Result<SqrtPriceUpdates, Error
     for trx in block.transaction_traces {
         for log in trx.receipt.unwrap().logs {
             if abi::pool::events::Initialize::match_log(&log) {
-                log::info!(format!("trzx id: {}", Hex(&trx.hash).to_string()));
+                log::info!(format!("trx id: {}", Hex(&trx.hash).to_string()));
                 let event = abi::pool::events::Initialize::must_decode(&log);
                 output.sqrt_prices.push(SqrtPriceUpdate {
                     pool_address: Hex(&log.address).to_string(),
@@ -161,7 +160,7 @@ pub fn map_sqrt_price(block: ethpb::v1::Block) -> Result<SqrtPriceUpdates, Error
                     tick: event.tick.to_string(),
                 })
             } else if abi::pool::events::Swap::match_log(&log){
-                log::info!(format!("trzx id: {}", Hex(&trx.hash).to_string()));
+                log::info!(format!("trx id: {}", Hex(&trx.hash).to_string()));
                 let event = abi::pool::events::Swap::must_decode(&log);
                 output.sqrt_prices.push(SqrtPriceUpdate {
                     pool_address: Hex(&log.address).to_string(),
@@ -305,6 +304,10 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
 
                 match pools_store.get_last(pool_key) {
                     None => {
+                        // use-case where this happens on a controlled manner:
+                        // pool: 0xebc783ea1ffa5c602e22f31a4cbea75c50058627
+                        // token: 0xeb9951021698b42e4399f9cbb6267aa35f82d59d
+                        // migrated/new token: 0x9c38688e5acb9ed6049c8502650db5ac8ef96465
                         panic!("invalid mint. pool does not exist. pool address {} transaction {}", Hex(&log.address).to_string(), Hex(&trx.hash).to_string());
                     }
                     Some(pool_bytes) => {

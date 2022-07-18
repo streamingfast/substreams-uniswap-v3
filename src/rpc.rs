@@ -71,8 +71,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<UniswapToken> {
         address: String::from(token_address),
         name,
         symbol,
-        decimals,
-        whitelist_pools: vec![]
+        decimals
     });
 }
 
