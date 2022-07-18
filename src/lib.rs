@@ -57,8 +57,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
                 // we will ONLY add a pool if both tokens are considered
                 // valid ERC20 Tokens, if not
                 let mut can_add_pool = true;
-                let mut uniswap_token0_option: Option<UniswapToken> = None;
-                let mut uniswap_token1_option: Option<UniswapToken> = None;
                 let mut uniswap_token0 = UniswapToken {
                     address: "".to_string(),
                     name: "".to_string(),
@@ -76,7 +74,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
 
                 let token0_address: String = Hex(&event.token0).to_string();
                 if !cached_tokens.contains_key(&token0_address) {
-                    uniswap_token0_option = rpc::create_uniswap_token(&token0_address);
+                    let uniswap_token0_option = rpc::create_uniswap_token(&token0_address);
                     if uniswap_token0_option.is_none() {
                         can_add_pool = false;
                     } else {
@@ -93,7 +91,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<pb::uniswap::Pools, 
 
                 let token1_address: String = Hex(&event.token1).to_string();
                 if !cached_tokens.contains_key(&token1_address) {
-                    uniswap_token1_option = rpc::create_uniswap_token(&token1_address);
+                    let uniswap_token1_option = rpc::create_uniswap_token(&token1_address);
                     if uniswap_token1_option.is_none() {
                         can_add_pool = false;
                     } else {

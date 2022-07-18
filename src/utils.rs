@@ -6,18 +6,18 @@ use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, Num, One, Zero};
 use prost::DecodeError;
 use substreams::{proto};
-use crate::{pb, Pool, SqrtPriceUpdate, SqrtPriceUpdates, UniswapToken};
+use crate::{pb, Pool, UniswapToken};
 use substreams::store::StoreGet;
 use substreams::log;
 
 const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+const _USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
-const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 
 pub const UNISWAP_V3_FACTORY: &str = "1f98431c8ad98523631ae4a59f267346ea31f984";
 
-pub const STABLE_COINS: [&str; 6] = [
+pub const _STABLE_COINS: [&str; 6] = [
     "6b175474e89094c44da98b954eedeac495271d0f",
     "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
     "dac17f958d2ee523a2206206994597c13d831ec7",
