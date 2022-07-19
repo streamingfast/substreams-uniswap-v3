@@ -650,12 +650,12 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
                 out.flashes.push(Flash{
                     sender: Hex(&flash.sender).to_string(),
                     recipient: Hex(&flash.recipient).to_string(),
-                    amount_0: "".to_string(),
-                    amount_1: "".to_string(),
-                    paid_0: "".to_string(),
-                    paid_1: "".to_string(),
+                    amount_0: flash.amount0.to_string(),
+                    amount_1: flash.amount1.to_string(),
+                    paid_0: flash.paid0.to_string(),
+                    paid_1: flash.paid1.to_string(),
                     transaction_id: Hex(&trx.hash).to_string(),
-                    log_ordinal: call_log.ordinal,
+                    log_ordinal: call_log.ordinal, //TODO: why is this value incorrect?
                 });
             }
         }
