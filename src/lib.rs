@@ -638,28 +638,27 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
     let mut out = pb::uniswap::Flashes { flashes: vec![] };
 
     for trx in block.transaction_traces {
-        for call in trx.calls.iter() {
-            for call_log in call.logs.iter() {
-                if !abi::pool::events::Flash::match_log(&call_log) {
-                    continue;
-                }
-
-                let flash = abi::pool::events::Flash::must_decode(&call_log);
-                log::debug!("{:?}", flash);
-
-                out.flashes.push(Flash{
-                    sender: Hex(&flash.sender).to_string(),
-                    recipient: Hex(&flash.recipient).to_string(),
-                    amount_0: flash.amount0.to_string(),
-                    amount_1: flash.amount1.to_string(),
-                    paid_0: flash.paid0.to_string(),
-                    paid_1: flash.paid1.to_string(),
-                    transaction_id: Hex(&trx.hash).to_string(),
-                    log_ordinal: call_log.ordinal, //TODO: why is this value incorrect?
-                });
+        for log in trx.receipt.unwrap().logs {
+            if !abi::pool::events::Flash::match_log(&log) {
+                continue;
             }
+
+            let flash = abi::pool::events::Flash::must_decode(&log);
+            log::debug!("{:?}, log ordinal: {}", flash, log.ordinal);
+
+            out.flashes.push(Flash{
+                sender: Hex(&flash.sender).to_string(),
+                recipient: Hex(&flash.recipient).to_string(),
+                amount_0: flash.amount0.as_u64(),
+                amount_1: flash.amount1.as_u64(),
+                paid_0: flash.paid0.as_u64(),
+                paid_1: flash.paid1.as_u64(),
+                transaction_id: Hex(&trx.hash).to_string(),
+                log_ordinal: log.ordinal,
+            });
         }
     }
+
 
     Ok(out)
 }
