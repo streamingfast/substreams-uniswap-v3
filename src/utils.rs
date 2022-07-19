@@ -136,7 +136,11 @@ pub fn find_eth_per_token(
         &format!("price:{}:{}", WETH_ADDRESS, token_address)
     ) {
         None => bd_zero, // maybe do the check the other way around
-        Some(price_bytes) => decode_price_bytes_to_big_decimal(&price_bytes)
+        Some(price_bytes) => {
+            let direct_to_eth_price_bd = decode_price_bytes_to_big_decimal(&price_bytes);
+            log::info!("direct_to_eth_price: {}", direct_to_eth_price_bd);
+            direct_to_eth_price_bd
+        }
     };
 
     if direct_to_eth_price.ne(&zero_big_decimal()) {
@@ -147,14 +151,16 @@ pub fn find_eth_per_token(
 
     // loop all whitelist for a matching token
     for major_token in WHITELIST_TOKENS {
+        log::info!("checking for major_token: {}", major_token);
         let major_to_eth_price = match prices_store.get_at(
             log_ordinal,
             &format!("price:{}:{}", major_token, token_address)
         ) {
             None => continue,
             Some(price_bytes) => {
-                log::info!("major_to_eth_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
-                decode_price_bytes_to_big_decimal(&price_bytes)
+                let major_to_eth_price_bd = decode_price_bytes_to_big_decimal(&price_bytes);
+                log::info!("major_to_eth_price: {}", major_to_eth_price_bd);
+                major_to_eth_price_bd
             },
         };
 
@@ -164,8 +170,9 @@ pub fn find_eth_per_token(
         ) {
             None => continue,
             Some(price_bytes) => {
-                log::info!("tiny_to_major_price: {}", decode_price_bytes_to_big_decimal(&price_bytes));
-                decode_price_bytes_to_big_decimal(&price_bytes)
+                let tiny_to_major_price_bd = decode_price_bytes_to_big_decimal(&price_bytes);
+                log::info!("tiny_to_major_price: {}", tiny_to_major_price_bd);
+                tiny_to_major_price_bd
             },
         };
 
@@ -220,8 +227,8 @@ pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool,
     proto::decode(&pools_store.get_last(&format!("pool:{}", pool_address)).unwrap())
 }
 
-pub fn get_last_pool_tick(pool_init_store: &StoreGet, swap_store: &StoreGet, pool_address: &str) -> Result<BigDecimal, DecodeError> {
-    return match get_last_swap(swap_store, pool_address) {
+pub fn get_last_pool_tick(pool_init_store: &StoreGet, swap_store: &StoreGet, pool_address: &str, trx_id: &str, log_ordinal: u64) -> Result<BigDecimal, DecodeError> {
+    return match get_last_swap(swap_store, trx_id, log_ordinal) {
         Ok(swap) => {
             Ok(BigDecimal::from_str_radix(swap.tick.to_string().as_str(), 10).unwrap())
         }
@@ -271,8 +278,8 @@ fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     return result
 }
 
-fn get_last_swap(swap_store: &StoreGet, pool_address: &str) -> Result<pb::uniswap::Swap, DecodeError> {
-    return match &swap_store.get_last(&format!("swap:{}", pool_address)) {
+fn get_last_swap(swap_store: &StoreGet, trx_id: &str, log_ordinal: u64) -> Result<pb::uniswap::Swap, DecodeError> {
+    return match &swap_store.get_last(&format!("swap:{}:{}", trx_id, log_ordinal)) {
         None => {
             Err(DecodeError::new("No swap found"))
         }
