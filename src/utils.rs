@@ -135,7 +135,7 @@ pub fn find_eth_per_token(
     let direct_to_eth_price = match prices_store.get_last(
         &format!("price:{}:{}", WETH_ADDRESS, token_address)
     ) {
-        None => bd_zero, // maybe do the check the other way around
+        None => bd_zero,
         Some(price_bytes) => {
             let direct_to_eth_price_bd = decode_price_bytes_to_big_decimal(&price_bytes);
             log::info!("direct_to_eth_price: {}", direct_to_eth_price_bd);
@@ -151,10 +151,10 @@ pub fn find_eth_per_token(
 
     // loop all whitelist for a matching token
     for major_token in WHITELIST_TOKENS {
-        log::info!("checking for major_token: {}", major_token);
+        log::info!("checking for major_token: {} and pool address: {}", major_token, pool_address);
         let major_to_eth_price = match prices_store.get_at(
             log_ordinal,
-            &format!("price:{}:{}", major_token, token_address)
+            &format!("price:{}:{}", major_token, WETH_ADDRESS)
         ) {
             None => continue,
             Some(price_bytes) => {
@@ -183,8 +183,7 @@ pub fn find_eth_per_token(
             continue;
         }
 
-        log::info!("tiny to major price: {}, major to eth price: {}", tiny_to_major_price, major_to_eth_price);
-        return tiny_to_major_price.mul(major_to_eth_price);
+        return BigDecimal::one().div(tiny_to_major_price.mul(major_to_eth_price));
     }
 
     return zero_big_decimal();
