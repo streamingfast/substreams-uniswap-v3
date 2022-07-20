@@ -526,12 +526,12 @@ pub fn store_prices(
         // TODO: check if these keys are actually used anywhere
         // output.set(
         //     sqrt_price_update.ordinal,
-        //     format!("pool:{}:token:{}:price", pool.address, token_0.address),
+        //     format!("pool:{}:{}:price", pool.address, token_0.address),
         //     &Vec::from(tokens_price.0.to_string())
         // );
         // output.set(
         //     sqrt_price_update.ordinal,
-        //     format!("pool:{}:token:{}:price", pool.address, token_1.address),
+        //     format!("pool:{}:{}:price", pool.address, token_1.address),
         //     &Vec::from(tokens_price.1.to_string())
         // );
 
@@ -562,6 +562,7 @@ pub fn store_derived_eth_prices(
 ) {
     for sqrt_price_update in sqrt_price_updates.sqrt_prices {
         log::debug!("fetching pool: {}", sqrt_price_update.pool_address);
+        log::debug!("sqrt_price: {}", sqrt_price_update.sqrt_price);
         let pool = utils::get_last_pool(&pools_store, sqrt_price_update.pool_address.as_str()).unwrap();
         let token_0 = pool.token0.as_ref().unwrap();
         let token_1 = pool.token1.as_ref().unwrap();
