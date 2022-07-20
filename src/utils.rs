@@ -4,6 +4,7 @@ use std::str;
 use std::str::FromStr;
 use num_bigint::BigInt;
 use bigdecimal::{BigDecimal, Num, One, Zero};
+use pad::PadStr;
 use prost::DecodeError;
 use substreams::{proto};
 use crate::{pb, Pool, UniswapToken};
@@ -222,6 +223,14 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
     return result
 }
 
+pub fn convert_token_to_decimal(amount: &BigInt, decimals: u64) -> BigDecimal {
+    let big_float_amount = BigDecimal::from_str(amount.to_string().as_str())
+        .unwrap()
+        .with_prec(100);
+
+    return divide_by_decimals(big_float_amount, decimals);
+}
+
 pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool, DecodeError> {
     proto::decode(&pools_store.get_last(&format!("pool:{}", pool_address)).unwrap())
 }
@@ -304,6 +313,16 @@ fn decode_price_bytes_to_big_decimal(price_bytes: &Vec<u8>) -> BigDecimal {
     return BigDecimal::from_str(price_from_store_decoded)
         .unwrap()
         .with_prec(100);
+}
+
+fn divide_by_decimals(big_float_amount: BigDecimal, decimals: u64) -> BigDecimal {
+    let bd = BigDecimal::from_str(
+        "1".pad_to_width_with_char((decimals + 1) as usize, '0')
+            .as_str(),
+    )
+        .unwrap()
+        .with_prec(100);
+    return big_float_amount.div(bd).with_prec(100);
 }
 
 fn zero_big_decimal() -> BigDecimal {

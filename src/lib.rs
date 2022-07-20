@@ -254,9 +254,12 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                            let token0 = pool.token0.as_ref().unwrap();
+                            let token1 = pool.token1.as_ref().unwrap();
 
-                            //FIXME: get the `token0` and `token1` decimals, so we can pass down the
-                            // `amount_0` and `amount_1` with the proper decimal values.
+                            let amount0 = utils::convert_token_to_decimal(&swap.amount0, token0.decimals);
+                            let amount1 = utils::convert_token_to_decimal(&swap.amount1, token1.decimals);
+                            log::debug!("amount0: {}, amount1:{}", amount0, amount1);
 
                             output.events.push(Event{
                                 log_ordinal: log.ordinal,
@@ -269,8 +272,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                                 r#type: Some(SwapEvent(pb::uniswap::Swap{
                                     sender: Hex(&swap.sender).to_string(),
                                     recipient: Hex(&swap.recipient).to_string(),
-                                    amount_0: swap.amount0.to_string(), // big_decimal?
-                                    amount_1: swap.amount1.to_string(), // big_decimal?
+                                    amount_0: amount0.to_string(), // big_decimal?
+                                    amount_1: amount1.to_string(), // big_decimal?
                                     sqrt_price: swap.sqrt_price_x96.to_string(),
                                     liquidity: swap.liquidity.to_string(),
                                     tick: swap.tick.to_i32().unwrap(),
@@ -289,9 +292,14 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                            let token0 = pool.token0.as_ref().unwrap();
+                            let token1 = pool.token1.as_ref().unwrap();
 
-                            // FIXME: get the decimals from the `pool.token0.decimals` and bake it into
-                            //`amount_0`
+                            let amount0_bi = BigInt::from_str(burn.amount0.to_string().as_str()).unwrap();
+                            let amount1_bi = BigInt::from_str(burn.amount1.to_string().as_str()).unwrap();
+                            let amount0 = utils::convert_token_to_decimal(&amount0_bi, token0.decimals);
+                            let amount1 = utils::convert_token_to_decimal(&amount1_bi, token1.decimals);
+                            log::debug!("amount0: {}, amount1:{}", amount0, amount1);
 
                             output.events.push(Event{
                                 log_ordinal: log.ordinal,
@@ -303,8 +311,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                                 timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds as u64,
                                 r#type: Some(BurnEvent(Burn{
                                     owner: Hex(&burn.owner).to_string(),
-                                    amount_0: burn.amount0.to_string(),
-                                    amount_1: burn.amount1.to_string(),
+                                    amount_0: amount0.to_string(),
+                                    amount_1: amount1.to_string(),
                                     tick_lower: burn.tick_lower.to_i32().unwrap(),
                                     tick_upper: burn.tick_upper.to_i32().unwrap(),
                                     amount: burn.amount.to_string(),
@@ -323,8 +331,15 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                            let token0 = pool.token0.as_ref().unwrap();
+                            let token1 = pool.token1.as_ref().unwrap();
 
-                            // FIXME: see above, bake in decimals
+                            let amount0_bi = BigInt::from_str(mint.amount0.to_string().as_str()).unwrap();
+                            let amount1_bi = BigInt::from_str(mint.amount1.to_string().as_str()).unwrap();
+                            let amount0 = utils::convert_token_to_decimal(&amount0_bi, token0.decimals);
+                            let amount1 = utils::convert_token_to_decimal(&amount1_bi, token1.decimals);
+                            log::debug!("amount0: {}, amount1:{}", amount0, amount1);
+
                             output.events.push(Event{
                                 log_ordinal: log.ordinal,
                                 pool_address: pool.address.to_string(),
@@ -337,8 +352,8 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
                                     owner: Hex(&mint.owner).to_string(),
                                     sender: Hex(&mint.sender).to_string(),
                                     amount: mint.amount.to_string(), // big_decimal?
-                                    amount_0: mint.amount0.to_string(), // big_decimal?
-                                    amount_1: mint.amount1.to_string(), // big_decimal?
+                                    amount_0: amount0.to_string(),
+                                    amount_1: amount1.to_string(),
                                     tick_lower: mint.tick_lower.to_i32().unwrap(),
                                     tick_upper: mint.tick_upper.to_i32().unwrap(),
                                 })),
@@ -430,17 +445,6 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
         if event.r#type.is_some() {
             match event.r#type.unwrap() {
                 Type::Burn(burn) => {
-                    //FIXME: Fetch the token0 and token1 decimals FROM the pool, and bake in
-                    // the token decimals into those amounts here, so we pass down
-                    // only right and properly decimalized values.
-
-                    //FIXME: if managed at the
-                    // `map_swaps_mints_burns` above, then we can
-                    // avoid doing it here.. It's best done in MAPPERS
-                    // actually, which can be parallelized more than
-                    // stores.
-
-                    //get pool info from last swap event
                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
@@ -550,8 +554,9 @@ pub fn store_prices(
     }
 }
 
-// Sets keys:
-//    dprice:
+/// Keyspace
+///     token:{token0_addr}:dprice:eth -> stores the derived eth price per token0 price
+///     token:{token1_addr}:dprice:eth -> stores the derived eth price per token1 price
 #[substreams::handlers::store]
 pub fn store_derived_eth_prices(
     sqrt_price_updates: SqrtPriceUpdates,
