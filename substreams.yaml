@@ -142,3 +142,20 @@ modules:
       - source: sf.ethereum.type.v1.Block
     output:
       type: proto:uniswap.types.v1.Flashes
+
+  - name: pool_to_entity_change
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - map: map_pools_created
+      - map: map_pools_initialized
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges
+
+  - name: graph_out
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - map: pool_to_entity_change
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges

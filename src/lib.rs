@@ -5,6 +5,7 @@ mod abi;
 mod utils;
 mod rpc;
 mod eth;
+mod macros;
 
 use std::collections::HashMap;
 use std::ops::Neg;
@@ -16,11 +17,13 @@ use substreams::{Hex, log, proto};
 use substreams::store::{StoreAddBigFloat, StoreGet, StoreSet};
 use substreams_ethereum::pb::eth as ethpb;
 use bigdecimal::ToPrimitive;
-use crate::pb::uniswap::{Burn, Event, Flash, Mint, Pool, PoolInitialization, SqrtPriceUpdate, SqrtPriceUpdates, Tick, UniswapToken, UniswapTokens};
+use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Event, Field, field, Flash, Mint, Pool, PoolInitialization, PoolInitializations, Pools, SqrtPriceUpdate, SqrtPriceUpdates, Tick, UniswapToken, UniswapTokens};
 use crate::pb::uniswap::event::Type;
 use crate::pb::uniswap::event::Type::Swap as SwapEvent;
 use crate::pb::uniswap::event::Type::Burn as BurnEvent;
 use crate::pb::uniswap::event::Type::Mint as MintEvent;
+use crate::pb::uniswap::field::Type as FieldType;
+use crate::pb::uniswap::entity_change::Operation as Operation;
 use crate::utils::{get_last_pool_tick, big_decimal_exponated, safe_div};
 
 #[substreams::handlers::map]
@@ -698,6 +701,58 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
         }
     }
 
+
+    Ok(out)
+}
+
+#[substreams::handlers::map]
+fn pool_to_entity_change(pools_created: Pools, pool_inits: PoolInitializations) -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges { entity_changes: vec![] };
+
+    for pool in pools_created.pools {
+        let change = EntityChange {
+            entity: "pool".to_string(),
+            id: string_field_value!(pool.address.as_str()),
+            ordinal: pool.log_ordinal,
+            operation: Operation::Create as i32,
+            fields: vec![
+                new_field!("address",  FieldType::String, string_field_value!(pool.address)),
+                new_field!("token0", FieldType::String, string_field_value!(pool.token0.unwrap().address)),
+                new_field!("token1", FieldType::String, string_field_value!(pool.token1.unwrap().address)),
+                new_field!("creation_transaction_id", FieldType::String, string_field_value!(pool.creation_transaction_id)),
+                new_field!("fee", FieldType::Int, int_field_value!(pool.fee)),
+                new_field!("block_num", FieldType::String, string_field_value!(pool.block_num)),
+                new_field!("log_ordinal", FieldType::Int, int_field_value!(pool.log_ordinal)),
+                new_field!("tick_spacing", FieldType::Int, int_field_value!(pool.tick_spacing)),
+            ],
+        };
+        out.entity_changes.push(change);
+    };
+
+    for pool_init in pool_inits.pool_initializations {
+        let change = EntityChange {
+            entity: "pool".to_string(),
+            id: string_field_value!(pool_init.address.as_str()),
+            ordinal: pool_init.log_ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![
+                new_field!("sqrt_price", FieldType::String, string_field_value!(pool_init.sqrt_price)),
+                new_field!("tick", FieldType::Bigdecimal, big_int_field_value!(pool_init.tick)),
+            ]
+        };
+        out.entity_changes.push(change);
+    };
+
+    Ok(out)
+}
+
+#[substreams::handlers::map]
+pub fn graph_out(pool_entities: EntitiesChanges) -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges { entity_changes: vec![] };
+
+    for change in pool_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
 
     Ok(out)
 }
