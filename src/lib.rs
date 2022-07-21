@@ -706,7 +706,7 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
 }
 
 #[substreams::handlers::map]
-fn pool_to_entity_change(pools_created: Pools, pool_inits: PoolInitializations) -> Result<EntitiesChanges, Error> {
+fn map_pool_entities(pools_created: Pools, pool_inits: PoolInitializations) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges { entity_changes: vec![] };
 
     for pool in pools_created.pools {
@@ -727,7 +727,7 @@ fn pool_to_entity_change(pools_created: Pools, pool_inits: PoolInitializations) 
             ],
         };
         out.entity_changes.push(change);
-    };
+    }
 
     for pool_init in pool_inits.pool_initializations {
         let change = EntityChange {
@@ -741,7 +741,7 @@ fn pool_to_entity_change(pools_created: Pools, pool_inits: PoolInitializations) 
             ]
         };
         out.entity_changes.push(change);
-    };
+    }
 
     Ok(out)
 }

@@ -143,7 +143,7 @@ modules:
     output:
       type: proto:uniswap.types.v1.Flashes
 
-  - name: pool_to_entity_change
+  - name: map_pool_entities
     kind: map
     initialBlock: 12369621
     inputs:
@@ -156,6 +156,6 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: pool_to_entity_change
+      - map: map_pool_entities
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
