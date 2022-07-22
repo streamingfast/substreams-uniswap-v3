@@ -149,6 +149,8 @@ modules:
     inputs:
       - map: map_pools_created
       - map: map_pools_initialized
+      - store: store_liquidity
+        mode: delta
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
 

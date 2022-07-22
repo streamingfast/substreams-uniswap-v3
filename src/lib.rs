@@ -14,14 +14,12 @@ use bigdecimal::{BigDecimal, FromPrimitive};
 use num_bigint::BigInt;
 use substreams::errors::Error;
 use substreams::{Hex, log, proto};
-use substreams::store::{StoreAddBigFloat, StoreGet, StoreSet};
+use substreams::store;
 use substreams_ethereum::pb::eth as ethpb;
 use bigdecimal::ToPrimitive;
-use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Event, Field, field, Flash, Mint, Pool, PoolInitialization, PoolInitializations, Pools, SqrtPriceUpdate, SqrtPriceUpdates, Tick, UniswapToken, UniswapTokens};
-use crate::pb::uniswap::event::Type;
-use crate::pb::uniswap::event::Type::Swap as SwapEvent;
-use crate::pb::uniswap::event::Type::Burn as BurnEvent;
-use crate::pb::uniswap::event::Type::Mint as MintEvent;
+
+use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Event, Field, Flash, Mint, Pool, PoolInitialization, PoolInitializations, Pools, SqrtPriceUpdate, SqrtPriceUpdates, Tick, UniswapToken, UniswapTokens};
+use crate::pb::uniswap::event::Type::{Swap as SwapEvent, Burn as BurnEvent, Mint as MintEvent};
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::entity_change::Operation as Operation;
 use crate::utils::{get_last_pool_tick, big_decimal_exponated, safe_div};
@@ -189,7 +187,7 @@ pub fn map_sqrt_price(block: ethpb::v1::Block) -> Result<SqrtPriceUpdates, Error
 }
 
 #[substreams::handlers::store]
-pub fn store_sqrt_price(mut sqrt_prices: SqrtPriceUpdates, output: StoreSet) {
+pub fn store_sqrt_price(mut sqrt_prices: SqrtPriceUpdates, output: store::StoreSet) {
     for sqrt_price in sqrt_prices.sqrt_prices {
         // fixme: probably need to have a similar key for like we have for a swap
         output.set(
@@ -203,7 +201,7 @@ pub fn store_sqrt_price(mut sqrt_prices: SqrtPriceUpdates, output: StoreSet) {
 /// Keyspace
 ///     pool_init:{pool_init.address} -> stores an encoded value of the pool_init
 #[substreams::handlers::store]
-pub fn store_pools_initialization(pools: pb::uniswap::PoolInitializations, output_set: StoreSet) {
+pub fn store_pools_initialization(pools: pb::uniswap::PoolInitializations, output_set: store::StoreSet) {
     for init in pools.pool_initializations {
         output_set.set(
             1,
@@ -217,7 +215,7 @@ pub fn store_pools_initialization(pools: pb::uniswap::PoolInitializations, outpu
 ///     pool:{pool.address} -> stores an encoded value of the pool
 ///     tokens:{}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
 #[substreams::handlers::store]
-pub fn store_pools(pools: pb::uniswap::Pools, output: StoreSet) {
+pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
     for pool in pools.pools {
         output.set(
             pool.log_ordinal,
@@ -239,7 +237,7 @@ pub fn store_pools(pools: pb::uniswap::Pools, output: StoreSet) {
 }
 
 #[substreams::handlers::map]
-pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> Result<pb::uniswap::Events, Error> {
+pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: store::StoreGet) -> Result<pb::uniswap::Events, Error> {
     let mut output = pb::uniswap::Events { events: vec![] };
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
@@ -372,10 +370,10 @@ pub fn map_burns_swaps_mints(block: ethpb::v1::Block, pools_store: StoreGet) -> 
 }
 
 #[substreams::handlers::store]
-pub fn store_swaps(events: pb::uniswap::Events, output: StoreSet) {
+pub fn store_swaps(events: pb::uniswap::Events, output: store::StoreSet) {
     for event in events.events {
         match event.r#type.unwrap() {
-            Type::Swap(swap) => {
+            SwapEvent(swap) => {
                 output.set(
                     0,
                     format!("swap:{}:{}", event.transaction_id, event.log_ordinal),
@@ -388,14 +386,14 @@ pub fn store_swaps(events: pb::uniswap::Events, output: StoreSet) {
 }
 
 #[substreams::handlers::store]
-pub fn store_ticks(events: pb::uniswap::Events, output_set: StoreSet) {
+pub fn store_ticks(events: pb::uniswap::Events, output_set: store::StoreSet) {
     for event in events.events {
         match event.r#type.unwrap() {
-            Type::Swap(_) => {}
-            Type::Burn(_) => {
+            SwapEvent(_) => {}
+            BurnEvent(_) => {
                 // todo
             }
-            Type::Mint(mint) => {
+            MintEvent(mint) => {
                 let tick_lower_big_int = BigInt::from_str(&mint.tick_lower.to_string()).unwrap();
                 let tick_lower_price0 = big_decimal_exponated(BigDecimal::from_f64(1.0001).unwrap().with_prec(100), tick_lower_big_int);
                 let tick_lower_price1 = safe_div(&BigDecimal::from(1 as i32), &tick_lower_price0);
@@ -438,7 +436,7 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: StoreSet) {
 ///    total_value_locked:{tokenA}:{tokenB} => 0.1231 (tokenA total value locked, summed for all pools dealing with tokenA:tokenB, in floating point decimal taking tokenA's decimals in consideration).
 ///
 #[substreams::handlers::store]
-pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_init_store: StoreGet, output: StoreAddBigFloat) {
+pub fn store_liquidity(events: pb::uniswap::Events, swap_store: store::StoreGet, pool_init_store: store::StoreGet, output: store::StoreAddBigFloat) {
     for event in events.events {
         log::debug!("transaction id: {}", event.transaction_id);
         if event.r#type.is_none() {
@@ -447,7 +445,7 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
 
         if event.r#type.is_some() {
             match event.r#type.unwrap() {
-                Type::Burn(burn) => {
+                BurnEvent(burn) => {
                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
@@ -474,7 +472,7 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
                         &amount1.neg()
                     );
                 }
-                Type::Mint(mint) => {
+                MintEvent(mint) => {
                     let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
@@ -502,7 +500,7 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
                         &amount1
                     );
                 }
-                Type::Swap(_) => {}
+                SwapEvent(_) => {}
             }
         }
     }
@@ -514,8 +512,8 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: StoreGet, pool_i
 #[substreams::handlers::store]
 pub fn store_prices(
     sqrt_price_updates: SqrtPriceUpdates,
-    pools_store: StoreGet,
-    output: StoreSet
+    pools_store: store::StoreGet,
+    output: store::StoreSet
 ) {
     for sqrt_price_update in sqrt_price_updates.sqrt_prices {
         let pool = utils::get_last_pool(&pools_store, sqrt_price_update.pool_address.as_str()).unwrap();
@@ -563,10 +561,10 @@ pub fn store_prices(
 #[substreams::handlers::store]
 pub fn store_derived_eth_prices(
     sqrt_price_updates: SqrtPriceUpdates,
-    pools_store: StoreGet,
-    prices_store: StoreGet,
-    liquidity_store: StoreGet,
-    output: StoreSet
+    pools_store: store::StoreGet,
+    prices_store: store::StoreGet,
+    liquidity_store: store::StoreGet,
+    output: store::StoreSet
 ) {
     for sqrt_price_update in sqrt_price_updates.sqrt_prices {
         log::debug!("fetching pool: {}", sqrt_price_update.pool_address);
@@ -640,7 +638,7 @@ pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_fees(block: ethpb::v1::Block, output: StoreSet) {
+pub fn store_fees(block: ethpb::v1::Block, output: store::StoreSet) {
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
             if call.state_reverted {
@@ -706,7 +704,11 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
 }
 
 #[substreams::handlers::map]
-fn map_pool_entities(pools_created: Pools, pool_inits: PoolInitializations) -> Result<EntitiesChanges, Error> {
+fn map_pool_entities(
+    pools_created: Pools,
+    pool_inits: PoolInitializations,
+    //liquidity_deltas: store::Deltas,
+) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges { entity_changes: vec![] };
 
     for pool in pools_created.pools {
