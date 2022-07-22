@@ -722,7 +722,7 @@ fn map_pool_entities(
                 new_field!("token0", FieldType::String, string_field_value!(pool.token0.unwrap().address)),
                 new_field!("token1", FieldType::String, string_field_value!(pool.token1.unwrap().address)),
                 new_field!("creation_transaction_id", FieldType::String, string_field_value!(pool.creation_transaction_id)),
-                new_field!("fee", FieldType::Int, int_field_value!(pool.fee)),
+                new_field!("fee_tier", FieldType::Int, int_field_value!(pool.fee)),
                 new_field!("block_num", FieldType::String, string_field_value!(pool.block_num)),
                 new_field!("log_ordinal", FieldType::Int, int_field_value!(pool.log_ordinal)),
                 new_field!("tick_spacing", FieldType::Int, int_field_value!(pool.tick_spacing)),
@@ -742,6 +742,28 @@ fn map_pool_entities(
                 new_field!("tick", FieldType::Bigdecimal, big_int_field_value!(pool_init.tick)),
             ]
         };
+        out.entity_changes.push(change);
+    }
+
+    for delta in liquidity_deltas {
+        let mut change = EntityChange {
+            entity: "pool".to_string(),
+            id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: delta.ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![]
+        };
+        match delta.operation {
+            1 => {
+                change.operation = Operation::Update as i32;
+                change.fields.push(update_field!("liquidity", FieldType::Bigdecimal, big_decimal_string_field_value!("0".to_string().as_bytes().to_vec()), big_decimal_string_field_value!(delta.new_value)));
+            }
+            2 => {
+                change.operation = Operation::Update as i32;
+                change.fields.push(update_field!("liquidity", FieldType::Bigdecimal, big_decimal_string_field_value!(delta.old_value), big_decimal_string_field_value!(delta.new_value)));
+            }
+            _ => {}
+        }
         out.entity_changes.push(change);
     }
 
