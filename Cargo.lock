@@ -723,23 +723,7 @@ dependencies = [
  "prost",
  "prost-build",
  "prost-types",
- "substreams-macro 0.0.11",
- "thiserror",
-]
-
-[[package]]
-name = "substreams"
-version = "0.0.12"
-source = "git+https://github.com/streamingfast/substreams/?branch=develop#879430a996700f8ed63d6a1a50628ad0d5f92396"
-dependencies = [
- "bigdecimal",
- "hex",
- "hex-literal",
- "num-bigint",
- "prost",
- "prost-build",
- "prost-types",
- "substreams-macro 0.0.12",
+ "substreams-macro",
  "thiserror",
 ]
 
@@ -753,7 +737,7 @@ dependencies = [
  "prost",
  "prost-build",
  "prost-types",
- "substreams 0.0.11",
+ "substreams",
  "substreams-ethereum-abigen",
  "substreams-ethereum-derive",
 ]
@@ -802,17 +786,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "substreams-macro"
-version = "0.0.12"
-source = "git+https://github.com/streamingfast/substreams/?branch=develop#879430a996700f8ed63d6a1a50628ad0d5f92396"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "thiserror",
-]
-
-[[package]]
 name = "substreams-uniswap-v3"
 version = "0.1.0"
 dependencies = [
@@ -825,7 +798,7 @@ dependencies = [
  "prost",
  "prost-build",
  "prost-types",
- "substreams 0.0.12",
+ "substreams",
  "substreams-ethereum",
  "wasm-bindgen",
 ]

@@ -707,7 +707,7 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
 fn map_pool_entities(
     pools_created: Pools,
     pool_inits: PoolInitializations,
-    //liquidity_deltas: store::Deltas,
+    liquidity_deltas: store::Deltas,
 ) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges { entity_changes: vec![] };
 
