@@ -433,6 +433,7 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: store::StoreSet) {
 
 /// Keyspace:
 ///
+///    liquidity:{pool_address} =>
 ///    total_value_locked:{tokenA}:{tokenB} => 0.1231 (tokenA total value locked, summed for all pools dealing with tokenA:tokenB, in floating point decimal taking tokenA's decimals in consideration).
 ///
 #[substreams::handlers::store]
@@ -480,7 +481,6 @@ pub fn store_liquidity(events: pb::uniswap::Events, swap_store: store::StoreGet,
                     let tick_upper = BigDecimal::from_str(mint.tick_upper.to_string().as_str()).unwrap();
                     let tick = get_last_pool_tick(&pool_init_store, &swap_store, &event.pool_address, &event.transaction_id, event.log_ordinal).unwrap();
 
-                    // todo: @colin do we still need this?
                     if tick_lower <= tick && tick <= tick_upper {
                         output.add(
                             event.log_ordinal,
@@ -528,17 +528,16 @@ pub fn store_prices(
         let tokens_price: (BigDecimal, BigDecimal) = utils::sqrt_price_x96_to_token_prices(&sqrt_price, &token0, &token1);
         log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
 
-        // TODO: check if these keys are actually used anywhere
-        // output.set(
-        //     sqrt_price_update.ordinal,
-        //     format!("pool:{}:{}:price", pool.address, token_0.address),
-        //     &Vec::from(tokens_price.0.to_string())
-        // );
-        // output.set(
-        //     sqrt_price_update.ordinal,
-        //     format!("pool:{}:{}:price", pool.address, token_1.address),
-        //     &Vec::from(tokens_price.1.to_string())
-        // );
+        output.set(
+            sqrt_price_update.ordinal,
+            format!("pool:{}:token0:{}:price", pool.address, token0.address),
+            &Vec::from(tokens_price.0.to_string())
+        );
+        output.set(
+            sqrt_price_update.ordinal,
+            format!("pool:{}:token1:{}:price", pool.address, token1.address),
+            &Vec::from(tokens_price.1.to_string())
+        );
 
         output.set(
             sqrt_price_update.ordinal,
@@ -707,7 +706,9 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
 fn map_pool_entities(
     pools_created: Pools,
     pool_inits: PoolInitializations,
+    sqrt_price_deltas: store::Deltas,
     liquidity_deltas: store::Deltas,
+    price_deltas: store::Deltas,
 ) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges { entity_changes: vec![] };
 
@@ -738,14 +739,22 @@ fn map_pool_entities(
             ordinal: pool_init.log_ordinal,
             operation: Operation::Update as i32,
             fields: vec![
-                new_field!("sqrt_price", FieldType::String, string_field_value!(pool_init.sqrt_price)),
+                new_field!("sqrt_price", FieldType::Bigdecimal, big_decimal_string_field_value!(pool_init.sqrt_price)),
                 new_field!("tick", FieldType::Bigdecimal, big_int_field_value!(pool_init.tick)),
             ]
         };
         out.entity_changes.push(change);
     }
 
-    for delta in liquidity_deltas {
+    // SqrtPrice changes
+    // Note: All changes from the sqrt_price state are updates
+    for delta in sqrt_price_deltas {
+        if !delta.key.starts_with("pool:") {
+            continue;
+        }
+
+        let new_value: SqrtPriceUpdate = proto::decode(&delta.new_value).unwrap();
+
         let mut change = EntityChange {
             entity: "pool".to_string(),
             id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
@@ -755,12 +764,81 @@ fn map_pool_entities(
         };
         match delta.operation {
             1 => {
-                change.operation = Operation::Update as i32;
-                change.fields.push(update_field!("liquidity", FieldType::Bigdecimal, big_decimal_string_field_value!("0".to_string().as_bytes().to_vec()), big_decimal_string_field_value!(delta.new_value)));
+                change.fields.push(update_field!("sqrt_price", FieldType::Bigdecimal, big_decimal_string_field_value!("0".to_string()), big_decimal_string_field_value!(new_value.sqrt_price)));
+                change.fields.push(update_field!("tick", FieldType::Bigint, big_decimal_string_field_value!("0".to_string()), big_decimal_string_field_value!(new_value.sqrt_price)));
             }
             2 => {
-                change.operation = Operation::Update as i32;
-                change.fields.push(update_field!("liquidity", FieldType::Bigdecimal, big_decimal_string_field_value!(delta.old_value), big_decimal_string_field_value!(delta.new_value)));
+                let old_value : SqrtPriceUpdate = proto::decode(&delta.new_value).unwrap();
+                change.fields.push(update_field!("sqrt_price", FieldType::Bigdecimal, big_decimal_string_field_value!(old_value.sqrt_price), big_decimal_string_field_value!(new_value.sqrt_price)));
+                change.fields.push(update_field!("tick", FieldType::Bigint, big_int_field_value!(old_value.tick), big_decimal_string_field_value!(new_value.tick)));
+            }
+            _ => {}
+        }
+        out.entity_changes.push(change)
+    }
+
+    // Liquidity changes
+    // Note: All changes from the liquidity state are updates.
+    for delta in liquidity_deltas {
+        if !delta.key.starts_with("liquidity:") {
+            continue;
+        }
+
+        let mut change = EntityChange {
+            entity: "pool".to_string(),
+            id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: delta.ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![]
+        };
+        match delta.operation {
+            1 => {
+                change.fields.push(update_field!("liquidity", FieldType::Bigdecimal, big_decimal_string_field_value!("0".to_string()), big_decimal_vec_field_value!(delta.new_value)));
+            }
+            2 => {
+                change.fields.push(update_field!("liquidity", FieldType::Bigdecimal, big_decimal_vec_field_value!(delta.old_value), big_decimal_vec_field_value!(delta.new_value)));
+            }
+            _ => {}
+        }
+        out.entity_changes.push(change);
+    }
+
+    // pool token price changes from the price state.
+    // Note: All changes from the price state are updates
+    for delta in price_deltas {
+        //get the token prices from the price state
+        if !delta.key.starts_with("pool:") {
+            continue;
+        }
+
+        let mut key_parts = delta.key.as_str().split(":");
+        let pool_address = key_parts.nth(1).unwrap();
+        let update_field: &str;
+        match key_parts.next().unwrap() {
+            "token0" => {
+                update_field = "token0_price";
+            }
+            "token1" => {
+                update_field = "token1_price";
+            }
+            _ => {
+                continue;
+            }
+        }
+
+        let mut change = EntityChange {
+            entity: "pool".to_string(),
+            id: string_field_value!(pool_address),
+            ordinal: delta.ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![]
+        };
+        match delta.operation {
+            1 => {
+                change.fields.push(update_field!(update_field, FieldType::Bigdecimal, big_decimal_string_field_value!("0".to_string()), big_decimal_vec_field_value!(delta.new_value)));
+            }
+            2 => {
+                change.fields.push(update_field!(update_field, FieldType::Bigdecimal, big_decimal_vec_field_value!(delta.old_value), big_decimal_vec_field_value!(delta.new_value)));
             }
             _ => {}
         }

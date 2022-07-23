@@ -149,7 +149,11 @@ modules:
     inputs:
       - map: map_pools_created
       - map: map_pools_initialized
+      - store: store_sqrt_price
+        mode: deltas
       - store: store_liquidity
+        mode: deltas
+      - store: store_prices
         mode: deltas
     output:
       type: proto:uniswap.types.v1.EntitiesChanges

@@ -50,6 +50,13 @@ macro_rules! big_int_field_value {
 #[macro_export]
 macro_rules! big_decimal_string_field_value {
     ($a:expr) => {
+        $a.as_bytes().to_vec()
+    }
+}
+
+#[macro_export]
+macro_rules! big_decimal_vec_field_value {
+    ($a:expr) => {
         $a
     }
 }
