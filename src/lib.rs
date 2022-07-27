@@ -698,7 +698,6 @@ pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Erro
         }
     }
 
-
     Ok(out)
 }
 
@@ -813,13 +812,13 @@ fn map_pool_entities(
 
         let mut key_parts = delta.key.as_str().split(":");
         let pool_address = key_parts.nth(1).unwrap();
-        let update_field: &str;
+        let field_name: &str;
         match key_parts.next().unwrap() {
             "token0" => {
-                update_field = "token0_price";
+                field_name = "token0_price";
             }
             "token1" => {
-                update_field = "token1_price";
+                field_name = "token1_price";
             }
             _ => {
                 continue;
@@ -833,12 +832,13 @@ fn map_pool_entities(
             operation: Operation::Update as i32,
             fields: vec![]
         };
+
         match delta.operation {
             1 => {
-                change.fields.push(update_field!(update_field, FieldType::Bigdecimal, big_decimal_string_field_value!("0".to_string()), big_decimal_vec_field_value!(delta.new_value)));
+                change.fields.push(update_field!(field_name, FieldType::Bigdecimal, big_decimal_string_field_value!("0".to_string()), big_decimal_vec_field_value!(delta.new_value)));
             }
             2 => {
-                change.fields.push(update_field!(update_field, FieldType::Bigdecimal, big_decimal_vec_field_value!(delta.old_value), big_decimal_vec_field_value!(delta.new_value)));
+                change.fields.push(update_field!(field_name, FieldType::Bigdecimal, big_decimal_vec_field_value!(delta.old_value), big_decimal_vec_field_value!(delta.new_value)));
             }
             _ => {}
         }
