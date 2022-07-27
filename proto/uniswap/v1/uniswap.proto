@@ -2,12 +2,11 @@ syntax = "proto3";
 
 package uniswap.types.v1;
 
-message UniswapTokens {
-  repeated UniswapToken uniswapTokens = 1;
+message ERC20Tokens {
+  repeated ERC20Token tokens = 1;
 }
 
-// FIXME: rename to `ERC20Token` ..
-message UniswapToken {
+message ERC20Token {
   string address = 1;
   string name = 2;
   string symbol = 3;
@@ -25,8 +24,8 @@ message Pools {
 
 message Pool {
   string address = 1;
-  UniswapToken token0 = 2;
-  UniswapToken token1 = 3;
+  ERC20Token token0 = 2;
+  ERC20Token token1 = 3;
   string creation_transaction_id = 4;
   uint32 fee = 5;
   string block_num = 6;
