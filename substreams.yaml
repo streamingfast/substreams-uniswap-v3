@@ -38,15 +38,7 @@ modules:
     inputs:
       - map: map_pools_created
 
-  - name: map_pools_initialized
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v1.Block
-    output:
-      type: proto:uniswap.types.v1.PoolInitializations
-
-  - name: map_sqrt_price
+  - name: map_pool_sqrt_price
     kind: map
     initialBlock: 12369621
     inputs:
@@ -54,21 +46,14 @@ modules:
     output:
       type: proto:uniswap.types.v1.SqrtPriceUpdates
 
-  - name: store_sqrt_price
+  - name: store_pool_sqrt_price
     kind: store
     updatePolicy: set
     valueType: proto:pb.uniswap.v1.SqrtPriceUpdates
     inputs:
-      - map: map_sqrt_price
+      - map: map_pool_sqrt_price
 
-  - name: store_pools_initialization
-    kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.PoolInitialization
-    inputs:
-      - map: map_pools_initialized
-
-  - name: map_burns_swaps_mints
+  - name: map_swap_mints_burns
     kind: map
     inputs:
       - source: sf.ethereum.type.v1.Block
@@ -76,28 +61,35 @@ modules:
     output:
       type: proto:uniswap.types.v1.Events
 
+
+
+
+
+
+
+
+
   - name: store_swaps
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Swap
     inputs:
-      - map: map_burns_swaps_mints
+      - map: map_swap_mints_burns
 
   - name: store_ticks
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Tick
     inputs:
-      - map: map_burns_swaps_mints
+      - map: map_swap_mints_burns
 
   - name: store_liquidity
     kind: store
     updatePolicy: add
     valueType: bigfloat
     inputs:
-      - map: map_burns_swaps_mints
+      - map: map_swap_mints_burns
       - store: store_swaps
-      - store: store_pools_initialization
 
   - name: store_prices
     kind: store
@@ -105,7 +97,7 @@ modules:
     initialBlock: 12369621
     valueType: string
     inputs:
-      - map: map_sqrt_price
+      - map: map_pool_sqrt_price
       - store: store_pools
 
   - name: store_derived_eth_prices
@@ -114,7 +106,7 @@ modules:
     initialBlock: 12369621
     valueType: string
     inputs:
-      - map: map_sqrt_price
+      - map: map_pool_sqrt_price
       - store: store_pools
       - store: store_prices
       - store: store_liquidity
@@ -148,8 +140,7 @@ modules:
     initialBlock: 12369621
     inputs:
       - map: map_pools_created
-      - map: map_pools_initialized
-      - store: store_sqrt_price
+      - store: store_pool_sqrt_price
         mode: deltas
       - store: store_liquidity
         mode: deltas

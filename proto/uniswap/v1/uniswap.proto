@@ -12,12 +12,6 @@ message ERC20Token {
   string symbol = 3;
   uint64 decimals = 4;
 }
-
-message Liquidity {
-  string pool_address = 1;
-  string value = 2; // BigDecimal
-}
-
 message Pools {
   repeated Pool pools =1;
 }
@@ -35,12 +29,10 @@ message Pool {
   uint64 log_ordinal = 31;
   string transaction_id = 32;
 //      liquidity: BigInt!
-//      sqrtPrice: BigInt!
 //      feeGrowthGlobal0X128: BigInt!
 //      feeGrowthGlobal1X128: BigInt!
 //      token0Price: BigDecimal!
 //      token1Price: BigDecimal!
-//    tick: BigInt
 //      observationIndex: BigInt!
 //    volumeToken0: BigDecimal!
 //    volumeToken1: BigDecimal!
@@ -61,31 +53,34 @@ message Pool {
 //      poolDayData: [PoolDayData!]! @derivedFrom(field: "pool")
 }
 
-message PoolInitializations {
-  repeated PoolInitialization pool_initializations = 1;
+message PoolSqrtPrices {
+  repeated PoolSqrtPrice pool_sqrt_prices = 1;
 }
 
-message PoolInitialization {
-  string address = 1;
-  string sqrt_price = 2; // BigInt
-  string tick = 3; // BigInt
-
-  // internals
-  uint64 log_ordinal = 30;
-
-
-}
-
-message SqrtPriceUpdates {
-  repeated SqrtPriceUpdate sqrt_prices = 1;
-}
-
-message SqrtPriceUpdate {
+message PoolSqrtPrice {
   string pool_address = 1;
   uint64 ordinal = 2;
-  string sqrt_price = 3;
-  string tick = 4;
+  string sqrt_price = 3; //BigInt
+  string tick = 4; // BigInt
 }
+
+
+
+
+message Ticks {
+  repeated Tick ticks = 1;
+}
+
+message Tick {
+  string pool_address = 1;
+  string idx = 2; //BigInteger
+  string price0 = 3; //BigDecimal
+  string price1 = 4; //BigDecimal
+}
+
+
+
+
 
 message Events {
   repeated Event events = 1;
@@ -105,6 +100,26 @@ message Event {
   string transaction_id = 105;
   uint64 timestamp = 106;
 }
+
+
+
+
+
+
+
+
+
+
+
+message Liquidity {
+  string pool_address = 1;
+  string value = 2; // BigDecimal
+}
+
+
+
+
+
 
 message Swaps {
   repeated Swap swaps = 1;
@@ -138,17 +153,6 @@ message Mint {
   int32 tick_lower = 6;
   int32 tick_upper = 7;
   string amount = 8;
-}
-
-message Ticks {
-  repeated Tick ticks = 1;
-}
-
-message Tick {
-  string pool_address = 1;
-  string idx = 2; //BigInteger
-  string price0 = 3; //BigDecimal
-  string price1 = 4; //BigDecimal
 }
 
 message Fees {

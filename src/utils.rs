@@ -258,27 +258,27 @@ pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool,
     )
 }
 
-pub fn get_last_pool_tick(
-    pool_init_store: &StoreGet,
-    swap_store: &StoreGet,
-    pool_address: &str,
-    trx_id: &str,
-    log_ordinal: u64,
-) -> Result<BigDecimal, DecodeError> {
-    return match get_last_swap(swap_store, trx_id, log_ordinal) {
-        Ok(swap) => Ok(BigDecimal::from_str_radix(swap.tick.to_string().as_str(), 10).unwrap()),
-        Err(_) => {
-            //fallback to pool init
-            match get_pool_init(pool_init_store, pool_address) {
-                Ok(pool_init) => Ok(BigDecimal::from_str_radix(&pool_init.tick, 10).unwrap()),
-                Err(_) => Err(DecodeError::new(format!(
-                    "No pool init or swap: {}",
-                    pool_address
-                ))),
-            }
-        }
-    };
-}
+// pub fn get_last_pool_tick(
+//     pool_init_store: &StoreGet,
+//     swap_store: &StoreGet,
+//     pool_address: &str,
+//     trx_id: &str,
+//     log_ordinal: u64,
+// ) -> Result<BigDecimal, DecodeError> {
+//     return match get_last_swap(swap_store, trx_id, log_ordinal) {
+//         Ok(swap) => Ok(BigDecimal::from_str_radix(swap.tick.to_string().as_str(), 10).unwrap()),
+//         Err(_) => {
+//             //fallback to pool init
+//             match get_pool_init(pool_init_store, pool_address) {
+//                 Ok(pool_init) => Ok(BigDecimal::from_str_radix(&pool_init.tick, 10).unwrap()),
+//                 Err(_) => Err(DecodeError::new(format!(
+//                     "No pool init or swap: {}",
+//                     pool_address
+//                 ))),
+//             }
+//         }
+//     };
+// }
 
 pub fn generate_tokens_key(token0: &str, token1: &str) -> String {
     if token0 > token1 {
@@ -328,15 +328,15 @@ fn get_last_swap(
     };
 }
 
-fn get_pool_init(
-    pool_init_store: &StoreGet,
-    pool_address: &str,
-) -> Result<pb::uniswap::PoolInitialization, DecodeError> {
-    return match &pool_init_store.get_last(&format!("pool_init:{}", pool_address)) {
-        None => Err(DecodeError::new("No pool init found")),
-        Some(pool_init_bytes) => Ok(proto::decode(pool_init_bytes).unwrap()),
-    };
-}
+// fn get_pool_init(
+//     pool_init_store: &StoreGet,
+//     pool_address: &str,
+// ) -> Result<pb::uniswap::PoolInitialization, DecodeError> {
+//     return match &pool_init_store.get_last(&format!("pool_init:{}", pool_address)) {
+//         None => Err(DecodeError::new("No pool init found")),
+//         Some(pool_init_bytes) => Ok(proto::decode(pool_init_bytes).unwrap()),
+//     };
+// }
 
 fn decode_price_bytes_to_big_decimal(price_bytes: &Vec<u8>) -> BigDecimal {
     let price_from_store_decoded = str::from_utf8(price_bytes.as_slice()).unwrap();
