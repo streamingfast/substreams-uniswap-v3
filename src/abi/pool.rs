@@ -110,11 +110,16 @@
                         .expect(INTERNAL_ERR),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => panic!("Unable to decode logs.Burn event: {:#}", e),
-                }
+        }
+        impl substreams_ethereum::Event for Burn {
+            const NAME: &'static str = "Burn";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -226,11 +231,16 @@
                         .expect(INTERNAL_ERR),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => panic!("Unable to decode logs.Collect event: {:#}", e),
-                }
+        }
+        impl substreams_ethereum::Event for Collect {
+            const NAME: &'static str = "Collect";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -342,13 +352,16 @@
                         .expect(INTERNAL_ERR),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        panic!("Unable to decode logs.CollectProtocol event: {:#}", e)
-                    }
-                }
+        }
+        impl substreams_ethereum::Event for CollectProtocol {
+            const NAME: &'static str = "CollectProtocol";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -474,11 +487,16 @@
                         .expect(INTERNAL_ERR),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => panic!("Unable to decode logs.Flash event: {:#}", e),
-                }
+        }
+        impl substreams_ethereum::Event for Flash {
+            const NAME: &'static str = "Flash";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -556,16 +574,16 @@
                         .expect(INTERNAL_ERR),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        panic!(
-                            "Unable to decode logs.IncreaseObservationCardinalityNext event: {:#}",
-                            e
-                        )
-                    }
-                }
+        }
+        impl substreams_ethereum::Event for IncreaseObservationCardinalityNext {
+            const NAME: &'static str = "IncreaseObservationCardinalityNext";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -644,11 +662,16 @@
                     },
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => panic!("Unable to decode logs.Initialize event: {:#}", e),
-                }
+        }
+        impl substreams_ethereum::Event for Initialize {
+            const NAME: &'static str = "Initialize";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -767,11 +790,16 @@
                         .expect(INTERNAL_ERR),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => panic!("Unable to decode logs.Mint event: {:#}", e),
-                }
+        }
+        impl substreams_ethereum::Event for Mint {
+            const NAME: &'static str = "Mint";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -863,13 +891,16 @@
                         .expect(INTERNAL_ERR),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        panic!("Unable to decode logs.SetFeeProtocol event: {:#}", e)
-                    }
-                }
+        }
+        impl substreams_ethereum::Event for SetFeeProtocol {
+            const NAME: &'static str = "SetFeeProtocol";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -1005,11 +1036,16 @@
                     },
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => panic!("Unable to decode logs.Swap event: {:#}", e),
-                }
+        }
+        impl substreams_ethereum::Event for Swap {
+            const NAME: &'static str = "Swap";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
     }

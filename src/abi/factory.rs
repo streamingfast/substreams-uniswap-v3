@@ -76,13 +76,16 @@
                     ),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        panic!("Unable to decode logs.FeeAmountEnabled event: {:#}", e)
-                    }
-                }
+        }
+        impl substreams_ethereum::Event for FeeAmountEnabled {
+            const NAME: &'static str = "FeeAmountEnabled";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -173,11 +176,16 @@
                         .to_vec(),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => panic!("Unable to decode logs.OwnerChanged event: {:#}", e),
-                }
+        }
+        impl substreams_ethereum::Event for OwnerChanged {
+            const NAME: &'static str = "OwnerChanged";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -304,11 +312,16 @@
                         .to_vec(),
                 })
             }
-            pub fn must_decode(log: &substreams_ethereum::pb::eth::v1::Log) -> Self {
-                match Self::decode(log) {
-                    Ok(v) => v,
-                    Err(e) => panic!("Unable to decode logs.PoolCreated event: {:#}", e),
-                }
+        }
+        impl substreams_ethereum::Event for PoolCreated {
+            const NAME: &'static str = "PoolCreated";
+            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v1::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
             }
         }
     }

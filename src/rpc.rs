@@ -1,6 +1,6 @@
+use crate::{eth, utils, Erc20Token};
 use substreams::{log, Hex};
 use substreams_ethereum::pb::eth as ethpb;
-use crate::{eth, UniswapToken};
 
 // NOTE: on uniswap-v3-subgraph, if the token decimal doesn't exist, they simply
 //  ignore the token? and don't create the pool... is this something we want to do?
@@ -9,7 +9,7 @@ use crate::{eth, UniswapToken};
 //  we only decide to output/store the pool when both tokens are valid, if not
 //  it makes no sense to store the pool
 
-pub fn create_uniswap_token(token_address: &String) -> Option<UniswapToken> {
+pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     let rpc_calls = create_rpc_calls(&hex::decode(token_address).unwrap());
 
     let rpc_responses_unmarshalled: ethpb::rpc::RpcResponses =
@@ -30,48 +30,64 @@ pub fn create_uniswap_token(token_address: &String) -> Option<UniswapToken> {
         return None;
     };
 
-    let decoded_decimals = eth::read_uint32(responses[0].raw.as_ref());
-    if decoded_decimals.is_err() {
-        log::debug!(
-            "{} is not a an ERC20 token contract decimal `eth_call` failed: {}",
-            &token_address,
-            decoded_decimals.err().unwrap(),
-        );
-        return None;
+    let mut decimals: u64 = 0;
+    match eth::read_uint32(responses[0].raw.as_ref()) {
+        Ok(decoded_decimals) => {
+            decimals = decoded_decimals as u64;
+        }
+        Err(err) => match utils::get_static_uniswap_tokens(token_address.as_str()) {
+            Some(token) => {
+                decimals = token.decimals;
+            }
+            None => {
+                log::debug!(
+                    "{} is not a an ERC20 token contract decimal `eth_call` failed: {}",
+                    &token_address,
+                    err.msg,
+                );
+                return None;
+            }
+        },
     }
     log::debug!("decoded_decimals ok");
 
-    let decoded_name = eth::read_string(responses[1].raw.as_ref());
-    if decoded_name.is_err() {
-        log::debug!(
-            "{} is not a an ERC20 token contract name `eth_call` failed: {}",
-            &token_address,
-            decoded_name.err().unwrap(),
-        );
-        return None;
+    let mut name = "unknown".to_string();
+    match eth::read_string(responses[1].raw.as_ref()) {
+        Ok(decoded_name) => {
+            name = decoded_name;
+        }
+        Err(_) => match utils::get_static_uniswap_tokens(token_address.as_str()) {
+            Some(token) => {
+                name = token.name;
+            }
+            None => {
+                name = eth::read_string_from_bytes(responses[1].raw.as_ref());
+            }
+        },
     }
     log::debug!("decoded_name ok");
 
-    let decoded_symbol = eth::read_string(responses[2].raw.as_ref());
-    if decoded_symbol.is_err() {
-        log::debug!(
-            "{} is not a an ERC20 token contract symbol `eth_call` failed: {}",
-            &token_address,
-            decoded_symbol.err().unwrap(),
-        );
-        return None;
+    let mut symbol = "unknown".to_string();
+    match eth::read_string(responses[2].raw.as_ref()) {
+        Ok(s) => {
+            symbol = s;
+        }
+        Err(_) => match utils::get_static_uniswap_tokens(token_address.as_str()) {
+            Some(token) => {
+                symbol = token.symbol;
+            }
+            None => {
+                symbol = eth::read_string_from_bytes(responses[2].raw.as_ref());
+            }
+        },
     }
-    log::debug!("decoded_symbol ok");
+    log::debug!("decoded_name ok");
 
-    let decimals = decoded_decimals.unwrap() as u64;
-    let symbol = decoded_symbol.unwrap();
-    let name = decoded_name.unwrap();
-
-    return Some(UniswapToken{
+    return Some(Erc20Token {
         address: String::from(token_address),
         name,
         symbol,
-        decimals
+        decimals,
     });
 }
 
@@ -97,4 +113,3 @@ fn create_rpc_calls(addr: &Vec<u8>) -> ethpb::rpc::RpcCalls {
         ],
     };
 }
-
