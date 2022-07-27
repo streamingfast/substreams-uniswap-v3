@@ -17,6 +17,7 @@ use substreams::errors::Error;
 use substreams::store;
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb,Event as EventTrait};
+use crate::ethpb::v1::BlockHeader;
 
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
@@ -36,17 +37,17 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
     let pools = block
         .events::<abi::factory::events::PoolCreated>(&[&utils::UNISWAP_V3_FACTORY])
         .filter_map(|(event, log)| {
-            log::info!("pool addr: {}", Hex(event.pool));
-
+            log::info!("pool addr: {}", Hex(&event.pool));
             let mut pool: Pool = Pool {
                 address: Hex(&log.data()[44..64]).to_string(),
                 token0: None,
                 token1: None,
-                creation_transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                fee: event.fee.as_u32(),
-                block_num: block.number.to_string(),
-                log_ordinal: log.ordinal(),
+                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                created_at_block_number: block.number.to_string(),
+                created_at_timestamp: block.header.as_ref().unwrap().timestamp.as_ref().unwrap().seconds.to_string(),
+                fee_tier: event.fee.as_u32(),
                 tick_spacing: event.tick_spacing.to_i32().unwrap(),
+                log_ordinal: log.ordinal(),
             };
             // check the validity of the token0 and token1
             let mut token0 = Erc20Token {
@@ -95,6 +96,31 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
     Ok(Pools{pools})
 }
 
+/// Keyspace
+///     pool:{pool.address} -> stores an encoded value of the pool
+///     tokens:{}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
+#[substreams::handlers::store]
+pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
+    for pool in pools.pools {
+        output.set(
+            pool.log_ordinal,
+            format!("pool:{}", pool.address),
+            &proto::encode(&pool).unwrap(),
+        );
+        output.set(
+            pool.log_ordinal,
+            format!(
+                "tokens:{}",
+                utils::generate_tokens_key(
+                    pool.token0.as_ref().unwrap().address.as_str(),
+                    pool.token1.as_ref().unwrap().address.as_str(),
+                )
+            ),
+            &proto::encode(&pool).unwrap(),
+        )
+    }
+}
+
 #[substreams::handlers::map]
 pub fn map_pools_initialized(
     block: ethpb::v1::Block,
@@ -115,7 +141,6 @@ pub fn map_pools_initialized(
                 let event = abi::pool::events::Initialize::decode(&log).unwrap();
                 output.pool_initializations.push(PoolInitialization {
                     address: Hex(&log.address).to_string(),
-                    initialization_transaction_id: Hex(&trx.hash).to_string(),
                     log_ordinal: log.ordinal,
                     tick: event.tick.to_string(),
                     sqrt_price: event.sqrt_price_x96.to_string(),
@@ -195,30 +220,7 @@ pub fn store_pools_initialization(
     }
 }
 
-/// Keyspace
-///     pool:{pool.address} -> stores an encoded value of the pool
-///     tokens:{}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
-#[substreams::handlers::store]
-pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
-    for pool in pools.pools {
-        output.set(
-            pool.log_ordinal,
-            format!("pool:{}", pool.address),
-            &proto::encode(&pool).unwrap(),
-        );
-        output.set(
-            pool.log_ordinal,
-            format!(
-                "tokens:{}",
-                utils::generate_tokens_key(
-                    pool.token0.as_ref().unwrap().address.as_str(),
-                    pool.token1.as_ref().unwrap().address.as_str(),
-                )
-            ),
-            &proto::encode(&pool).unwrap(),
-        )
-    }
-}
+
 
 #[substreams::handlers::map]
 pub fn map_burns_swaps_mints(
@@ -260,7 +262,7 @@ pub fn map_burns_swaps_mints(
                                 pool_address: pool.address.to_string(),
                                 token0: pool.token0.as_ref().unwrap().address.to_string(),
                                 token1: pool.token1.as_ref().unwrap().address.to_string(),
-                                fee: pool.fee.to_string(),
+                                fee: pool.fee_tier.to_string(),
                                 transaction_id: Hex(&trx.hash).to_string(),
                                 timestamp: block
                                     .header
@@ -315,7 +317,7 @@ pub fn map_burns_swaps_mints(
                                 pool_address: pool.address.to_string(),
                                 token0: pool.token0.as_ref().unwrap().address.to_string(),
                                 token1: pool.token1.as_ref().unwrap().address.to_string(),
-                                fee: pool.fee.to_string(),
+                                fee: pool.fee_tier.to_string(),
                                 transaction_id: Hex(&trx.hash).to_string(),
                                 timestamp: block
                                     .header
@@ -369,7 +371,7 @@ pub fn map_burns_swaps_mints(
                                 pool_address: pool.address.to_string(),
                                 token0: pool.token0.unwrap().address,
                                 token1: pool.token1.unwrap().address,
-                                fee: pool.fee.to_string(),
+                                fee: pool.fee_tier.to_string(),
                                 transaction_id: Hex(&trx.hash).to_string(),
                                 timestamp: block
                                     .header
@@ -816,39 +818,14 @@ fn map_pool_entities(
             ordinal: pool.log_ordinal,
             operation: Operation::Create as i32,
             fields: vec![
+                new_field!("id", FieldType::String, string_field_value!(pool.address)),
+                new_field!("created_at_timestamp", FieldType::Bigint, big_int_field_value!(pool.created_at_timestamp)),
+                new_field!("created_at_block_number", FieldType::String, string_field_value!(pool.created_at_block_number)),
+                new_field!("token0", FieldType::String, string_field_value!(pool.token0.unwrap().address)),
+                new_field!("token1", FieldType::String,string_field_value!(pool.token1.unwrap().address)),
+                new_field!("fee_tier", FieldType::Int, int_field_value!(pool.fee_tier)),
                 new_field!(
-                    "address",
-                    FieldType::String,
-                    string_field_value!(pool.address)
-                ),
-                new_field!(
-                    "token0",
-                    FieldType::String,
-                    string_field_value!(pool.token0.unwrap().address)
-                ),
-                new_field!(
-                    "token1",
-                    FieldType::String,
-                    string_field_value!(pool.token1.unwrap().address)
-                ),
-                new_field!(
-                    "creation_transaction_id",
-                    FieldType::String,
-                    string_field_value!(pool.creation_transaction_id)
-                ),
-                new_field!("fee_tier", FieldType::Int, int_field_value!(pool.fee)),
-                new_field!(
-                    "block_num",
-                    FieldType::String,
-                    string_field_value!(pool.block_num)
-                ),
-                new_field!(
-                    "log_ordinal",
-                    FieldType::Int,
-                    int_field_value!(pool.log_ordinal)
-                ),
-                new_field!(
-                    "tick_spacing",
+                    "tick",
                     FieldType::Int,
                     int_field_value!(pool.tick_spacing)
                 ),
@@ -864,16 +841,8 @@ fn map_pool_entities(
             ordinal: pool_init.log_ordinal,
             operation: Operation::Update as i32,
             fields: vec![
-                new_field!(
-                    "sqrt_price",
-                    FieldType::Bigdecimal,
-                    big_decimal_string_field_value!(pool_init.sqrt_price)
-                ),
-                new_field!(
-                    "tick",
-                    FieldType::Bigdecimal,
-                    big_int_field_value!(pool_init.tick)
-                ),
+                new_field!( "sqrt_price", FieldType::Bigdecimal, big_decimal_string_field_value!(pool_init.sqrt_price)),
+                new_field!( "tick", FieldType::Bigint, big_int_field_value!(pool_init.tick)),
             ],
         };
         out.entity_changes.push(change);

@@ -24,13 +24,41 @@ message Pools {
 
 message Pool {
   string address = 1;
-  ERC20Token token0 = 2;
-  ERC20Token token1 = 3;
-  string creation_transaction_id = 4;
-  uint32 fee = 5;
-  string block_num = 6;
-  uint64 log_ordinal = 7;
-  int32 tick_spacing = 8;
+  string created_at_timestamp = 3; // BigInt
+  string created_at_block_number = 4;  // BigInt
+  ERC20Token token0 = 5;
+  ERC20Token token1 = 6;
+  uint32 fee_tier = 7;  // BigInt
+
+  // internals
+  int32 tick_spacing = 30;
+  uint64 log_ordinal = 31;
+  string transaction_id = 32;
+//      liquidity: BigInt!
+//      sqrtPrice: BigInt!
+//      feeGrowthGlobal0X128: BigInt!
+//      feeGrowthGlobal1X128: BigInt!
+//      token0Price: BigDecimal!
+//      token1Price: BigDecimal!
+//    tick: BigInt
+//      observationIndex: BigInt!
+//    volumeToken0: BigDecimal!
+//    volumeToken1: BigDecimal!
+//    volumeUSD: BigDecimal!
+//      untrackedVolumeUSD: BigDecimal!
+//      feesUSD: BigDecimal!
+//      txCount: BigInt!
+//      collectedFeesToken0: BigDecimal!
+//      collectedFeesToken1: BigDecimal!
+//    collectedFeesUSD: BigDecimal!
+//      totalValueLockedToken0: BigDecimal!
+//      totalValueLockedToken1: BigDecimal!
+//      totalValueLockedETH: BigDecimal!
+//    totalValueLockedUSD: BigDecimal!
+//      totalValueLockedUSDUntracked: BigDecimal!
+//    liquidityProviderCount: BigInt! # used to detect new exchanges
+//      poolHourData: [PoolHourData!]! @derivedFrom(field: "pool")
+//      poolDayData: [PoolDayData!]! @derivedFrom(field: "pool")
 }
 
 message PoolInitializations {
@@ -39,10 +67,13 @@ message PoolInitializations {
 
 message PoolInitialization {
   string address = 1;
-  string initialization_transaction_id = 2;
-  uint64 log_ordinal = 3;
-  string tick = 4; // BigDecimal
-  string sqrt_price = 5; // BigDecimal
+  string sqrt_price = 2; // BigInt
+  string tick = 3; // BigInt
+
+  // internals
+  uint64 log_ordinal = 30;
+
+
 }
 
 message SqrtPriceUpdates {
