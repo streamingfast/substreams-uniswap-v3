@@ -16,101 +16,83 @@ use std::str::FromStr;
 use substreams::errors::Error;
 use substreams::store;
 use substreams::{log, proto, Hex};
-use substreams_ethereum::pb::eth as ethpb;
+use substreams_ethereum::{pb::eth as ethpb,Event as EventTrait};
 
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::{
-    Burn, EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, Field, Flash, Mint, Pool,
+    Burn, EntitiesChanges, EntityChange, Erc20Token, Event, Field, Flash, Mint, Pool,
     PoolInitialization, PoolInitializations, Pools, SqrtPriceUpdate, SqrtPriceUpdates, Tick,
 };
 use crate::utils::{big_decimal_exponated, get_last_pool_tick, safe_div};
 
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
-    let mut output = Pools { pools: vec![] };
-    let mut uniswap_tokens = Erc20Tokens { tokens: vec![] };
-
     // optimization and make sure to not add the same token twice
     // it is possible to have multiple pools created with the same
     // tokens (USDC, WETH, etc.)
     let mut cached_tokens = HashMap::new();
+    let pools = block
+        .events::<abi::factory::events::PoolCreated>(&[&utils::UNISWAP_V3_FACTORY])
+        .filter_map(|(event, log)| {
+            log::info!("pool addr: {}", Hex(event.pool));
 
-    for trx in block.transaction_traces {
-        for call in trx.calls.iter() {
-            if call.state_reverted || hex::encode(&call.address) != utils::UNISWAP_V3_FACTORY {
-                continue;
-            }
+            let mut pool: Pool = Pool {
+                address: Hex(&log.data()[44..64]).to_string(),
+                token0: None,
+                token1: None,
+                creation_transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                fee: event.fee.as_u32(),
+                block_num: block.number.to_string(),
+                log_ordinal: log.ordinal(),
+                tick_spacing: event.tick_spacing.to_i32().unwrap(),
+            };
+            // check the validity of the token0 and token1
+            let mut token0 = Erc20Token {
+                address: "".to_string(),
+                name: "".to_string(),
+                symbol: "".to_string(),
+                decimals: 0,
+            };
+            let mut token1 = Erc20Token {
+                address: "".to_string(),
+                name: "".to_string(),
+                symbol: "".to_string(),
+                decimals: 0,
+            };
 
-            for call_log in call.logs.iter() {
-                if !abi::factory::events::PoolCreated::match_log(&call_log) {
-                    continue;
-                }
-
-                let event = abi::factory::events::PoolCreated::decode(&call_log).unwrap();
-                let mut pool: Pool = Pool {
-                    address: Hex(&call_log.data[44..64]).to_string(),
-                    token0: None,
-                    token1: None,
-                    creation_transaction_id: Hex(&trx.hash).to_string(),
-                    fee: event.fee.as_u32(),
-                    block_num: block.number.to_string(),
-                    log_ordinal: call_log.ordinal,
-                    tick_spacing: event.tick_spacing.to_i32().unwrap(),
-                };
-                log::info!("pool addr: {}", pool.address);
-
-                // check the validity of the token0 and token1
-                let mut token0 = Erc20Token {
-                    address: "".to_string(),
-                    name: "".to_string(),
-                    symbol: "".to_string(),
-                    decimals: 0,
-                };
-                let mut token1 = Erc20Token {
-                    address: "".to_string(),
-                    name: "".to_string(),
-                    symbol: "".to_string(),
-                    decimals: 0,
-                };
-
-                let token0_address: String = Hex(&event.token0).to_string();
-                if !cached_tokens.contains_key(&token0_address) {
-                    match rpc::create_uniswap_token(&token0_address) {
-                        None => {
-                            continue;
-                        }
-                        Some(token) => {
-                            token0 = token;
-                            cached_tokens.insert(String::from(&token0_address), true);
-                        }
+            let token0_address: String = Hex(&event.token0).to_string();
+            if !cached_tokens.contains_key(&token0_address) {
+                match rpc::create_uniswap_token(&token0_address) {
+                    None => {
+                        return None;
+                    }
+                    Some(token) => {
+                        token0 = token;
+                        cached_tokens.insert(String::from(&token0_address), true);
                     }
                 }
+            }
 
-                let token1_address: String = Hex(&event.token1).to_string();
-                if !cached_tokens.contains_key(&token1_address) {
-                    match rpc::create_uniswap_token(&token1_address) {
-                        None => {
-                            continue;
-                        }
-                        Some(token) => {
-                            token1 = token;
-                            cached_tokens.insert(String::from(&token1_address), true);
-                        }
+            let token1_address: String = Hex(&event.token1).to_string();
+            if !cached_tokens.contains_key(&token1_address) {
+                match rpc::create_uniswap_token(&token1_address) {
+                    None => {
+                        return None;
+                    }
+                    Some(token) => {
+                        token1 = token;
+                        cached_tokens.insert(String::from(&token1_address), true);
                     }
                 }
-
-                pool.token0 = Some(token0.clone());
-                pool.token1 = Some(token1.clone());
-                output.pools.push(pool);
-                uniswap_tokens.tokens.push(token0);
-                uniswap_tokens.tokens.push(token1);
             }
-        }
-    }
+            pool.token0 = Some(token0.clone());
+            pool.token1 = Some(token1.clone());
+            Some(pool)
+        }).collect();
 
-    Ok(output)
+    Ok(Pools{pools})
 }
 
 #[substreams::handlers::map]
