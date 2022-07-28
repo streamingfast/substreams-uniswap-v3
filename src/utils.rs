@@ -1,4 +1,4 @@
-use crate::{pb, Erc20Token, Pool};
+use crate::{pb, Erc20Token, Pool, keyer};
 use bigdecimal::{BigDecimal, Num, One, Zero};
 use num_bigint::BigInt;
 use pad::PadStr;
@@ -8,6 +8,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use std::str;
 use std::str::FromStr;
 use substreams::{hex, log};
+use substreams::errors::Error;
 use substreams::proto;
 use substreams::store::StoreGet;
 
@@ -258,27 +259,16 @@ pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool,
     )
 }
 
-// pub fn get_last_pool_tick(
-//     pool_init_store: &StoreGet,
-//     swap_store: &StoreGet,
-//     pool_address: &str,
-//     trx_id: &str,
-//     log_ordinal: u64,
-// ) -> Result<BigDecimal, DecodeError> {
-//     return match get_last_swap(swap_store, trx_id, log_ordinal) {
-//         Ok(swap) => Ok(BigDecimal::from_str_radix(swap.tick.to_string().as_str(), 10).unwrap()),
-//         Err(_) => {
-//             //fallback to pool init
-//             match get_pool_init(pool_init_store, pool_address) {
-//                 Ok(pool_init) => Ok(BigDecimal::from_str_radix(&pool_init.tick, 10).unwrap()),
-//                 Err(_) => Err(DecodeError::new(format!(
-//                     "No pool init or swap: {}",
-//                     pool_address
-//                 ))),
-//             }
-//         }
-//     };
-// }
+
+pub fn get_last_pool_sqrt_price(
+    pool_sqrt_price_store: &StoreGet,
+    pool_address: &String,
+) -> Result<pb::uniswap::PoolSqrtPrice, Error> {
+    return match &pool_sqrt_price_store.get_last(&keyer::pool_sqrt_price_key(&pool_address)) {
+        None => Err(Error::Unexpected("no pool sqrt price found".to_string())),
+        Some(bytes) => Ok(proto::decode(bytes).unwrap()),
+    };
+}
 
 pub fn generate_tokens_key(token0: &str, token1: &str) -> String {
     if token0 > token1 {

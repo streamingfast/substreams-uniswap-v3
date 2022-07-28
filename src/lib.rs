@@ -6,8 +6,9 @@ mod macros;
 mod pb;
 mod rpc;
 mod utils;
+mod keyer;
 
-use bigdecimal::ToPrimitive;
+use bigdecimal::{Num, ToPrimitive};
 use bigdecimal::{BigDecimal, FromPrimitive};
 use num_bigint::BigInt;
 use std::collections::HashMap;
@@ -15,7 +16,7 @@ use std::ops::Neg;
 use std::str::FromStr;
 use prost::length_delimiter_len;
 use substreams::errors::Error;
-use substreams::store;
+use substreams::{log_debug, store};
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb,Event as EventTrait};
 use crate::ethpb::v1::BlockHeader;
@@ -23,8 +24,8 @@ use crate::ethpb::v1::BlockHeader;
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
-use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Erc20Token, Event, Field, Flash, Mint, Pool, Pools, PoolSqrtPrice, PoolSqrtPrices, Tick};
-use crate::utils::{big_decimal_exponated, safe_div};
+use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Erc20Token, Event, Field, Flash, Liquidity, Mint, Pool, Pools, PoolSqrtPrice, PoolSqrtPrices, Tick};
+use crate::utils::{big_decimal_exponated, get_last_pool_sqrt_price, safe_div};
 
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
@@ -150,9 +151,72 @@ pub fn store_pool_sqrt_price(mut sqrt_prices: PoolSqrtPrices, output: store::Sto
         // fixme: probably need to have a similar key for like we have for a swap
         output.set(
             0,
-            format!("sqrt_price:{}", sqrt_price.pool_address),
+            keyer::pool_sqrt_price_key(&sqrt_price.pool_address),
             &proto::encode(&sqrt_price).unwrap(),
         )
+    }
+}
+
+/// Keyspace
+///     price:{token0_addr}:{token1_addr} -> stores the tokens price 0 for token 1
+///     price:{token1_addr}:{token0_addr} -> stores the tokens price 1 for token 0
+#[substreams::handlers::store]
+pub fn store_prices(
+    pool_sqrt_prices: PoolSqrtPrices,
+    pools_store: store::StoreGet,
+    output: store::StoreSet,
+) {
+    for sqrt_price_update in pool_sqrt_prices.pool_sqrt_prices {
+        let pool =
+            utils::get_last_pool(&pools_store, sqrt_price_update.pool_address.as_str()).unwrap();
+
+        let token0 = pool.token0.as_ref().unwrap();
+        let token1 = pool.token1.as_ref().unwrap();
+        log::info!(
+            "pool addr: {}, token 0 addr: {}, token 1 addr: {}",
+            pool.address,
+            token0.address,
+            token1.address
+        );
+
+        let sqrt_price = BigDecimal::from_str(sqrt_price_update.sqrt_price.as_str()).unwrap();
+        log::info!("sqrtPrice: {}", sqrt_price.to_string());
+
+        let tokens_price: (BigDecimal, BigDecimal) =
+            utils::sqrt_price_x96_to_token_prices(&sqrt_price, &token0, &token1);
+        log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
+
+        output.set(
+            sqrt_price_update.ordinal,
+            format!("pool:{}:token0:{}:price", pool.address, token0.address),
+            &Vec::from(tokens_price.0.to_string()),
+        );
+        output.set(
+            sqrt_price_update.ordinal,
+            format!("pool:{}:token1:{}:price", pool.address, token1.address),
+            &Vec::from(tokens_price.1.to_string()),
+        );
+
+        output.set(
+            sqrt_price_update.ordinal,
+            format!(
+                "price:{}:{}",
+                pool.token0.as_ref().unwrap().address,
+                pool.token1.as_ref().unwrap().address
+            ),
+            &Vec::from(tokens_price.0.to_string()),
+        );
+        output.set(
+            sqrt_price_update.ordinal,
+            format!(
+                "price:{}:{}",
+                pool.token1.as_ref().unwrap().address,
+                pool.token0.as_ref().unwrap().address
+            ),
+            &Vec::from(tokens_price.1.to_string()),
+        );
+        // perhaps? set `sqrt_price:{pair}:{tokenA} => 0.123`
+        // We did that in Uniswap v2, we'll see if useful in the future.
     }
 }
 
@@ -318,31 +382,134 @@ pub fn map_swap_mints_burns(
     Ok(pb::uniswap::Events { events})
 }
 
+#[substreams::handlers::store]
+pub fn store_swaps(events: pb::uniswap::Events, output: store::StoreSet) {
+    for event in events.events {
+        match event.r#type.unwrap() {
+            SwapEvent(swap) => {
+                output.set(
+                    0,
+                    format!("swap:{}:{}", event.transaction_id, event.log_ordinal),
+                    &proto::encode(&swap).unwrap(),
+                );
+            }
+            _ => {}
+        }
+    }
+}
 
 
+/// Keyspace:
+///
+///    liquidity:{pool_address} =>
+///    total_value_locked:{tokenA}:{tokenB} => 0.1231 (tokenA total value locked, summed for all pools dealing with tokenA:tokenB, in floating point decimal taking tokenA's decimals in consideration).
+///
+#[substreams::handlers::map]
+pub fn map_liquidity(
+    events: pb::uniswap::Events,
+    pool_sqrt_price_store: store::StoreGet,
+) -> Result<pb::uniswap::Liquidities, Error> {
+    let mut liquidities= vec![];
+    for event in events.events {
+        log::debug!("transaction id: {}", event.transaction_id);
+        if event.r#type.is_none() {
+            continue;
+        }
+
+        if event.r#type.is_some() {
+            match event.r#type.unwrap() {
+                BurnEvent(burn) => {
+                    let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
+                    let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
+                    let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
+                    let tick_lower =
+                        BigDecimal::from_str(burn.tick_lower.to_string().as_str()).unwrap();
+                    let tick_upper =
+                        BigDecimal::from_str(burn.tick_upper.to_string().as_str()).unwrap();
+
+                    let pool_sqrt_price = get_last_pool_sqrt_price(&pool_sqrt_price_store, &event.pool_address)?;
+                    let tick = BigDecimal::from_str_radix(pool_sqrt_price.tick.as_str(), 10).unwrap();
 
 
+                    let mut li = Liquidity {
+                        pool_address: event.pool_address,
+                        log_ordinal: event.log_ordinal,
+                        update_pool_value: false,
+                        token0: event.token0,
+                        amount0: amount0.neg().to_string(),
+                        token1: event.token1,
+                        amount1: amount1.neg().to_string(),
+                        ..Default::default()
+                    };
+                    if tick_lower <= tick && tick <= tick_upper {
+                        li.update_pool_value = true;
+                        li.pool_value = amount.neg().to_string()
+                    }
+
+                    liquidities.push(li);
+                }
+                MintEvent(mint) => {
+                    let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
+                    let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
+                    let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
+                    let tick_lower =
+                        BigDecimal::from_str(mint.tick_lower.to_string().as_str()).unwrap();
+                    let tick_upper =
+                        BigDecimal::from_str(mint.tick_upper.to_string().as_str()).unwrap();
+
+                    let pool_sqrt_price = get_last_pool_sqrt_price(&pool_sqrt_price_store, &event.pool_address)?;
+                    let tick = BigDecimal::from_str_radix(pool_sqrt_price.tick.as_str(), 10).unwrap();
 
 
+                    let mut li = Liquidity {
+                        pool_address: event.pool_address,
+                        log_ordinal: event.log_ordinal,
+                        update_pool_value: false,
+                        token0: event.token0,
+                        amount0: amount0.to_string(),
+                        token1: event.token1,
+                        amount1: amount1.to_string(),
+                        ..Default::default()
+                    };
+                    if tick_lower <= tick && tick <= tick_upper {
+                        li.update_pool_value = true;
+                        li.pool_value = amount.to_string()
+                    }
 
+                    liquidities.push(li);
+                }
+                SwapEvent(_) => {}
+            }
+        }
+    }
+    Ok(pb::uniswap::Liquidities{liquidities})
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/// Keyspace
+///     pool:{pool.address} -> stores an encoded value of the pool
+///     tokens:{}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
+#[substreams::handlers::store]
+pub fn store_liquidity(liquidities: pb::uniswap::Liquidities, output: store::StoreAddBigFloat) {
+    for pool_liquidity in liquidities.liquidities {
+        if pool_liquidity.update_pool_value {
+            output.add(
+                pool_liquidity.log_ordinal,
+                keyer::liquidity_pool(&pool_liquidity.pool_address),
+                &BigDecimal::from_str(pool_liquidity.pool_value.as_str()).unwrap(),
+            );
+        }
+        output.add(
+            pool_liquidity.log_ordinal,
+            keyer::toal_value_locked_0(&pool_liquidity.token0, &pool_liquidity.token1),
+            &BigDecimal::from_str(pool_liquidity.amount0.as_str()).unwrap(),
+        );
+        output.add(
+            pool_liquidity.log_ordinal,
+            keyer::toal_value_locked_1(&pool_liquidity.token1,&pool_liquidity.token0),
+            &BigDecimal::from_str(pool_liquidity.amount1.as_str()).unwrap(),
+        );
+    }
+}
 
 
 
@@ -416,186 +583,8 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: store::StoreSet) {
 
 
 
-#[substreams::handlers::store]
-pub fn store_swaps(events: pb::uniswap::Events, output: store::StoreSet) {
-    for event in events.events {
-        match event.r#type.unwrap() {
-            SwapEvent(swap) => {
-                output.set(
-                    0,
-                    format!("swap:{}:{}", event.transaction_id, event.log_ordinal),
-                    &proto::encode(&swap).unwrap(),
-                );
-            }
-            _ => {}
-        }
-    }
-}
 
 
-// /// Keyspace:
-// ///
-// ///    liquidity:{pool_address} =>
-// ///    total_value_locked:{tokenA}:{tokenB} => 0.1231 (tokenA total value locked, summed for all pools dealing with tokenA:tokenB, in floating point decimal taking tokenA's decimals in consideration).
-// ///
-// #[substreams::handlers::store]
-// pub fn store_liquidity(
-//     events: pb::uniswap::Events,
-//     swap_store: store::StoreGet,
-//     pool_init_store: store::StoreGet,
-//     output: store::StoreAddBigFloat,
-// ) {
-//     for event in events.events {
-//         log::debug!("transaction id: {}", event.transaction_id);
-//         if event.r#type.is_none() {
-//             continue;
-//         }
-//
-//         if event.r#type.is_some() {
-//             match event.r#type.unwrap() {
-//                 BurnEvent(burn) => {
-//                     let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
-//                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
-//                     let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
-//                     let tick_lower =
-//                         BigDecimal::from_str(burn.tick_lower.to_string().as_str()).unwrap();
-//                     let tick_upper =
-//                         BigDecimal::from_str(burn.tick_upper.to_string().as_str()).unwrap();
-//                     let tick = get_last_pool_tick(
-//                         &pool_init_store,
-//                         &swap_store,
-//                         &event.pool_address,
-//                         &event.transaction_id,
-//                         event.log_ordinal,
-//                     )
-//                     .unwrap();
-//
-//                     if tick_lower <= tick && tick <= tick_upper {
-//                         output.add(
-//                             event.log_ordinal,
-//                             format!("liquidity:{}", event.pool_address),
-//                             &amount.neg(),
-//                         );
-//                     }
-//
-//                     output.add(
-//                         event.log_ordinal,
-//                         format!("total_value_locked:{}:{}", event.token0, event.token1),
-//                         &amount0.neg(),
-//                     );
-//                     output.add(
-//                         event.log_ordinal,
-//                         format!(
-//                             "total_value_locked:{}:{}",
-//                             event.token1, event.token0 /* FIXME: triple check that */
-//                         ),
-//                         &amount1.neg(),
-//                     );
-//                 }
-//                 MintEvent(mint) => {
-//                     let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
-//                     let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
-//                     let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
-//                     let tick_lower =
-//                         BigDecimal::from_str(mint.tick_lower.to_string().as_str()).unwrap();
-//                     let tick_upper =
-//                         BigDecimal::from_str(mint.tick_upper.to_string().as_str()).unwrap();
-//                     let tick = get_last_pool_tick(
-//                         &pool_init_store,
-//                         &swap_store,
-//                         &event.pool_address,
-//                         &event.transaction_id,
-//                         event.log_ordinal,
-//                     )
-//                     .unwrap();
-//
-//                     if tick_lower <= tick && tick <= tick_upper {
-//                         output.add(
-//                             event.log_ordinal,
-//                             format!("liquidity:{}", event.pool_address),
-//                             &amount,
-//                         );
-//                     }
-//
-//                     output.add(
-//                         event.log_ordinal,
-//                         format!("total_value_locked:{}:{}", event.pool_address, event.token0),
-//                         &amount0,
-//                     );
-//                     output.add(
-//                         event.log_ordinal,
-//                         format!("total_value_locked:{}:{}", event.pool_address, event.token1),
-//                         &amount1,
-//                     );
-//                 }
-//                 SwapEvent(_) => {}
-//             }
-//         }
-//     }
-// }
-
-/// Keyspace
-///     price:{token0_addr}:{token1_addr} -> stores the tokens price 0 for token 1
-///     price:{token1_addr}:{token0_addr} -> stores the tokens price 1 for token 0
-#[substreams::handlers::store]
-pub fn store_prices(
-    pool_sqrt_prices: PoolSqrtPrices,
-    pools_store: store::StoreGet,
-    output: store::StoreSet,
-) {
-    for sqrt_price_update in pool_sqrt_prices.pool_sqrt_prices {
-        let pool =
-            utils::get_last_pool(&pools_store, sqrt_price_update.pool_address.as_str()).unwrap();
-
-        let token0 = pool.token0.as_ref().unwrap();
-        let token1 = pool.token1.as_ref().unwrap();
-        log::info!(
-            "pool addr: {}, token 0 addr: {}, token 1 addr: {}",
-            pool.address,
-            token0.address,
-            token1.address
-        );
-
-        let sqrt_price = BigDecimal::from_str(sqrt_price_update.sqrt_price.as_str()).unwrap();
-        log::info!("sqrtPrice: {}", sqrt_price.to_string());
-
-        let tokens_price: (BigDecimal, BigDecimal) =
-            utils::sqrt_price_x96_to_token_prices(&sqrt_price, &token0, &token1);
-        log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
-
-        output.set(
-            sqrt_price_update.ordinal,
-            format!("pool:{}:token0:{}:price", pool.address, token0.address),
-            &Vec::from(tokens_price.0.to_string()),
-        );
-        output.set(
-            sqrt_price_update.ordinal,
-            format!("pool:{}:token1:{}:price", pool.address, token1.address),
-            &Vec::from(tokens_price.1.to_string()),
-        );
-
-        output.set(
-            sqrt_price_update.ordinal,
-            format!(
-                "price:{}:{}",
-                pool.token0.as_ref().unwrap().address,
-                pool.token1.as_ref().unwrap().address
-            ),
-            &Vec::from(tokens_price.0.to_string()),
-        );
-        output.set(
-            sqrt_price_update.ordinal,
-            format!(
-                "price:{}:{}",
-                pool.token1.as_ref().unwrap().address,
-                pool.token0.as_ref().unwrap().address
-            ),
-            &Vec::from(tokens_price.1.to_string()),
-        );
-        // perhaps? set `sqrt_price:{pair}:{tokenA} => 0.123`
-        // We did that in Uniswap v2, we'll see if useful in the future.
-    }
-}
 
 /// Keyspace
 ///     token:{token0_addr}:dprice:eth -> stores the derived eth price per token0 price

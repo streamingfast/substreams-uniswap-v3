@@ -53,6 +53,15 @@ modules:
     inputs:
       - map: map_pool_sqrt_price
 
+  - name: store_prices
+    kind: store
+    updatePolicy: set
+    initialBlock: 12369621
+    valueType: string
+    inputs:
+      - map: map_pool_sqrt_price
+      - store: store_pools
+
   - name: map_swap_mints_burns
     kind: map
     inputs:
@@ -61,14 +70,6 @@ modules:
     output:
       type: proto:uniswap.types.v1.Events
 
-
-
-
-
-
-
-
-
   - name: store_swaps
     kind: store
     updatePolicy: set
@@ -76,12 +77,23 @@ modules:
     inputs:
       - map: map_swap_mints_burns
 
-  - name: store_ticks
-    kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Tick
+  - name: map_liquidities
+    kind: map
+    initialBlock: 12369621
     inputs:
       - map: map_swap_mints_burns
+      - store: store_pool_sqrt_price
+    output:
+      type: proto:uniswap.types.v1.Liquidities
+
+
+  - name: store_liquidity
+    kind: store
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.Pool
+    inputs:
+      - map: map_pools_created
+
 
   - name: store_liquidity
     kind: store
@@ -91,14 +103,19 @@ modules:
       - map: map_swap_mints_burns
       - store: store_swaps
 
-  - name: store_prices
+
+
+
+  - name: store_ticks
     kind: store
     updatePolicy: set
-    initialBlock: 12369621
-    valueType: string
+    valueType: proto:uniswap.types.v1.Tick
     inputs:
-      - map: map_pool_sqrt_price
-      - store: store_pools
+      - map: map_swap_mints_burns
+
+
+
+
 
   - name: store_derived_eth_prices
     kind: store

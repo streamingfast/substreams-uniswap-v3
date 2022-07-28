@@ -64,24 +64,6 @@ message PoolSqrtPrice {
   string tick = 4; // BigInt
 }
 
-
-
-
-message Ticks {
-  repeated Tick ticks = 1;
-}
-
-message Tick {
-  string pool_address = 1;
-  string idx = 2; //BigInteger
-  string price0 = 3; //BigDecimal
-  string price1 = 4; //BigDecimal
-}
-
-
-
-
-
 message Events {
   repeated Event events = 1;
 }
@@ -99,30 +81,6 @@ message Event {
   string fee = 104;
   string transaction_id = 105;
   uint64 timestamp = 106;
-}
-
-
-
-
-
-
-
-
-
-
-
-message Liquidity {
-  string pool_address = 1;
-  string value = 2; // BigDecimal
-}
-
-
-
-
-
-
-message Swaps {
-  repeated Swap swaps = 1;
 }
 
 message Swap {
@@ -147,13 +105,83 @@ message Burn {
 message Mint {
   string owner = 1;
   string sender = 2;
-//  string origin = 3; // should be the transaction origin, do we need this?
+  //  string origin = 3; // should be the transaction origin, do we need this?
   string amount_0 = 4;
   string amount_1 = 5;
   int32 tick_lower = 6;
   int32 tick_upper = 7;
   string amount = 8;
 }
+
+message Liquidities {
+  repeated Liquidity liquidities =1;
+}
+
+message Liquidity {
+  string pool_address = 1;
+  string pool_value = 2; // BigDecimal
+  bool update_pool_value = 3;
+  string token0 = 4;
+  string amount0 = 5;
+  string token1 = 6;
+  string amount1 = 7;
+
+  // internals
+  uint64 log_ordinal = 30;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+message Ticks {
+  repeated Tick ticks = 1;
+}
+
+message Tick {
+  string pool_address = 1;
+  string idx = 2; //BigInteger
+  string price0 = 3; //BigDecimal
+  string price1 = 4; //BigDecimal
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 message Fees {
   repeated Fee fees = 1;
