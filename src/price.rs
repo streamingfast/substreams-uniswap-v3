@@ -8,6 +8,7 @@ use std::str::FromStr;
 use substreams::{ log };
 use substreams::store::StoreGet;
 
+const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 pub const WHITELIST_TOKENS: [&str; 21] = [
     "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
@@ -123,4 +124,11 @@ pub fn find_eth_per_token(
 }
 
 
-
+pub fn get_eth_price_in_usd(
+    prices_store: &StoreGet,
+) -> BigDecimal {
+    match helper::get_pool_price(prices_store, &USDC_WETH_03_POOL.to_string(), &"token0".to_string()) {
+        Err(_) => BigDecimal::zero(),
+        Ok(price) => price
+    }
+}

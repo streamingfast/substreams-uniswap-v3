@@ -30,8 +30,12 @@ pub fn pool_sqrt_price_key(pool_address: &String) -> String {
 // ------------------------------------------------
 //      store_prices
 // ------------------------------------------------
-pub fn prices_pool_token_key(pool_address: &String, token_address: &String) -> String {
-    format!("pool:{}:{}", pool_address, token_address)
+pub fn prices_pool_token0_key(pool_address: &String) -> String {
+    format!("pool:{}:token0", pool_address)
+}
+
+pub fn prices_pool_token1_key(pool_address: &String) -> String {
+    format!("pool:{}:token1", pool_address)
 }
 
 // TODO: is the naming here correct?

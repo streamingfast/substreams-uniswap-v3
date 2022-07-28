@@ -175,12 +175,12 @@ pub fn store_prices(pool_sqrt_prices: PoolSqrtPrices, pools_store: store::StoreG
 
         output.set(
             sqrt_price_update.ordinal,
-            keyer::prices_pool_token_key(&pool.address, &token0.address),
+            keyer::prices_pool_token0_key(&pool.address),
             &Vec::from(tokens_price.0.to_string()),
         );
         output.set(
             sqrt_price_update.ordinal,
-            keyer::prices_pool_token_key(&pool.address, &token1.address),
+            keyer::prices_pool_token1_key(&pool.address),
             &Vec::from(tokens_price.1.to_string()),
         );
 

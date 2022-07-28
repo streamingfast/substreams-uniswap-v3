@@ -45,6 +45,22 @@ pub fn get_price_at(
     };
 }
 
+pub fn get_pool_price(
+    prices_store: &StoreGet,
+    pool_address: &String,
+    token_type: &String
+) -> Result<BigDecimal, Error> {
+    let mut key = keyer::prices_pool_token0_key(pool_address);
+    if token_type == "token1" {
+        key = keyer::prices_pool_token1_key(pool_address);
+    }
+    return match &prices_store.get_last(&key) {
+        None => Err(Error::Unexpected("price not found".to_string())),
+        Some(bytes) => Ok(math::price_from_bytes(&bytes)),
+    };
+}
+
+
 pub fn get_pool_total_value_locked_token_or_zero(
     total_value_locked_store: &StoreGet,
     pool_address: &String,
