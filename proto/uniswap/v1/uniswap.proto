@@ -113,18 +113,20 @@ message Mint {
   string amount = 8;
 }
 
-message Liquidities {
-  repeated Liquidity liquidities =1;
+
+
+message EventAmounts {
+  repeated EventAmount EventAmounts =1;
 }
 
-message Liquidity {
+message EventAmount {
   string pool_address = 1;
-  string pool_value = 2; // BigDecimal
+  string pool_value = 2;
   bool update_pool_value = 3;
-  string token0 = 4;
-  string amount0 = 5;
-  string token1 = 6;
-  string amount1 = 7;
+  string token0_addr = 4;
+  string amount0_value = 5;
+  string token1_addr = 6;
+  string amount1_value = 7;
 
   // internals
   uint64 log_ordinal = 30;

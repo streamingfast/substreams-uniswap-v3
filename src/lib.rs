@@ -24,7 +24,7 @@ use crate::ethpb::v1::BlockHeader;
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
-use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Erc20Token, Event, Field, Flash, Liquidity, Mint, Pool, Pools, PoolSqrtPrice, PoolSqrtPrices, Tick};
+use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Erc20Token, Event, EventAmount, Field, Flash, Mint, Pool, Pools, PoolSqrtPrice, PoolSqrtPrices, Tick};
 use crate::utils::{big_decimal_exponated, get_last_pool_sqrt_price, safe_div};
 
 #[substreams::handlers::map]
@@ -405,11 +405,11 @@ pub fn store_swaps(events: pb::uniswap::Events, output: store::StoreSet) {
 ///    total_value_locked:{tokenA}:{tokenB} => 0.1231 (tokenA total value locked, summed for all pools dealing with tokenA:tokenB, in floating point decimal taking tokenA's decimals in consideration).
 ///
 #[substreams::handlers::map]
-pub fn map_liquidity(
+pub fn map_event_amounts(
     events: pb::uniswap::Events,
     pool_sqrt_price_store: store::StoreGet,
-) -> Result<pb::uniswap::Liquidities, Error> {
-    let mut liquidities= vec![];
+) -> Result<pb::uniswap::EventAmounts, Error> {
+    let mut event_amounts= vec![];
     for event in events.events {
         log::debug!("transaction id: {}", event.transaction_id);
         if event.r#type.is_none() {
@@ -431,22 +431,22 @@ pub fn map_liquidity(
                     let tick = BigDecimal::from_str_radix(pool_sqrt_price.tick.as_str(), 10).unwrap();
 
 
-                    let mut li = Liquidity {
+                    let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         update_pool_value: false,
-                        token0: event.token0,
-                        amount0: amount0.neg().to_string(),
-                        token1: event.token1,
-                        amount1: amount1.neg().to_string(),
+                        token0_addr: event.token0,
+                        amount0_value: amount0.neg().to_string(),
+                        token1_addr: event.token1,
+                        amount1_value: amount1.neg().to_string(),
                         ..Default::default()
                     };
                     if tick_lower <= tick && tick <= tick_upper {
-                        li.update_pool_value = true;
-                        li.pool_value = amount.neg().to_string()
+                        ea.update_pool_value = true;
+                        ea.pool_value = amount.neg().to_string()
                     }
 
-                    liquidities.push(li);
+                    event_amounts.push(ea);
                 }
                 MintEvent(mint) => {
                     let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
@@ -461,57 +461,117 @@ pub fn map_liquidity(
                     let tick = BigDecimal::from_str_radix(pool_sqrt_price.tick.as_str(), 10).unwrap();
 
 
-                    let mut li = Liquidity {
+                    let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         update_pool_value: false,
-                        token0: event.token0,
-                        amount0: amount0.to_string(),
-                        token1: event.token1,
-                        amount1: amount1.to_string(),
+                        token0_addr: event.token0,
+                        amount0_value: amount0.to_string(),
+                        token1_addr: event.token1,
+                        amount1_value: amount1.to_string(),
                         ..Default::default()
                     };
                     if tick_lower <= tick && tick <= tick_upper {
-                        li.update_pool_value = true;
-                        li.pool_value = amount.to_string()
+                        ea.update_pool_value = true;
+                        ea.pool_value = amount.to_string()
                     }
 
-                    liquidities.push(li);
+                    event_amounts.push(ea);
                 }
                 SwapEvent(_) => {}
             }
         }
     }
-    Ok(pb::uniswap::Liquidities{liquidities})
+    Ok(pb::uniswap::EventAmounts{event_amounts})
 }
 
 /// Keyspace
 ///     pool:{pool.address} -> stores an encoded value of the pool
 ///     tokens:{}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
 #[substreams::handlers::store]
-pub fn store_liquidity(liquidities: pb::uniswap::Liquidities, output: store::StoreAddBigFloat) {
-    for pool_liquidity in liquidities.liquidities {
-        if pool_liquidity.update_pool_value {
-            output.add(
-                pool_liquidity.log_ordinal,
-                keyer::liquidity_pool(&pool_liquidity.pool_address),
-                &BigDecimal::from_str(pool_liquidity.pool_value.as_str()).unwrap(),
-            );
-        }
+pub fn store_liquidity(event_amounts: pb::uniswap::EventAmounts, output: store::StoreAddBigFloat) {
+    for event_amount in event_amounts.event_amounts {
         output.add(
-            pool_liquidity.log_ordinal,
-            keyer::toal_value_locked_0(&pool_liquidity.token0, &pool_liquidity.token1),
-            &BigDecimal::from_str(pool_liquidity.amount0.as_str()).unwrap(),
+            event_amount.log_ordinal,
+            keyer::token_total_value_locked(&event_amount.token0_addr),
+            &BigDecimal::from_str(event_amount.amount0_value.as_str()).unwrap(),
         );
         output.add(
-            pool_liquidity.log_ordinal,
-            keyer::toal_value_locked_1(&pool_liquidity.token1,&pool_liquidity.token0),
-            &BigDecimal::from_str(pool_liquidity.amount1.as_str()).unwrap(),
+            event_amount.log_ordinal,
+            keyer::pool_total_value_locked_token0(&event_amount.pool_address,&"0".to_string()),
+            &BigDecimal::from_str(event_amount.amount0_value.as_str()).unwrap(),
+        );
+        output.add(
+            event_amount.log_ordinal,
+            keyer::token_total_value_locked(&event_amount.token1_addr),
+            &BigDecimal::from_str(event_amount.amount1_value.as_str()).unwrap(),
+        );
+        output.add(
+            event_amount.log_ordinal,
+            keyer::pool_total_value_locked_token0(&event_amount.pool_address,&"1".to_string()),
+            &BigDecimal::from_str(event_amount.amount1_value.as_str()).unwrap(),
         );
     }
 }
 
+/// Keyspace
+///     token:{token0_addr}:dprice:eth -> stores the derived eth price per token0 price
+///     token:{token1_addr}:dprice:eth -> stores the derived eth price per token1 price
+#[substreams::handlers::store]
+pub fn store_derived_eth_prices(pool_sqrt_prices: PoolSqrtPrices, pools_store: store::StoreGet, prices_store: store::StoreGet, liquidity_store: store::StoreGet, output: store::StoreSet) {
+    for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
+        log::debug!("fetching pool: {}", pool_sqrt_price.pool_address);
+        log::debug!("sqrt_price: {}", pool_sqrt_price.sqrt_price);
+        let pool =
+            utils::get_last_pool(&pools_store, pool_sqrt_price.pool_address.as_str()).unwrap();
+        let token_0 = pool.token0.as_ref().unwrap();
+        let token_1 = pool.token1.as_ref().unwrap();
 
+        log::info!(
+            "token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}",
+            token_0.address,
+            token_0.decimals,
+            token_0.symbol,
+            token_0.name
+        );
+        log::info!(
+            "token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}",
+            token_1.address,
+            token_1.decimals,
+            token_1.symbol,
+            token_1.name
+        );
+
+        let token0_derived_eth_price = utils::find_eth_per_token(
+            pool_sqrt_price.ordinal,
+            &pool.address,
+            &token_0.address.as_str(),
+            &liquidity_store,
+            &prices_store,
+        );
+        log::info!("token0_derived_eth_price: {}", token0_derived_eth_price);
+
+        let token1_derived_eth_price = utils::find_eth_per_token(
+            pool_sqrt_price.ordinal,
+            &pool.address,
+            &token_1.address.as_str(),
+            &liquidity_store,
+            &prices_store,
+        );
+        log::info!("token1_derived_eth_price: {}", token1_derived_eth_price);
+
+        output.set(
+            pool_sqrt_price.ordinal,
+            format!("token:{}:dprice:eth", token_0.address),
+            &Vec::from(token0_derived_eth_price.to_string()),
+        );
+        output.set(
+            pool_sqrt_price.ordinal,
+            format!("token:{}:dprice:eth", token_1.address),
+            &Vec::from(token1_derived_eth_price.to_string()),
+        );
+    }
+}
 
 
 
@@ -586,70 +646,7 @@ pub fn store_ticks(events: pb::uniswap::Events, output_set: store::StoreSet) {
 
 
 
-/// Keyspace
-///     token:{token0_addr}:dprice:eth -> stores the derived eth price per token0 price
-///     token:{token1_addr}:dprice:eth -> stores the derived eth price per token1 price
-#[substreams::handlers::store]
-pub fn store_derived_eth_prices(
-    pool_sqrt_prices: PoolSqrtPrices,
-    pools_store: store::StoreGet,
-    prices_store: store::StoreGet,
-    liquidity_store: store::StoreGet,
-    output: store::StoreSet,
-) {
-    for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
-        log::debug!("fetching pool: {}", pool_sqrt_price.pool_address);
-        log::debug!("sqrt_price: {}", pool_sqrt_price.sqrt_price);
-        let pool =
-            utils::get_last_pool(&pools_store, pool_sqrt_price.pool_address.as_str()).unwrap();
-        let token_0 = pool.token0.as_ref().unwrap();
-        let token_1 = pool.token1.as_ref().unwrap();
 
-        log::info!(
-            "token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}",
-            token_0.address,
-            token_0.decimals,
-            token_0.symbol,
-            token_0.name
-        );
-        log::info!(
-            "token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}",
-            token_1.address,
-            token_1.decimals,
-            token_1.symbol,
-            token_1.name
-        );
-
-        let token0_derived_eth_price = utils::find_eth_per_token(
-            pool_sqrt_price.ordinal,
-            &pool.address,
-            &token_0.address.as_str(),
-            &liquidity_store,
-            &prices_store,
-        );
-        log::info!("token0_derived_eth_price: {}", token0_derived_eth_price);
-
-        let token1_derived_eth_price = utils::find_eth_per_token(
-            pool_sqrt_price.ordinal,
-            &pool.address,
-            &token_1.address.as_str(),
-            &liquidity_store,
-            &prices_store,
-        );
-        log::info!("token1_derived_eth_price: {}", token1_derived_eth_price);
-
-        output.set(
-            pool_sqrt_price.ordinal,
-            format!("token:{}:dprice:eth", token_0.address),
-            &Vec::from(token0_derived_eth_price.to_string()),
-        );
-        output.set(
-            pool_sqrt_price.ordinal,
-            format!("token:{}:dprice:eth", token_1.address),
-            &Vec::from(token1_derived_eth_price.to_string()),
-        );
-    }
-}
 
 #[substreams::handlers::map]
 pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {

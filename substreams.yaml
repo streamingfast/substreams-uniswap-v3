@@ -77,25 +77,17 @@ modules:
     inputs:
       - map: map_swap_mints_burns
 
-  - name: map_liquidities
+  - name: map_event_amounts
     kind: map
     initialBlock: 12369621
     inputs:
       - map: map_swap_mints_burns
       - store: store_pool_sqrt_price
     output:
-      type: proto:uniswap.types.v1.Liquidities
+      type: proto:uniswap.types.v1.EventAmounts
 
 
-  - name: store_liquidity
-    kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Pool
-    inputs:
-      - map: map_pools_created
-
-
-  - name: store_liquidity
+  - name: store_total_value_locked
     kind: store
     updatePolicy: add
     valueType: bigfloat
