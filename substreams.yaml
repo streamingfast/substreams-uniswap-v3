@@ -32,7 +32,7 @@ modules:
       type: proto:uniswap.types.v1.Pools
 
   - name: store_pools
-    kind: store
+    kind: helper
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Pool
     inputs:
@@ -47,14 +47,14 @@ modules:
       type: proto:uniswap.types.v1.SqrtPriceUpdates
 
   - name: store_pool_sqrt_price
-    kind: store
+    kind: helper
     updatePolicy: set
     valueType: proto:pb.uniswap.v1.SqrtPriceUpdates
     inputs:
       - map: map_pool_sqrt_price
 
   - name: store_prices
-    kind: store
+    kind: helper
     updatePolicy: set
     initialBlock: 12369621
     valueType: string
@@ -70,13 +70,6 @@ modules:
     output:
       type: proto:uniswap.types.v1.Events
 
-  - name: store_swaps
-    kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Swap
-    inputs:
-      - map: map_swap_mints_burns
-
   - name: map_event_amounts
     kind: map
     initialBlock: 12369621
@@ -86,20 +79,28 @@ modules:
     output:
       type: proto:uniswap.types.v1.EventAmounts
 
-
   - name: store_total_value_locked
-    kind: store
+    kind: helper
     updatePolicy: add
     valueType: bigfloat
     inputs:
+      - source: proto:uniswap.types.v1.EventAmounts
+
+
+
+
+
+
+  - name: store_swaps
+    kind: helper
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.Swap
+    inputs:
       - map: map_swap_mints_burns
-      - store: store_swaps
-
-
 
 
   - name: store_ticks
-    kind: store
+    kind: helper
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Tick
     inputs:
@@ -110,7 +111,7 @@ modules:
 
 
   - name: store_derived_eth_prices
-    kind: store
+    kind: helper
     updatePolicy: set
     initialBlock: 12369621
     valueType: string
@@ -129,7 +130,7 @@ modules:
       type: proto:uniswap.types.v1.Fees
 
   - name: store_fees
-    kind: store
+    kind: helper
     updatePolicy: set
     initialBlock: 12369621
     valueType: proto:uniswap.types.v1.Fee

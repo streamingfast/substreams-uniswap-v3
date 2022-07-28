@@ -1,21 +1,15 @@
-use crate::{pb, Erc20Token, Pool, keyer};
-use bigdecimal::{BigDecimal, Num, One, Zero};
+use crate::{ Erc20Token, math};
+use bigdecimal::{BigDecimal, One, Zero};
 use num_bigint::BigInt;
-use pad::PadStr;
-use prost::DecodeError;
 use std::borrow::Borrow;
-use std::ops::{Add, Div, Mul, Neg};
+use std::ops::{Add, Mul, Neg};
 use std::str;
 use std::str::FromStr;
-use substreams::{hex, log};
-use substreams::errors::Error;
-use substreams::proto;
-use substreams::store::StoreGet;
+use substreams::{hex};
 
-const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
-const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
-const _USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
-const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+// const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
+// const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+// const _USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
 
@@ -26,30 +20,6 @@ pub const _STABLE_COINS: [&str; 6] = [
     "0000000000085d4780b73119b644ae5ecd22b376",
     "956f47f50a910163d8bf957cf5846d573e7f87ca",
     "4dd28568d05f09b02220b09c2cb307bfd837cb95",
-];
-
-pub const WHITELIST_TOKENS: [&str; 21] = [
-    "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
-    "6b175474e89094c44da98b954eedeac495271d0f", // DAI
-    "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
-    "dac17f958d2ee523a2206206994597c13d831ec7", // USDT
-    "0000000000085d4780b73119b644ae5ecd22b376", // TUSD
-    "2260fac5e5542a773aa44fbcfedf7c193bc2c599", // WBTC
-    "5d3a536e4d6dbd6114cc1ead35777bab948e3643", // cDAI
-    "39aa39c021dfbae8fac545936693ac917d5e7563", // cUSDC
-    "86fadb80d8d2cff3c3680819e4da99c10232ba0f", // EBASE
-    "57ab1ec28d129707052df4df418d58a2d46d5f51", // sUSD
-    "9f8f72aa9304c8b593d555f12ef6589cc3a579a2", // MKR
-    "c00e94cb662c3520282e6f5717214004a7f26888", // COMP
-    "514910771af9ca656af840dff83e8264ecf986ca", // LINK
-    "c011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f", // SNX
-    "0bc529c00c6401aef6d220be8c6ea1667f6ad93e", // YFI
-    "111111111117dc0aa78b770fa6a738034120c302", // 1INCH
-    "df5e0e81dff6faf3a7e52ba697820c5e32d806a8", // yCurv
-    "956f47f50a910163d8bf957cf5846d573e7f87ca", // FEI
-    "7d1afa7b718fb893db30a3abc0cfc608aacfebb0", // MATIC
-    "7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9", // AAVE
-    "fe2e637202056d30016725477c5da089ab0a043a", // sETH2
 ];
 
 // hard-coded tokens which have various behaviours but for which a UniswapV3 valid pool
@@ -102,121 +72,6 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
     };
 }
 
-pub fn sqrt_price_x96_to_token_prices(
-    sqrt_price: &BigDecimal,
-    token_0: &Erc20Token,
-    token_1: &Erc20Token,
-) -> (BigDecimal, BigDecimal) {
-    log::debug!(
-        "Computing prices for {} {} and {} {}",
-        token_0.symbol,
-        token_0.decimals,
-        token_1.symbol,
-        token_1.decimals
-    );
-
-    let price: BigDecimal = sqrt_price.mul(sqrt_price);
-    let token0_decimals: BigInt = BigInt::from(token_0.decimals);
-    let token1_decimals: BigInt = BigInt::from(token_1.decimals);
-    let denominator: BigDecimal =
-        BigDecimal::from_str("6277101735386680763835789423207666416102355444464034512896").unwrap();
-
-    let price1 = price
-        .div(denominator)
-        .mul(exponent_to_big_decimal(&token0_decimals))
-        .div(exponent_to_big_decimal(&token1_decimals));
-
-    log::info!("price1: {}", price1);
-    let price0 = safe_div(&BigDecimal::one(), &price1);
-
-    return (price0, price1);
-}
-
-pub fn find_eth_per_token(
-    log_ordinal: u64,
-    pool_address: &str,
-    token_address: &str,
-    liquidity_store: &StoreGet,
-    prices_store: &StoreGet,
-) -> BigDecimal {
-    log::debug!("Finding ETH per token for {}", token_address);
-
-    if token_address.eq(WETH_ADDRESS) {
-        return BigDecimal::one();
-    }
-
-    let bd_zero = BigDecimal::zero();
-
-    let direct_to_eth_price =
-        match prices_store.get_last(&format!("price:{}:{}", WETH_ADDRESS, token_address)) {
-            None => bd_zero,
-            Some(price_bytes) => {
-                let direct_to_eth_price_bd = decode_price_bytes_to_big_decimal(&price_bytes);
-                log::info!("direct_to_eth_price: {}", direct_to_eth_price_bd);
-                direct_to_eth_price_bd
-            }
-        };
-
-    if direct_to_eth_price.ne(&zero_big_decimal()) {
-        return direct_to_eth_price;
-    }
-
-    let minimum_eth_locked = BigDecimal::from_str("60").unwrap();
-
-    // loop all whitelist for a matching token
-    for major_token in WHITELIST_TOKENS {
-        log::info!(
-            "checking for major_token: {} and pool address: {}",
-            major_token,
-            pool_address
-        );
-        let major_to_eth_price = match prices_store.get_at(
-            log_ordinal,
-            &format!("price:{}:{}", major_token, WETH_ADDRESS),
-        ) {
-            None => continue,
-            Some(price_bytes) => {
-                let major_to_eth_price_bd = decode_price_bytes_to_big_decimal(&price_bytes);
-                log::info!("major_to_eth_price: {}", major_to_eth_price_bd);
-                major_to_eth_price_bd
-            }
-        };
-
-        let tiny_to_major_price = match prices_store.get_at(
-            log_ordinal,
-            &format!("price:{}:{}", token_address, major_token),
-        ) {
-            None => continue,
-            Some(price_bytes) => {
-                let tiny_to_major_price_bd = decode_price_bytes_to_big_decimal(&price_bytes);
-                log::info!("tiny_to_major_price: {}", tiny_to_major_price_bd);
-                tiny_to_major_price_bd
-            }
-        };
-
-        let major_reserve =
-            get_last_total_value_locked_or_zero(liquidity_store, pool_address, token_address);
-
-        let eth_reserve_in_major_pair = major_to_eth_price.borrow().mul(major_reserve);
-        if eth_reserve_in_major_pair.le(&minimum_eth_locked) {
-            continue;
-        }
-
-        return BigDecimal::one().div(tiny_to_major_price.mul(major_to_eth_price));
-    }
-
-    return zero_big_decimal();
-}
-
-pub fn safe_div(amount0: &BigDecimal, amount1: &BigDecimal) -> BigDecimal {
-    let big_decimal_zero: &BigDecimal = &BigDecimal::zero();
-    return if amount1.eq(big_decimal_zero) {
-        BigDecimal::zero()
-    } else {
-        amount0.div(amount1)
-    };
-}
-
 pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
     if exponent.is_zero() {
         return BigDecimal::one().with_prec(100);
@@ -225,7 +80,7 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
         return amount;
     }
     if exponent.lt(&BigInt::zero()) {
-        return safe_div(
+        return math::safe_div(
             &BigDecimal::one().with_prec(100),
             &big_decimal_exponated(amount, exponent.neg()),
         );
@@ -248,102 +103,11 @@ pub fn convert_token_to_decimal(amount: &BigInt, decimals: u64) -> BigDecimal {
         .unwrap()
         .with_prec(100);
 
-    return divide_by_decimals(big_float_amount, decimals);
-}
-
-pub fn get_last_pool(pools_store: &StoreGet, pool_address: &str) -> Result<Pool, DecodeError> {
-    proto::decode(
-        &pools_store
-            .get_last(&format!("pool:{}", pool_address))
-            .unwrap(),
-    )
+    return math::divide_by_decimals(big_float_amount, decimals);
 }
 
 
-pub fn get_last_pool_sqrt_price(
-    pool_sqrt_price_store: &StoreGet,
-    pool_address: &String,
-) -> Result<pb::uniswap::PoolSqrtPrice, Error> {
-    return match &pool_sqrt_price_store.get_last(&keyer::pool_sqrt_price_key(&pool_address)) {
-        None => Err(Error::Unexpected("no pool sqrt price found".to_string())),
-        Some(bytes) => Ok(proto::decode(bytes).unwrap()),
-    };
-}
 
-pub fn generate_tokens_key(token0: &str, token1: &str) -> String {
-    if token0 > token1 {
-        return format!("{}:{}", token1, token0);
-    }
-    return format!("{}:{}", token0, token1);
-}
-
-fn get_last_total_value_locked_or_zero(
-    liquidity_store: &StoreGet,
-    pool_address: &str,
-    token_address: &str,
-) -> BigDecimal {
-    return match &liquidity_store.get_last(&format!(
-        "total_value_locked:{}:{}",
-        pool_address, token_address
-    )) {
-        None => BigDecimal::zero().with_prec(100),
-        Some(tvl_bytes) => BigDecimal::parse_bytes(tvl_bytes.as_slice(), 10)
-            .unwrap()
-            .with_prec(100),
-    };
-}
-
-fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
-    let mut result = BigDecimal::one();
-    let big_decimal_ten: &BigDecimal = &BigDecimal::from(10);
-    let big_int_one: &BigInt = &BigInt::one();
-
-    let mut i = BigInt::zero();
-    while i.lt(decimals) {
-        result = result.mul(big_decimal_ten);
-        i = i.add(big_int_one);
-    }
-
-    return result;
-}
-
-fn get_last_swap(
-    swap_store: &StoreGet,
-    trx_id: &str,
-    log_ordinal: u64,
-) -> Result<pb::uniswap::Swap, DecodeError> {
-    return match &swap_store.get_last(&format!("swap:{}:{}", trx_id, log_ordinal)) {
-        None => Err(DecodeError::new("No swap found")),
-        Some(swap_bytes) => Ok(proto::decode(swap_bytes).unwrap()),
-    };
-}
-
-// fn get_pool_init(
-//     pool_init_store: &StoreGet,
-//     pool_address: &str,
-// ) -> Result<pb::uniswap::PoolInitialization, DecodeError> {
-//     return match &pool_init_store.get_last(&format!("pool_init:{}", pool_address)) {
-//         None => Err(DecodeError::new("No pool init found")),
-//         Some(pool_init_bytes) => Ok(proto::decode(pool_init_bytes).unwrap()),
-//     };
-// }
-
-fn decode_price_bytes_to_big_decimal(price_bytes: &Vec<u8>) -> BigDecimal {
-    let price_from_store_decoded = str::from_utf8(price_bytes.as_slice()).unwrap();
-    return BigDecimal::from_str(price_from_store_decoded)
-        .unwrap()
-        .with_prec(100);
-}
-
-fn divide_by_decimals(big_float_amount: BigDecimal, decimals: u64) -> BigDecimal {
-    let bd = BigDecimal::from_str(
-        "1".pad_to_width_with_char((decimals + 1) as usize, '0')
-            .as_str(),
-    )
-    .unwrap()
-    .with_prec(100);
-    return big_float_amount.div(bd).with_prec(100);
-}
 
 fn zero_big_decimal() -> BigDecimal {
     BigDecimal::zero().with_prec(100)
