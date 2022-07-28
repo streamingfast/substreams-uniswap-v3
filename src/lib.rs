@@ -382,11 +382,8 @@ pub fn map_event_amounts(
                         BigDecimal::from_str(burn.tick_lower.to_string().as_str()).unwrap();
                     let tick_upper =
                         BigDecimal::from_str(burn.tick_upper.to_string().as_str()).unwrap();
-
                     let pool_sqrt_price = helper::get_pool_sqrt_price(&pool_sqrt_price_store, &event.pool_address)?;
                     let tick = BigDecimal::from_str_radix(pool_sqrt_price.tick.as_str(), 10).unwrap();
-
-
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
@@ -401,7 +398,6 @@ pub fn map_event_amounts(
                         ea.update_pool_value = true;
                         ea.pool_value = amount.neg().to_string()
                     }
-
                     event_amounts.push(ea);
                 }
                 MintEvent(mint) => {
@@ -412,11 +408,8 @@ pub fn map_event_amounts(
                         BigDecimal::from_str(mint.tick_lower.to_string().as_str()).unwrap();
                     let tick_upper =
                         BigDecimal::from_str(mint.tick_upper.to_string().as_str()).unwrap();
-
                     let pool_sqrt_price = helper::get_pool_sqrt_price(&pool_sqrt_price_store, &event.pool_address)?;
                     let tick = BigDecimal::from_str_radix(pool_sqrt_price.tick.as_str(), 10).unwrap();
-
-
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
@@ -434,7 +427,23 @@ pub fn map_event_amounts(
 
                     event_amounts.push(ea);
                 }
-                SwapEvent(_) => {}
+                SwapEvent(swap) => {
+                    let liquidity = BigDecimal::from_str(swap.liquidity.as_str()).unwrap();
+                    let amount0 = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
+                    let amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+                    let mut ea = EventAmount {
+                        pool_address: event.pool_address,
+                        log_ordinal: event.log_ordinal,
+                        // update_pool_value: true,
+                        // pool_value: liquidity,
+                        token0_addr: event.token0,
+                        amount0_value: amount0.to_string(),
+                        token1_addr: event.token1,
+                        amount1_value: amount1.to_string(),
+                        ..Default::default()
+                    };
+                    event_amounts.push(ea);
+                }
             }
         }
     }
@@ -528,6 +537,20 @@ pub fn store_derived_eth_prices(pool_sqrt_prices: PoolSqrtPrices, pools_store: s
     }
 }
 
+
+/// Keyspace
+///     token:{token_address} -> count
+///     pool:{pool_address} -> count
+///     factory:{factory_address} -> count
+#[substreams::handlers::store]
+pub fn store_total_tx_counts(events: pb::uniswap::Events, output: store::StoreAddInt64) {
+    for event in events.events {
+        output.add(event.log_ordinal,keyer::pool_total_tx_count(&event.pool_address),1);
+        output.add(event.log_ordinal,keyer::token_total_tx_count(&event.token0),1);
+        output.add(event.log_ordinal,keyer::token_total_tx_count(&event.token1),1);
+        output.add(event.log_ordinal,keyer::factory_total_tx_count(),1);
+    }
+}
 
 
 

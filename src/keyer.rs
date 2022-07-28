@@ -1,3 +1,7 @@
+use substreams::Hex;
+use crate::utils;
+use crate::utils::UNISWAP_V3_FACTORY;
+
 // ------------------------------------------------
 //      store_pools
 // ------------------------------------------------
@@ -51,6 +55,22 @@ pub fn pool_total_value_locked_token(pool_address: &String, token_address: &Stri
 // ------------------------------------------------
 pub fn token_eth_price(token_address: &String) -> String {
     format!("token:{}:dprice:eth", token_address)
+}
+
+
+// ------------------------------------------------
+//      store_total_tx_counts
+// ------------------------------------------------
+pub fn pool_total_tx_count(pool_address: &String) -> String {
+    format!("pool:{}", pool_address)
+}
+
+pub fn token_total_tx_count(token_address: &String) -> String {
+    format!("token:{}", token_address)
+}
+
+pub fn factory_total_tx_count() -> String {
+    format!("factory:{}", Hex(utils::UNISWAP_V3_FACTORY))
 }
 
 

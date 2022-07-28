@@ -80,11 +80,36 @@ modules:
       type: proto:uniswap.types.v1.EventAmounts
 
   - name: store_total_value_locked
-    kind: helper
+    kind: store
     updatePolicy: add
     valueType: bigfloat
     inputs:
       - source: proto:uniswap.types.v1.EventAmounts
+
+  - name: store_derived_eth_prices
+    kind: store
+    updatePolicy: set
+    initialBlock: 12369621
+    valueType: string
+    inputs:
+      - map: map_pool_sqrt_price
+      - store: store_pools
+      - store: store_prices
+      - store: store_liquidity
+
+  - name: store_total_tx_counts
+    kind: helper
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - map: map_swap_mints_burns
+
+
+
+
+
+
+
 
 
 
@@ -110,16 +135,7 @@ modules:
 
 
 
-  - name: store_derived_eth_prices
-    kind: helper
-    updatePolicy: set
-    initialBlock: 12369621
-    valueType: string
-    inputs:
-      - map: map_pool_sqrt_price
-      - store: store_pools
-      - store: store_prices
-      - store: store_liquidity
+
 
   - name: map_fees
     kind: map
