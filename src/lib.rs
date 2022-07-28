@@ -824,6 +824,10 @@ fn map_pool_entities(
     price_deltas: store::Deltas,
 ) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
+        block_id: vec![],
+        block_number: 0,
+        prev_block_id: vec![],
+        prev_block_number: 0,
         entity_changes: vec![],
     };
 
@@ -1041,8 +1045,15 @@ fn map_pool_entities(
 }
 
 #[substreams::handlers::map]
-pub fn graph_out(pool_entities: EntitiesChanges) -> Result<EntitiesChanges, Error> {
+pub fn graph_out(
+    block: ethpb::v1::Block,
+    pool_entities: EntitiesChanges,
+) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
+        block_id: block.hash,
+        block_number: block.number,
+        prev_block_id: block.header.unwrap().parent_hash,
+        prev_block_number: block.number - 1 as u64,
         entity_changes: vec![],
     };
 

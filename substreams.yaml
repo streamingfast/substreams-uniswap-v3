@@ -162,6 +162,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
+      - source: sf.ethereum.type.v1.Block
       - map: map_pool_entities
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
