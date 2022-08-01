@@ -39,7 +39,9 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
 
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
-            if call.state_reverted || hex::encode(&call.address) != utils::UNISWAP_V3_FACTORY {
+            // solution to fix the issue with the other uniswap v3 factory contract would be to
+            // check for the other contract and
+            if call.state_reverted {
                 continue;
             }
 
@@ -51,6 +53,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
                 let event = abi::factory::events::PoolCreated::decode(&call_log).unwrap();
                 let mut pool: Pool = Pool {
                     address: Hex(&call_log.data[44..64]).to_string(),
+                    factory_address: Hex(&call.address).to_string(),
                     token0: None,
                     token1: None,
                     creation_transaction_id: Hex(&trx.hash).to_string(),
@@ -217,7 +220,7 @@ pub fn store_pools_initialization(
 ///     pool:{pool.address} -> stores an encoded value of the pool
 ///     tokens:{}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
 #[substreams::handlers::store]
-pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
+pub fn store_pools(pools: Pools, output: store::StoreSet) {
     for pool in pools.pools {
         output.set(
             pool.log_ordinal,
@@ -264,6 +267,17 @@ pub fn map_burns_swaps_mints(
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+                            if pool.factory_address.ne(utils::UNISWAP_V3_FACTORY) {
+                                log::info!(
+                                    "swap event occurred on pool {} which wasn't created by Uniswap V3 Factory but created by {}, trx id: {}",
+                                    pool.address,
+                                    pool.factory_address,
+                                    Hex(&trx.hash).to_string(),
+                                );
+                                continue;
+                            }
+
                             let token0 = pool.token0.as_ref().unwrap();
                             let token1 = pool.token1.as_ref().unwrap();
 
@@ -315,6 +329,17 @@ pub fn map_burns_swaps_mints(
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+                            if pool.factory_address.ne(utils::UNISWAP_V3_FACTORY) {
+                                log::info!(
+                                    "burn event occurred on pool {} which wasn't created by Uniswap V3 Factory but created by {}, trx id: {}",
+                                    pool.address,
+                                    pool.factory_address,
+                                    Hex(&trx.hash).to_string(),
+                                );
+                                continue;
+                            }
+
                             let token0 = pool.token0.as_ref().unwrap();
                             let token1 = pool.token1.as_ref().unwrap();
 
@@ -369,6 +394,17 @@ pub fn map_burns_swaps_mints(
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
+
+                            if pool.factory_address.ne(utils::UNISWAP_V3_FACTORY) {
+                                log::info!(
+                                    "mint event occurred on pool {} which wasn't created by Uniswap V3 Factory but created by {}, trx id: {}",
+                                    pool.address,
+                                    pool.factory_address,
+                                    Hex(&trx.hash).to_string(),
+                                );
+                                continue;
+                            }
+
                             let token0 = pool.token0.as_ref().unwrap();
                             let token1 = pool.token1.as_ref().unwrap();
 
