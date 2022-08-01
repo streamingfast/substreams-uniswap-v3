@@ -4,11 +4,9 @@ use substreams_ethereum::pb::eth as ethpb;
 
 pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     let rpc_calls = create_rpc_calls(&hex::decode(token_address).unwrap());
-
     let rpc_responses_unmarshalled: ethpb::rpc::RpcResponses =
         substreams_ethereum::rpc::eth_call(&rpc_calls);
     let responses = rpc_responses_unmarshalled.responses;
-
     let mut decimals: u64 = 0;
     match eth::read_uint32(responses[0].raw.as_ref()) {
         Ok(decoded_decimals) => {
@@ -60,7 +58,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
             }
         },
     }
-    log::debug!("decoded_name ok");
+    log::debug!("decoded_symbol ok");
 
     return Some(Erc20Token {
         address: String::from(token_address),

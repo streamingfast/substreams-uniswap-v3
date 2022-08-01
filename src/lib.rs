@@ -32,7 +32,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
     // optimization and make sure to not add the same token twice
     // it is possible to have multiple pools created with the same
     // tokens (USDC, WETH, etc.)
-    let mut cached_tokens = HashMap::new();
     let pools = block
         .events::<abi::factory::events::PoolCreated>(&[&utils::UNISWAP_V3_FACTORY])
         .filter_map(|(event, log)| {
@@ -63,30 +62,25 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
             };
 
             let token0_address: String = Hex(&event.token0).to_string();
-            if !cached_tokens.contains_key(&token0_address) {
-                match rpc::create_uniswap_token(&token0_address) {
-                    None => {
-                        return None;
-                    }
-                    Some(token) => {
-                        token0 = token;
-                        cached_tokens.insert(String::from(&token0_address), true);
-                    }
+            match rpc::create_uniswap_token(&token0_address) {
+                None => {
+                    return None;
+                }
+                Some(token) => {
+                    token0 = token;
                 }
             }
 
             let token1_address: String = Hex(&event.token1).to_string();
-            if !cached_tokens.contains_key(&token1_address) {
-                match rpc::create_uniswap_token(&token1_address) {
-                    None => {
-                        return None;
-                    }
-                    Some(token) => {
-                        token1 = token;
-                        cached_tokens.insert(String::from(&token1_address), true);
-                    }
+            match rpc::create_uniswap_token(&token1_address) {
+                None => {
+                    return None;
+                }
+                Some(token) => {
+                    token1 = token;
                 }
             }
+
             pool.token0 = Some(token0.clone());
             pool.token1 = Some(token1.clone());
             Some(pool)
@@ -506,7 +500,7 @@ pub fn store_eth_prices(
             &total_native_value_locked_store,
             &prices_store,
         );
-        log::info!("token 0 derived eth price: {}", token0_derived_eth_price);
+        log::info!("token 0 {} derived eth price: {}", token_0.address, token0_derived_eth_price);
 
         let token1_derived_eth_price = price::find_eth_per_token(
             pool_sqrt_price.ordinal,
@@ -515,7 +509,7 @@ pub fn store_eth_prices(
             &total_native_value_locked_store,
             &prices_store,
         );
-        log::info!("token 1 derived eth price: {}", token1_derived_eth_price);
+        log::info!("token 1 {} derived eth price: {}", token_1.address, token1_derived_eth_price);
 
         output.set(
             pool_sqrt_price.ordinal,
