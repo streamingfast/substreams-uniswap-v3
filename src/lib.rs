@@ -15,12 +15,13 @@ use bigdecimal::{Num, ToPrimitive};
 use bigdecimal::{BigDecimal};
 use num_bigint::BigInt;
 use std::collections::HashMap;
-use std::ops::Neg;
+use std::ops::{Add, Mul, Neg};
 use std::str::FromStr;
 use substreams::errors::Error;
 use substreams::{store};
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb,Event as EventTrait};
+use crate::keyer::{native_pool_from_key, native_token_from_key};
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
@@ -94,9 +95,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
     Ok(Pools{pools})
 }
 
-/// Keyspace
-///     pool:{pool.address} -> stores an encoded value of the pool
-///     index:{}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
 #[substreams::handlers::store]
 pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
     for pool in pools.pools {
@@ -136,8 +134,6 @@ pub fn map_pool_sqrt_price(block: ethpb::v1::Block) -> Result<PoolSqrtPrices, Er
     Ok(pb::uniswap::PoolSqrtPrices{ pool_sqrt_prices })
 }
 
-/// Keyspace
-///     sqrt_price:{pool_address} -> stores an encoded value of the pool
 #[substreams::handlers::store]
 pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: store::StoreSet) {
     for sqrt_price in sqrt_prices.pool_sqrt_prices {
@@ -150,9 +146,6 @@ pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: store::StoreSe
     }
 }
 
-/// Keyspace
-///     price.rs:{token0_address}:{token1_address} -> stores the tokens price.rs 0 for token 1
-///     price.rs:{token1_address}:{token0_address} -> stores the tokens price.rs 1 for token 0
 #[substreams::handlers::store]
 pub fn store_prices(pool_sqrt_prices: PoolSqrtPrices, pools_store: store::StoreGet, output: store::StoreSet) {
     for sqrt_price_update in pool_sqrt_prices.pool_sqrt_prices {
@@ -175,12 +168,12 @@ pub fn store_prices(pool_sqrt_prices: PoolSqrtPrices, pools_store: store::StoreG
 
         output.set(
             sqrt_price_update.ordinal,
-            keyer::prices_pool_token0_key(&pool.address),
+            keyer::prices_pool_token_key(&pool.address, &token0.address),
             &Vec::from(tokens_price.0.to_string()),
         );
         output.set(
             sqrt_price_update.ordinal,
-            keyer::prices_pool_token1_key(&pool.address),
+            keyer::prices_pool_token_key(&pool.address, &token1.address),
             &Vec::from(tokens_price.1.to_string()),
         );
 
@@ -360,6 +353,7 @@ pub fn map_swap_mints_burns(
     Ok(pb::uniswap::Events { events})
 }
 
+
 #[substreams::handlers::map]
 pub fn map_event_amounts(
     events: pb::uniswap::Events,
@@ -428,10 +422,10 @@ pub fn map_event_amounts(
                     event_amounts.push(ea);
                 }
                 SwapEvent(swap) => {
-                    let liquidity = BigDecimal::from_str(swap.liquidity.as_str()).unwrap();
+                    // let liquidity = BigDecimal::from_str(swap.liquidity.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
-                    let mut ea = EventAmount {
+                    event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         // update_pool_value: true,
@@ -441,8 +435,7 @@ pub fn map_event_amounts(
                         token1_addr: event.token1,
                         amount1_value: amount1.to_string(),
                         ..Default::default()
-                    };
-                    event_amounts.push(ea);
+                    });
                 }
             }
         }
@@ -450,98 +443,6 @@ pub fn map_event_amounts(
     Ok(pb::uniswap::EventAmounts{event_amounts})
 }
 
-/// Keyspace
-///     token:{token_address} -> total_value_locked
-///     pool:{pool_address}:{} (token0:token1 or token1:token0) -> stores an encoded value of the pool
-#[substreams::handlers::store]
-pub fn store_total_value_locked(event_amounts: pb::uniswap::EventAmounts, output: store::StoreAddBigFloat) {
-    for event_amount in event_amounts.event_amounts {
-        output.add(
-            event_amount.log_ordinal,
-            keyer::token_total_value_locked(&event_amount.token0_addr),
-            &BigDecimal::from_str(event_amount.amount0_value.as_str()).unwrap(),
-        );
-        output.add(
-            event_amount.log_ordinal,
-            keyer::pool_total_value_locked_token(&event_amount.pool_address,&event_amount.token0_addr),
-            &BigDecimal::from_str(event_amount.amount0_value.as_str()).unwrap(),
-        );
-        output.add(
-            event_amount.log_ordinal,
-            keyer::token_total_value_locked(&event_amount.token1_addr),
-            &BigDecimal::from_str(event_amount.amount1_value.as_str()).unwrap(),
-        );
-        output.add(
-            event_amount.log_ordinal,
-            keyer::pool_total_value_locked_token(&event_amount.pool_address,&event_amount.token1_addr),
-            &BigDecimal::from_str(event_amount.amount1_value.as_str()).unwrap(),
-        );
-    }
-}
-
-/// Keyspace
-///     token:{token0_addr}:dprice:eth -> stores the derived eth price.rs per token0 price.rs
-///     token:{token1_addr}:dprice:eth -> stores the derived eth price.rs per token1 price.rs
-#[substreams::handlers::store]
-pub fn store_derived_eth_prices(pool_sqrt_prices: PoolSqrtPrices, pools_store: store::StoreGet, prices_store: store::StoreGet, liquidity_store: store::StoreGet, output: store::StoreSet) {
-    for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
-        log::debug!("fetching pool: {}", pool_sqrt_price.pool_address);
-        log::debug!("sqrt_price: {}", pool_sqrt_price.sqrt_price);
-        let pool= helper::get_pool(&pools_store, &pool_sqrt_price.pool_address).unwrap();
-        let token_0 = pool.token0.as_ref().unwrap();
-        let token_1 = pool.token1.as_ref().unwrap();
-
-        log::info!(
-            "token 0 addr: {}, token 0 decimals: {}, tokens 0 symbol: {}, token 0 name: {}",
-            token_0.address,
-            token_0.decimals,
-            token_0.symbol,
-            token_0.name
-        );
-        log::info!(
-            "token 1 addr: {}, token 1 decimals: {}, tokens 1 symbol: {}, token 1 name: {}",
-            token_1.address,
-            token_1.decimals,
-            token_1.symbol,
-            token_1.name
-        );
-
-        let token0_derived_eth_price = price::find_eth_per_token(
-            pool_sqrt_price.ordinal,
-            &pool.address,
-            &token_0.address,
-            &liquidity_store,
-            &prices_store,
-        );
-        log::info!("token0_derived_eth_price: {}", token0_derived_eth_price);
-
-        let token1_derived_eth_price = price::find_eth_per_token(
-            pool_sqrt_price.ordinal,
-            &pool.address,
-            &token_1.address,
-            &liquidity_store,
-            &prices_store,
-        );
-        log::info!("token1_derived_eth_price: {}", token1_derived_eth_price);
-
-        output.set(
-            pool_sqrt_price.ordinal,
-            keyer::token_eth_price(&token_0.address),
-            &Vec::from(token0_derived_eth_price.to_string()),
-        );
-        output.set(
-            pool_sqrt_price.ordinal,
-            keyer::token_eth_price(&token_1.address),
-            &Vec::from(token1_derived_eth_price.to_string()),
-        );
-    }
-}
-
-
-/// Keyspace
-///     token:{token_address} -> count
-///     pool:{pool_address} -> count
-///     factory:{factory_address} -> count
 #[substreams::handlers::store]
 pub fn store_total_tx_counts(events: pb::uniswap::Events, output: store::StoreAddInt64) {
     for event in events.events {
@@ -552,7 +453,157 @@ pub fn store_total_tx_counts(events: pb::uniswap::Events, output: store::StoreAd
     }
 }
 
+#[substreams::handlers::store]
+pub fn store_native_total_value_locked(event_amounts: pb::uniswap::EventAmounts, output: store::StoreAddBigFloat) {
+    for event_amount in event_amounts.event_amounts {
+        output.add(
+            event_amount.log_ordinal,
+            keyer::token_native_total_value_locked(&event_amount.token0_addr),
+            &BigDecimal::from_str(event_amount.amount0_value.as_str()).unwrap(),
+        );
+        output.add(
+            event_amount.log_ordinal,
+            keyer::pool_native_total_value_locked_token(&event_amount.pool_address, &event_amount.token0_addr),
+            &BigDecimal::from_str(event_amount.amount0_value.as_str()).unwrap(),
+        );
+        output.add(
+            event_amount.log_ordinal,
+            keyer::token_native_total_value_locked(&event_amount.token1_addr),
+            &BigDecimal::from_str(event_amount.amount1_value.as_str()).unwrap(),
+        );
+        output.add(
+            event_amount.log_ordinal,
+            keyer::pool_native_total_value_locked_token(&event_amount.pool_address, &event_amount.token1_addr),
+            &BigDecimal::from_str(event_amount.amount1_value.as_str()).unwrap(),
+        );
+    }
+}
 
+#[substreams::handlers::store]
+pub fn store_eth_prices(
+    pool_sqrt_prices: PoolSqrtPrices,
+    pools_store: store::StoreGet,
+    prices_store: store::StoreGet,
+    total_native_value_locked_store: store::StoreGet,
+    output: store::StoreSet
+) {
+    for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
+        log::debug!("handling pool price update - addr: {} price: {}", pool_sqrt_price.pool_address, pool_sqrt_price.sqrt_price);
+        let pool= helper::get_pool(&pools_store, &pool_sqrt_price.pool_address).unwrap();
+        let token_0 = pool.token0.as_ref().unwrap();
+        let token_1 = pool.token1.as_ref().unwrap();
+
+        utils::log_token(token_0, 0);
+        utils::log_token(token_1, 1);
+
+        let bundle_eth_price_usd = price::get_eth_price_in_usd(&prices_store);
+        log::info!("bundle_eth_price_usd: {}", bundle_eth_price_usd);
+
+        let token0_derived_eth_price = price::find_eth_per_token(
+            pool_sqrt_price.ordinal,
+            &pool.address,
+            &token_0.address,
+            &total_native_value_locked_store,
+            &prices_store,
+        );
+        log::info!("token 0 derived eth price: {}", token0_derived_eth_price);
+
+        let token1_derived_eth_price = price::find_eth_per_token(
+            pool_sqrt_price.ordinal,
+            &pool.address,
+            &token_1.address,
+            &total_native_value_locked_store,
+            &prices_store,
+        );
+        log::info!("token 1 derived eth price: {}", token1_derived_eth_price);
+
+        output.set(
+            pool_sqrt_price.ordinal,
+            keyer::bundle_eth_price(),
+            &Vec::from(bundle_eth_price_usd.to_string()),
+        );
+
+        output.set(
+            pool_sqrt_price.ordinal,
+            keyer::token_eth_price(&token_0.address),
+            &Vec::from(token0_derived_eth_price.to_string()),
+        );
+
+        output.set(
+            pool_sqrt_price.ordinal,
+            keyer::token_eth_price(&token_1.address),
+            &Vec::from(token1_derived_eth_price.to_string()),
+        );
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_total_value_locked(
+    native_total_value_locked_deltas: store::Deltas,
+    pools_store: store::StoreGet,
+    eth_prices_store: store::StoreGet,
+    output: store::StoreSet
+) {
+    let mut pool_aggregator: HashMap<String,(u64,BigDecimal)>  = HashMap::from([]);
+    let eth_price_usd = helper::get_eth_price(&eth_prices_store).unwrap();
+    for native_total_value_locked in native_total_value_locked_deltas {
+        if let Some(token_addr) = native_token_from_key(&native_total_value_locked.key) {
+            let value = math::decimal_from_bytes(&native_total_value_locked.new_value);
+            let token_derive_eth = helper::get_token_eth_price(&eth_prices_store, &token_addr).unwrap();
+            let total_value_locked_usd = value.mul(token_derive_eth).mul(&eth_price_usd);
+            log::info!("token {} total value locked usd: {}", token_addr, total_value_locked_usd);
+            output.set(
+                native_total_value_locked.ordinal,
+                keyer::token_usd_total_value_locked(&token_addr),
+                &Vec::from(total_value_locked_usd.to_string()),
+            );
+        } else if let Some((pool_addr, token_addr)) = native_pool_from_key(&native_total_value_locked.key) {
+            let pool = helper::get_pool(&pools_store, &pool_addr).unwrap();
+            // we only want to use the token0
+            if pool.token0.as_ref().unwrap().address != token_addr {
+               continue
+            }
+            let value = math::decimal_from_bytes(&native_total_value_locked.new_value);
+            let token_derive_eth = helper::get_token_eth_price(&eth_prices_store, &token_addr).unwrap();
+            let partial_pool_total_value_locked_eth = value.mul(token_derive_eth);
+            log::info!("partial pool {} token {} partial total value locked usd: {}",
+                pool_addr,
+                token_addr,
+                partial_pool_total_value_locked_eth,
+            );
+            let aggregate_key = pool_addr.clone();
+            if let Some(pool_agg) = pool_aggregator.get(&aggregate_key) {
+                let count = &pool_agg.0;
+                let rolling_sum = &pool_agg.1;
+                log::info!("found another partial pool value {} token {} count {} partial total value locked usd: {}",
+                    pool_addr,
+                    token_addr,
+                    count,
+                    rolling_sum,
+                );
+                if  count.to_i32().unwrap() >= 2 {
+                    panic!("{}", format!("this is unexpected should only see 2 pool keys"))
+                }
+                let pool_total_value_locked_eth = partial_pool_total_value_locked_eth.add(rolling_sum);
+                let pool_total_value_locked_usd= pool_total_value_locked_eth.clone().mul(&eth_price_usd);
+                output.set(
+                    native_total_value_locked.ordinal,
+                    keyer::pool_eth_total_value_locked(&token_addr),
+                    &Vec::from(pool_total_value_locked_eth.to_string()),
+                );
+                output.set(
+                    native_total_value_locked.ordinal,
+                    keyer::pool_eth_total_value_locked(&token_addr),
+                    &Vec::from(pool_total_value_locked_usd.to_string()),
+                );
+
+                continue
+            }
+            pool_aggregator.insert(aggregate_key.clone(), (1, partial_pool_total_value_locked_eth));
+            log::info!("partial inserted");
+        }
+    }
+}
 
 
 

@@ -5,7 +5,7 @@ use std::borrow::Borrow;
 use std::ops::{Add, Mul, Neg};
 use std::str;
 use std::str::FromStr;
-use substreams::{hex};
+use substreams::{hex, log};
 
 // const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 // const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -106,9 +106,14 @@ pub fn convert_token_to_decimal(amount: &BigInt, decimals: u64) -> BigDecimal {
     return math::divide_by_decimals(big_float_amount, decimals);
 }
 
+pub fn log_token(token: &Erc20Token, index: u64) {
+    log::info!(
+        "token {} addr: {}, name: {}, symbol: {}, decimals: {}",
+        index,
+        token.address,
+        token.decimals,
+        token.symbol,
+        token.name
+    );
 
-
-
-fn zero_big_decimal() -> BigDecimal {
-    BigDecimal::zero().with_prec(100)
 }

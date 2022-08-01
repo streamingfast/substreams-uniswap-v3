@@ -9,6 +9,7 @@ use substreams::{ log };
 use substreams::store::StoreGet;
 
 const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
+const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 pub const WHITELIST_TOKENS: [&str; 21] = [
     "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
@@ -68,7 +69,7 @@ pub fn find_eth_per_token(
     log_ordinal: u64,
     pool_address: &String,
     token_address: &String,
-    liquidity_store: &StoreGet,
+    total_native_value_locked_store: &StoreGet,
     prices_store: &StoreGet,
 ) -> BigDecimal {
     log::debug!("finding ETH per token for {}", token_address);
@@ -107,7 +108,7 @@ pub fn find_eth_per_token(
         };
 
         let major_reserve = helper::get_pool_total_value_locked_token_or_zero(
-            liquidity_store,
+            total_native_value_locked_store,
             pool_address,
             token_address
         );
@@ -127,7 +128,7 @@ pub fn find_eth_per_token(
 pub fn get_eth_price_in_usd(
     prices_store: &StoreGet,
 ) -> BigDecimal {
-    match helper::get_pool_price(prices_store, &USDC_WETH_03_POOL.to_string(), &"token0".to_string()) {
+    match helper::get_pool_price(prices_store, &USDC_WETH_03_POOL.to_string(), &USDC_ADDRESS.to_string()) {
         Err(_) => BigDecimal::zero(),
         Ok(price) => price
     }
