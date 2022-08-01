@@ -248,11 +248,13 @@ pub fn map_burns_swaps_mints(
                     let swap = abi::pool::events::Swap::decode(log).unwrap();
                     match pools_store.get_last(pool_key) {
                         None => {
-                            panic!(
+                            // don't panic here, only continue
+                            log::info!(
                                 "invalid swap. pool does not exist. pool address {} transaction {}",
                                 Hex(&log.address).to_string(),
                                 Hex(&trx.hash).to_string()
                             );
+                            continue;
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
@@ -310,11 +312,12 @@ pub fn map_burns_swaps_mints(
 
                     match pools_store.get_last(pool_key) {
                         None => {
-                            panic!(
+                            log::info!(
                                 "invalid burn. pool does not exist. pool address {} transaction {}",
                                 Hex(&log.address).to_string(),
                                 Hex(&trx.hash).to_string()
                             );
+                            continue;
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
@@ -375,11 +378,12 @@ pub fn map_burns_swaps_mints(
 
                     match pools_store.get_last(pool_key) {
                         None => {
-                            panic!(
+                            log::info!(
                                 "invalid mint. pool does not exist. pool address {} transaction {}",
                                 Hex(&log.address).to_string(),
                                 Hex(&trx.hash).to_string()
                             );
+                            continue
                         }
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
