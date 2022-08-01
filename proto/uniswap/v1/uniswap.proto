@@ -24,13 +24,14 @@ message Pools {
 
 message Pool {
   string address = 1;
-  ERC20Token token0 = 2;
-  ERC20Token token1 = 3;
-  string creation_transaction_id = 4;
-  uint32 fee = 5;
-  string block_num = 6;
-  uint64 log_ordinal = 7;
-  int32 tick_spacing = 8;
+  string factoryAddress = 2;
+  ERC20Token token0 = 3;
+  ERC20Token token1 = 4;
+  string creation_transaction_id = 5;
+  uint32 fee = 6;
+  string block_num = 7;
+  uint64 log_ordinal = 8;
+  int32 tick_spacing = 9;
 }
 
 message PoolInitializations {
