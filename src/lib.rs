@@ -36,8 +36,8 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
             log::info!("pool addr: {}", Hex(&event.pool));
 
             let mut ignore = false;
-            if !Hex(&log.address).to_string().eq(&UNISWAP_V3_FACTORY)   || Hex(&event.pool).to_string().eq("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248") {
-                ignore = true
+            if log.address() != UNISWAP_V3_FACTORY || Hex(&event.pool).to_string().eq("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248") {
+                ignore = true;
             }
 
             let mut pool: Pool = Pool {
@@ -50,7 +50,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
                 fee_tier: event.fee.as_u32(),
                 tick_spacing: event.tick_spacing.to_i32().unwrap(),
                 log_ordinal: log.ordinal(),
-
+                ignore_pool: ignore,
             };
             // check the validity of the token0 and token1
             let mut token0 = Erc20Token {
