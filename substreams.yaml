@@ -8,9 +8,6 @@ package:
 
     See individual modules docs for help.
 
-imports:
-  eth: https://github.com/streamingfast/substreams-playground/releases/download/v0.5.1/eth-token-v0.5.1.spkg
-
 protobuf:
   files:
     - uniswap/v1/uniswap.proto

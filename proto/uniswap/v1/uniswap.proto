@@ -28,6 +28,7 @@ message Pool {
   int32 tick_spacing = 30;
   uint64 log_ordinal = 31;
   string transaction_id = 32;
+  bool ignore_pool = 33;
 //      liquidity: BigInt!
 //      feeGrowthGlobal0X128: BigInt!
 //      feeGrowthGlobal1X128: BigInt!

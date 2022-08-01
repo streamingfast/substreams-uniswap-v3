@@ -26,16 +26,20 @@ use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Erc20Token, Event, EventAmount, Field, Mint, Pool, Pools, PoolSqrtPrice, PoolSqrtPrices};
+use crate::utils::UNISWAP_V3_FACTORY;
 
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
-    // optimization and make sure to not add the same token twice
-    // it is possible to have multiple pools created with the same
-    // tokens (USDC, WETH, etc.)
-    let pools = block
-        .events::<abi::factory::events::PoolCreated>(&[&utils::UNISWAP_V3_FACTORY])
-        .filter_map(|(event, log)| {
+    let mut pools= vec![];
+    for log in block.logs() {
+        if let Some(event) = abi::factory::events::PoolCreated::match_and_decode(log) {
             log::info!("pool addr: {}", Hex(&event.pool));
+
+            let mut ignore = false;
+            if !Hex(&log.address).to_string().eq(&UNISWAP_V3_FACTORY)   || Hex(&event.pool).to_string().eq("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248") {
+                ignore = true
+            }
+
             let mut pool: Pool = Pool {
                 address: Hex(&log.data()[44..64]).to_string(),
                 token0: None,
@@ -46,6 +50,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
                 fee_tier: event.fee.as_u32(),
                 tick_spacing: event.tick_spacing.to_i32().unwrap(),
                 log_ordinal: log.ordinal(),
+
             };
             // check the validity of the token0 and token1
             let mut token0 = Erc20Token {
@@ -64,7 +69,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
             let token0_address: String = Hex(&event.token0).to_string();
             match rpc::create_uniswap_token(&token0_address) {
                 None => {
-                    return None;
+                    continue;
                 }
                 Some(token) => {
                     token0 = token;
@@ -74,7 +79,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
             let token1_address: String = Hex(&event.token1).to_string();
             match rpc::create_uniswap_token(&token1_address) {
                 None => {
-                    return None;
+                    continue;
                 }
                 Some(token) => {
                     token1 = token;
@@ -83,9 +88,9 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
 
             pool.token0 = Some(token0.clone());
             pool.token1 = Some(token1.clone());
-            Some(pool)
-        }).collect();
-
+            pools.push(pool);
+        }
+    }
     Ok(Pools{pools})
 }
 
@@ -205,6 +210,9 @@ pub fn map_swap_mints_burns(
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                    if pool.ignore_pool {
+                        continue
+                    }
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
@@ -252,6 +260,9 @@ pub fn map_swap_mints_burns(
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                    if pool.ignore_pool {
+                        continue
+                    }
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
@@ -303,6 +314,9 @@ pub fn map_swap_mints_burns(
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                    if pool.ignore_pool {
+                        continue
+                    }
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
