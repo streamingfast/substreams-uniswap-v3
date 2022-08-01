@@ -32,11 +32,6 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
     let mut output = Pools { pools: vec![] };
     let mut uniswap_tokens = Erc20Tokens { tokens: vec![] };
 
-    // optimization and make sure to not add the same token twice
-    // it is possible to have multiple pools created with the same
-    // tokens (USDC, WETH, etc.)
-    let mut cached_tokens = HashMap::new();
-
     for trx in block.transaction_traces {
         for call in trx.calls.iter() {
             // solution to fix the issue with the other uniswap v3 factory contract would be to
@@ -79,28 +74,22 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
                 };
 
                 let token0_address: String = Hex(&event.token0).to_string();
-                if !cached_tokens.contains_key(&token0_address) {
-                    match rpc::create_uniswap_token(&token0_address) {
-                        None => {
-                            continue;
-                        }
-                        Some(token) => {
-                            token0 = token;
-                            cached_tokens.insert(String::from(&token0_address), true);
-                        }
+                match rpc::create_uniswap_token(&token0_address) {
+                    None => {
+                        continue;
+                    }
+                    Some(token) => {
+                        token0 = token;
                     }
                 }
 
                 let token1_address: String = Hex(&event.token1).to_string();
-                if !cached_tokens.contains_key(&token1_address) {
-                    match rpc::create_uniswap_token(&token1_address) {
-                        None => {
-                            continue;
-                        }
-                        Some(token) => {
-                            token1 = token;
-                            cached_tokens.insert(String::from(&token1_address), true);
-                        }
+                match rpc::create_uniswap_token(&token1_address) {
+                    None => {
+                        continue;
+                    }
+                    Some(token) => {
+                        token1 = token;
                     }
                 }
 
