@@ -1,11 +1,11 @@
-use crate::{ Erc20Token, math, helper};
+use crate::{helper, math, Erc20Token};
 use bigdecimal::{BigDecimal, One, Zero};
 use num_bigint::BigInt;
 use std::borrow::Borrow;
 use std::ops::{Div, Mul};
 use std::str;
 use std::str::FromStr;
-use substreams::{ log };
+use substreams::log;
 use substreams::store::StoreGet;
 
 const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
@@ -77,9 +77,10 @@ pub fn find_eth_per_token(
         return BigDecimal::one();
     }
 
-    let direct_to_eth_price= match  helper::get_price(prices_store, &WETH_ADDRESS.to_string(), token_address){
+    let direct_to_eth_price =
+        match helper::get_price(prices_store, &WETH_ADDRESS.to_string(), token_address) {
             Err(_) => BigDecimal::zero(),
-            Ok(price) => price
+            Ok(price) => price,
         };
 
     if direct_to_eth_price.ne(&BigDecimal::zero().with_prec(100)) {
@@ -96,21 +97,30 @@ pub fn find_eth_per_token(
             pool_address
         );
 
-        let major_to_eth_price = match helper::get_price_at(prices_store, log_ordinal, &major_token.to_string(), &WETH_ADDRESS.to_string()){
+        let major_to_eth_price = match helper::get_price_at(
+            prices_store,
+            log_ordinal,
+            &major_token.to_string(),
+            &WETH_ADDRESS.to_string(),
+        ) {
             Err(_) => continue,
-            Ok(price) => price
+            Ok(price) => price,
         };
 
-
-        let tiny_to_major_price = match helper::get_price_at(prices_store, log_ordinal, token_address, &major_token.to_string()){
+        let tiny_to_major_price = match helper::get_price_at(
+            prices_store,
+            log_ordinal,
+            token_address,
+            &major_token.to_string(),
+        ) {
             Err(_) => continue,
-            Ok(price) => price
+            Ok(price) => price,
         };
 
         let major_reserve = helper::get_pool_total_value_locked_token_or_zero(
             total_native_value_locked_store,
             pool_address,
-            token_address
+            token_address,
         );
 
         let eth_reserve_in_major_pair = major_to_eth_price.borrow().mul(major_reserve);
@@ -124,12 +134,14 @@ pub fn find_eth_per_token(
     return BigDecimal::zero().with_prec(100);
 }
 
-
-pub fn get_eth_price_in_usd(
-    prices_store: &StoreGet,
-) -> BigDecimal {
-    match helper::get_pool_price(prices_store, &USDC_WETH_03_POOL.to_string(), &USDC_ADDRESS.to_string()) {
+pub fn get_eth_price_in_usd(prices_store: &StoreGet, ordinal: u64) -> BigDecimal {
+    match helper::get_pool_price(
+        prices_store,
+        ordinal,
+        &USDC_WETH_03_POOL.to_string(),
+        &USDC_ADDRESS.to_string(),
+    ) {
         Err(_) => BigDecimal::zero(),
-        Ok(price) => price
+        Ok(price) => price,
     }
 }

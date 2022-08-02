@@ -40,6 +40,7 @@ modules:
     initialBlock: 12369621
     inputs:
       - source: sf.ethereum.type.v1.Block
+      - store: store_pools
     output:
       type: proto:uniswap.types.v1.SqrtPriceUpdates
 
@@ -99,7 +100,7 @@ modules:
       - map: map_pool_sqrt_price
       - store: store_pools
       - store: store_prices
-      - store: store_native_total_value_locked # this dependency is unique to US since we will recompute the path to the value of a token in ETH
+      - store: store_native_total_value_locked # this dependency is unique to US since we will recompute the path to thet the value of a token in ETH
 
   - name: store_total_value_locked
     kind: store
@@ -157,7 +158,7 @@ modules:
       - map: map_pools_created
       - store: store_pool_sqrt_price
         mode: deltas
-      - store: store_liquidity # replace with proper store
+      - store: store_native_total_value_locked
         mode: deltas
       - store: store_prices
         mode: deltas
@@ -168,6 +169,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
+      - source: sf.ethereum.type.v1.Block
       - map: map_pool_entities
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
