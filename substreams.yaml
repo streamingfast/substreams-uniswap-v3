@@ -157,9 +157,9 @@ modules:
       - map: map_pools_created
       - store: store_pool_sqrt_price
         mode: deltas
-      - store: store_prices
+      - store: store_liquidity # replace with proper store
         mode: deltas
-      - store: price
+      - store: store_prices
         mode: deltas
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
