@@ -99,7 +99,7 @@ modules:
       - map: map_pool_sqrt_price
       - store: store_pools
       - store: store_prices
-      - store: store_native_total_value_locked # this dependency is unique to US since we will recompute the path to thet the value of a token in ETH
+      - store: store_native_total_value_locked # this dependency is unique to US since we will recompute the path to the value of a token in ETH
 
   - name: store_total_value_locked
     kind: store
@@ -119,19 +119,12 @@ modules:
     inputs:
       - map: map_swap_mints_burns
 
-
   - name: store_ticks
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Tick
     inputs:
       - map: map_swap_mints_burns
-
-
-
-
-
-
 
   - name: map_fees
     kind: map
@@ -165,6 +158,8 @@ modules:
       - store: store_pool_sqrt_price
         mode: deltas
       - store: store_prices
+        mode: deltas
+      - store: price
         mode: deltas
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
