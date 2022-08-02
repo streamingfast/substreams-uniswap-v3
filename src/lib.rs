@@ -20,7 +20,7 @@ use std::str::FromStr;
 use substreams::errors::Error;
 use substreams::{store};
 use substreams::{log, proto, Hex};
-use substreams_ethereum::{pb::eth as ethpb,Event as EventTrait};
+use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 use crate::keyer::{native_pool_from_key, native_token_from_key};
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
@@ -95,7 +95,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
+pub fn store_pools(pools: Pools, output: store::StoreSet) {
     for pool in pools.pools {
         output.set(
             pool.log_ordinal,
@@ -130,7 +130,7 @@ pub fn map_pool_sqrt_price(block: ethpb::v1::Block) -> Result<PoolSqrtPrices, Er
             });
         }
     }
-    Ok(pb::uniswap::PoolSqrtPrices{ pool_sqrt_prices })
+    Ok(PoolSqrtPrices{ pool_sqrt_prices })
 }
 
 #[substreams::handlers::store]
@@ -613,30 +613,6 @@ pub fn store_total_value_locked(
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//
-//
 // #[substreams::handlers::store]
 // pub fn store_ticks(events: pb::uniswap::Events, output_set: store::StoreSet) {
 //     for event in events.events {
@@ -789,20 +765,6 @@ pub fn store_total_value_locked(
 //
 //     Ok(out)
 // }
-//
-//
-//
-//
-
-
-
-
-
-
-
-
-
-
 
 #[substreams::handlers::map]
 fn map_pool_entities(
