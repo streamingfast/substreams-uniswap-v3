@@ -1,16 +1,27 @@
-use crate::{helper, math, Erc20Token};
+use crate::{helper, math, Erc20Token, Pool};
 use bigdecimal::{BigDecimal, One, Zero};
 use num_bigint::BigInt;
 use std::borrow::Borrow;
 use std::ops::{Div, Mul};
 use std::str;
 use std::str::FromStr;
+use substreams::errors::Error;
 use substreams::log;
 use substreams::store::StoreGet;
 
 const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+
+pub const STABLE_COINS: [&str; 6] = [
+    "6b175474e89094c44da98b954eedeac495271d0f",
+    "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "dac17f958d2ee523a2206206994597c13d831ec7",
+    "0000000000085d4780b73119b644ae5ecd22b376",
+    "956f47f50a910163d8bf957cf5846d573e7f87ca",
+    "4dd28568d05f09b02220b09c2cb307bfd837cb95",
+];
+
 pub const WHITELIST_TOKENS: [&str; 21] = [
     "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
     "6b175474e89094c44da98b954eedeac495271d0f", // DAI
@@ -69,69 +80,195 @@ pub fn find_eth_per_token(
     log_ordinal: u64,
     pool_address: &String,
     token_address: &String,
+    pools_store: &StoreGet,
+    tokens_whitelist_pools_store: &StoreGet,
     total_native_value_locked_store: &StoreGet,
     prices_store: &StoreGet,
 ) -> BigDecimal {
-    log::debug!("finding ETH per token for {}", token_address);
+    log::debug!(
+        "finding ETH per token for {} in pool {}",
+        token_address,
+        pool_address
+    );
     if token_address.eq(WETH_ADDRESS) {
+        log::info!("is ETH return 1");
         return BigDecimal::one();
     }
 
-    let direct_to_eth_price =
-        match helper::get_price(prices_store, &WETH_ADDRESS.to_string(), token_address) {
-            Err(_) => BigDecimal::zero(),
-            Ok(price) => price,
+    let mut price_so_far = BigDecimal::zero().with_prec(100);
+
+    if STABLE_COINS.contains(&token_address.as_str()) {
+        let eth_price_usd = get_eth_price_in_usd(prices_store, log_ordinal);
+        price_so_far = math::safe_div(&BigDecimal::one(), &eth_price_usd);
+    } else {
+        let wl = match helper::get_pool_whitelist(tokens_whitelist_pools_store, token_address) {
+            Err(err) => {
+                log::info!("failed to get whitelisted {:?}", err);
+                return BigDecimal::zero();
+            }
+            Ok(wl) => wl,
         };
 
-    if direct_to_eth_price.ne(&BigDecimal::zero().with_prec(100)) {
-        return direct_to_eth_price;
-    }
-
-    let minimum_eth_locked = BigDecimal::from_str("60").unwrap();
-
-    // loop all whitelist for a matching token
-    for major_token in WHITELIST_TOKENS {
-        log::info!(
-            "checking for major_token: {} and pool address: {}",
-            major_token,
-            pool_address
-        );
-
-        let major_to_eth_price = match helper::get_price_at(
-            prices_store,
-            log_ordinal,
-            &major_token.to_string(),
-            &WETH_ADDRESS.to_string(),
-        ) {
-            Err(_) => continue,
-            Ok(price) => price,
-        };
-
-        let tiny_to_major_price = match helper::get_price_at(
-            prices_store,
-            log_ordinal,
-            token_address,
-            &major_token.to_string(),
-        ) {
-            Err(_) => continue,
-            Ok(price) => price,
-        };
-
-        let major_reserve = helper::get_pool_total_value_locked_token_or_zero(
-            total_native_value_locked_store,
-            pool_address,
-            token_address,
-        );
-
-        let eth_reserve_in_major_pair = major_to_eth_price.borrow().mul(major_reserve);
-        if eth_reserve_in_major_pair.le(&minimum_eth_locked) {
-            continue;
+        let mut whitelisted_pools: Vec<&str> = vec![];
+        for p in wl.split(";") {
+            if !p.is_empty() {
+                whitelisted_pools.push(p);
+            }
         }
+        log::info!("found whitelisted pools {}", whitelisted_pools.len());
 
-        return BigDecimal::one().div(tiny_to_major_price.mul(major_to_eth_price));
+        let mut largest_eth_locked = BigDecimal::zero().with_prec(100);
+        let minimum_eth_locked = BigDecimal::from_str("60").unwrap();
+        let mut eth_locked = BigDecimal::zero().with_prec(100);
+
+        for pool_address in whitelisted_pools.iter() {
+            log::info!("checking pool: {}", pool_address);
+            let pool = match helper::get_pool(&pools_store, &pool_address.to_string()) {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let token0 = pool.token0.as_ref().unwrap();
+            let token1 = pool.token1.as_ref().unwrap();
+            log::info!(
+                "found pool: {} with token0 {} with token1 {}",
+                pool.address,
+                token0.address,
+                token1.address
+            );
+
+            if true {
+                if &token0.address == token_address {
+                    log::info!(
+                        "current pool token 0 matches desired token, complementary token is {} {}",
+                        token1.address,
+                        token1.symbol
+                    );
+                    let native_locked_value = helper::get_pool_total_value_locked_token_or_zero(
+                        total_native_value_locked_store,
+                        &pool.address,
+                        &token1.address,
+                    );
+                    log::info!(
+                        "native locked value of token1 in pool {}",
+                        native_locked_value
+                    );
+
+                    // If the counter token is WETH we know the derived price is 1
+                    if token1.address.eq(WETH_ADDRESS) {
+                        log::info!("token 1 is WETH");
+                        eth_locked = native_locked_value
+                    } else {
+                        log::info!("token 1 is NOT WETH");
+                        let token_eth_price = match helper::get_price_at(
+                            prices_store,
+                            log_ordinal,
+                            &token1.address,
+                            &WETH_ADDRESS.to_string(),
+                        ) {
+                            Err(err) => {
+                                log::info!("unable to find token 1 price in eth {:?}", err);
+                                continue;
+                            }
+                            Ok(price) => price,
+                        };
+                        log::info!("token 1 is price in eth {}", token_eth_price);
+                        eth_locked = native_locked_value.mul(token_eth_price);
+                        log::info!("computed eth locked {}", eth_locked);
+                    }
+                    log::info!(
+                        "eth locked in pool {} {} (largest {})",
+                        pool.address,
+                        eth_locked,
+                        largest_eth_locked
+                    );
+                    if eth_locked.gt(&largest_eth_locked) && eth_locked.gt(&minimum_eth_locked) {
+                        log::info!("eth locked passed test");
+                        let token1_price = match helper::get_pool_price(
+                            prices_store,
+                            log_ordinal,
+                            &pool.address,
+                            &token1.address,
+                        ) {
+                            Ok(p) => p,
+                            Err(err) => {
+                                log::info!("unable to find pool token1Price {:?}", err);
+                                continue;
+                            }
+                        };
+                        log::info!("found token 1 price {}", token1_price);
+                        largest_eth_locked = eth_locked.clone();
+                        price_so_far = token1_price.mul(&eth_locked);
+                        log::info!("price_so_far {}", price_so_far);
+                    }
+                }
+                if &token1.address == token_address {
+                    log::info!(
+                        "current pool token 1 matches desired token, complementary token is {} {}",
+                        token0.address,
+                        token1.symbol
+                    );
+                    let native_locked_value = helper::get_pool_total_value_locked_token_or_zero(
+                        total_native_value_locked_store,
+                        &pool.address,
+                        &token0.address,
+                    );
+                    log::info!(
+                        "native locked value of token0 in pool {}",
+                        native_locked_value
+                    );
+
+                    // If the counter token is WETH we know the derived price is 1
+                    if token1.address.eq(WETH_ADDRESS) {
+                        log::info!("token 0 is WETH");
+                        eth_locked = native_locked_value
+                    } else {
+                        log::info!("token 0 is NOT WETH");
+                        let token_eth_price = match helper::get_price_at(
+                            prices_store,
+                            log_ordinal,
+                            &token0.address,
+                            &WETH_ADDRESS.to_string(),
+                        ) {
+                            Err(err) => {
+                                log::info!("unable to find token 0 price in eth {:?}", err);
+                                continue;
+                            }
+                            Ok(price) => price,
+                        };
+                        log::info!("token 0 is price in eth {}", token_eth_price);
+                        eth_locked = native_locked_value.mul(token_eth_price);
+                        log::info!("computed eth locked {}", eth_locked);
+                    }
+                    log::info!(
+                        "eth locked in pool {} {} (largest {})",
+                        pool.address,
+                        eth_locked,
+                        largest_eth_locked
+                    );
+                    if eth_locked.gt(&largest_eth_locked) && eth_locked.gt(&minimum_eth_locked) {
+                        log::info!("eth locked passed test");
+                        let token0_price = match helper::get_pool_price(
+                            prices_store,
+                            log_ordinal,
+                            &pool.address,
+                            &token0.address,
+                        ) {
+                            Ok(p) => p,
+                            Err(err) => {
+                                log::info!("unable to find pool token0Price {:?}", err);
+                                continue;
+                            }
+                        };
+                        log::info!("found token 0 price {}", token0_price);
+                        largest_eth_locked = eth_locked.clone();
+                        price_so_far = token0_price.mul(&eth_locked);
+                        log::info!("price_so_far {}", price_so_far);
+                    }
+                }
+            }
+        }
     }
-
-    return BigDecimal::zero().with_prec(100);
+    return price_so_far;
 }
 
 pub fn get_eth_price_in_usd(prices_store: &StoreGet, ordinal: u64) -> BigDecimal {

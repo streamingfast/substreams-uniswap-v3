@@ -15,7 +15,11 @@ use crate::keyer::{native_pool_from_key, native_token_from_key};
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
-use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Erc20Token, Event, EventAmount, Field, Mint, Pool, PoolSqrtPrice, PoolSqrtPrices, Pools, Erc20Tokens};
+use crate::pb::uniswap::{
+    Burn, EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Field, Mint,
+    Pool, PoolSqrtPrice, PoolSqrtPrices, Pools,
+};
+use crate::price::WHITELIST_TOKENS;
 use crate::utils::UNISWAP_V3_FACTORY;
 use bigdecimal::BigDecimal;
 use bigdecimal::{Num, ToPrimitive};
@@ -28,7 +32,6 @@ use substreams::store;
 use substreams::store::StoreAppend;
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
-use crate::price::WHITELIST_TOKENS;
 
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
@@ -129,29 +132,23 @@ pub fn store_pools(pools: Pools, output: store::StoreSet) {
 }
 
 #[substreams::handlers::map]
-pub fn map_erc20_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Error> {
+pub fn map_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Error> {
     let mut erc20_tokens = Erc20Tokens { tokens: vec![] };
 
     for pool in pools.pools {
         let mut token0 = pool.token0.unwrap();
         let mut token1 = pool.token1.unwrap();
 
-        if !erc20_tokens.tokens.contains(&token0) {
-            if WHITELIST_TOKENS.contains(&token0.address.as_str()) {
-                log::info!("adding pool: {} to token: {}", pool.address, token0.address);
-                token0.whitelist_pools.push(pool.address.to_string());
-            }
-
-            erc20_tokens.tokens.push(token0);
+        if WHITELIST_TOKENS.contains(&token0.address.as_str()) {
+            log::info!("adding pool: {} to token: {}", pool.address, token1.address);
+            token1.whitelist_pools.push(pool.address.to_string());
+            erc20_tokens.tokens.push(token1.clone());
         }
 
-        if !erc20_tokens.tokens.contains(&token1) {
-            if WHITELIST_TOKENS.contains(&token1.address.as_str()) {
-                log::info!("adding pool: {} to token: {}", pool.address, token1.address);
-                token1.whitelist_pools.push(pool.address.to_string())
-            }
-
-            erc20_tokens.tokens.push(token1);
+        if WHITELIST_TOKENS.contains(&token1.address.as_str()) {
+            log::info!("adding pool: {} to token: {}", pool.address, token0.address);
+            token0.whitelist_pools.push(pool.address.to_string());
+            erc20_tokens.tokens.push(token0.clone());
         }
     }
 
@@ -159,13 +156,13 @@ pub fn map_erc20_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Err
 }
 
 #[substreams::handlers::store]
-pub fn store_uniswap_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreAppend) {
+pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreAppend) {
     for token in tokens.tokens {
         for pools in token.whitelist_pools {
             output_append.append(
                 1,
-                format!("token:{}", token.address),
-                &format!("{};", pools.to_string())
+                keyer::token_pool_whitelist(&token.address),
+                &format!("{};", pools.to_string()),
             )
         }
     }
@@ -633,6 +630,7 @@ pub fn store_eth_prices(
     pool_sqrt_prices: PoolSqrtPrices,
     pools_store: store::StoreGet,
     prices_store: store::StoreGet,
+    tokens_whitelist_pools_store: store::StoreGet,
     total_native_value_locked_store: store::StoreGet,
     output: store::StoreSet,
 ) {
@@ -657,6 +655,8 @@ pub fn store_eth_prices(
             pool_sqrt_price.ordinal,
             &pool.address,
             &token_0.address,
+            &pools_store,
+            &tokens_whitelist_pools_store,
             &total_native_value_locked_store,
             &prices_store,
         );
@@ -670,6 +670,8 @@ pub fn store_eth_prices(
             pool_sqrt_price.ordinal,
             &pool.address,
             &token_1.address,
+            &pools_store,
+            &tokens_whitelist_pools_store,
             &total_native_value_locked_store,
             &prices_store,
         );

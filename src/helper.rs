@@ -39,6 +39,17 @@ pub fn get_price(
     };
 }
 
+pub fn get_pool_whitelist(
+    tokens_whitelist_pools_store: &StoreGet,
+    token_address: &String,
+) -> Result<String, Error> {
+    return match &tokens_whitelist_pools_store.get_last(&keyer::token_pool_whitelist(token_address))
+    {
+        None => Err(Error::Unexpected("whitelist not found".to_string())),
+        Some(bytes) => Ok(String::from_utf8(bytes.to_vec()).unwrap()),
+    };
+}
+
 pub fn get_price_at(
     prices_store: &StoreGet,
     ordinal: u64,

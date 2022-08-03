@@ -35,7 +35,7 @@ modules:
     inputs:
       - map: map_pools_created
 
-  - name: map_erc20_tokens_whitelist_pools
+  - name: map_tokens_whitelist_pools
     kind: map
     initialBlock: 12369621
     inputs:
@@ -43,12 +43,12 @@ modules:
     output:
       type: proto:uniswap.types.v1.Erc20Tokens
 
-  - name: store_uniswap_tokens_whitelist_pools
+  - name: store_tokens_whitelist_pools
     kind: store
     updatePolicy: append
     valueType: string
     inputs:
-      - map: map_erc20_tokens_whitelist_pools
+      - map: map_tokens_whitelist_pools
 
   - name: map_pool_sqrt_price
     kind: map
@@ -115,6 +115,7 @@ modules:
       - map: map_pool_sqrt_price
       - store: store_pools
       - store: store_prices
+      - store: store_tokens_whitelist_pools
       - store: store_native_total_value_locked # this dependency is unique to US since we will recompute the path to thet the value of a token in ETH
 
   - name: store_total_value_locked
