@@ -113,7 +113,7 @@ pub fn native_pool_from_key(key: &String) -> Option<(String, String)> {
 //      store_derived_eth_prices
 // ------------------------------------------------
 pub fn token_eth_price(token_address: &String) -> String {
-    format!("token:{}", token_address)
+    format!("token:{}:dprice:eth", token_address)
 }
 
 pub fn bundle_eth_price() -> String {

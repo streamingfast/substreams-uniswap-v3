@@ -94,6 +94,18 @@ pub fn get_pool_total_value_locked_token_or_zero(
     };
 }
 
+pub fn get_pool_liquidity(
+    liquidity_store: &StoreGet,
+    pool_address: &String,
+) -> BigDecimal {
+    return match liquidity_store.get_last(&keyer::pool_liquidity(pool_address)) {
+        None => BigDecimal::zero().with_prec(100),
+        Some(bytes) => BigDecimal::parse_bytes(bytes.as_slice(), 10)
+            .unwrap()
+            .with_prec(100),
+    }
+}
+
 pub fn get_eth_price(eth_prices_store: &StoreGet) -> Result<BigDecimal, Error> {
     return match &eth_prices_store.get_last(&keyer::bundle_eth_price()) {
         None => Err(Error::Unexpected("bundle eth price not found".to_string())),

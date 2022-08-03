@@ -155,7 +155,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     new_owner: ethabi::decode(
@@ -171,7 +171,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                 })
@@ -264,7 +264,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     token1: ethabi::decode(
@@ -280,7 +280,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     fee: ethabi::decode(
@@ -307,7 +307,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                 })

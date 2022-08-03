@@ -1,11 +1,9 @@
-use crate::{helper, math, Erc20Token, Pool};
+use crate::{helper, math, Erc20Token};
 use bigdecimal::{BigDecimal, One, Zero};
 use num_bigint::BigInt;
-use std::borrow::Borrow;
 use std::ops::{Div, Mul};
 use std::str;
 use std::str::FromStr;
-use substreams::errors::Error;
 use substreams::log;
 use substreams::store::StoreGet;
 
@@ -98,6 +96,7 @@ pub fn find_eth_per_token(
     let mut price_so_far = BigDecimal::zero().with_prec(100);
 
     if STABLE_COINS.contains(&token_address.as_str()) {
+        log::debug!("token addr: {} is a stable coin", token_address);
         let eth_price_usd = get_eth_price_in_usd(prices_store, log_ordinal);
         price_so_far = math::safe_div(&BigDecimal::one(), &eth_price_usd);
     } else {
@@ -136,7 +135,10 @@ pub fn find_eth_per_token(
                 token1.address
             );
 
-            if true {
+            let liquidity = helper::get_pool_total_value_locked_token_or_zero(total_native_value_locked_store, &pool.address, token_address);
+            log::info!("liquidity is: {}", liquidity);
+
+            if liquidity.gt(&BigDecimal::zero()) {
                 if &token0.address == token_address {
                     log::info!(
                         "current pool token 0 matches desired token, complementary token is {} {}",
@@ -218,7 +220,7 @@ pub fn find_eth_per_token(
                     );
 
                     // If the counter token is WETH we know the derived price is 1
-                    if token1.address.eq(WETH_ADDRESS) {
+                    if token0.address.eq(WETH_ADDRESS) {
                         log::info!("token 0 is WETH");
                         eth_locked = native_locked_value
                     } else {

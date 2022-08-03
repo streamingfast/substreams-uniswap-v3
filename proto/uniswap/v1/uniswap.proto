@@ -129,8 +129,8 @@ message EventAmounts {
 
 message EventAmount {
   string pool_address = 1;
-  string pool_value = 2;
-  bool update_pool_value = 3;
+  string pool_liquidity = 2;
+  bool update_pool_liquidity = 3;
   string token0_addr = 4;
   string amount0_value = 5;
   string token1_addr = 6;

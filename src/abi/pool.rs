@@ -84,7 +84,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     tick_lower: num_bigint::BigInt::from_signed_bytes_be(
@@ -203,7 +203,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     tick_lower: num_bigint::BigInt::from_signed_bytes_be(
@@ -216,7 +216,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     amount0: values
@@ -321,7 +321,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     recipient: ethabi::decode(
@@ -337,7 +337,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     amount0: values
@@ -446,7 +446,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     recipient: ethabi::decode(
@@ -462,7 +462,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     amount0: values
@@ -757,7 +757,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     tick_lower: num_bigint::BigInt::from_signed_bytes_be(
@@ -770,7 +770,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     amount: values
@@ -987,7 +987,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     recipient: ethabi::decode(
@@ -1003,7 +1003,7 @@
                         .pop()
                         .expect(INTERNAL_ERR)
                         .into_address()
-                        .unwrap()
+                        .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
                     amount0: {

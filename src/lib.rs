@@ -502,8 +502,8 @@ pub fn map_event_amounts(
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
-                        update_pool_value: true,
-                        pool_value: liquidity,
+                        update_pool_liquidity: true,
+                        pool_liquidity: "".to_string(), // only if the tick is valid for the active pool
                         token0_addr: event.token0,
                         amount0_value: amount0.neg().to_string(),
                         token1_addr: event.token1,
@@ -511,8 +511,8 @@ pub fn map_event_amounts(
                         ..Default::default()
                     };
                     if tick_lower <= tick && tick <= tick_upper {
-                        ea.update_pool_value = true;
-                        ea.pool_value = amount.neg().to_string()
+                        ea.update_pool_liquidity = true;
+                        ea.pool_liquidity = amount.neg().to_string()
                     }
                     event_amounts.push(ea);
                 }
@@ -532,8 +532,8 @@ pub fn map_event_amounts(
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
-                        update_pool_value: true,
-                        pool_value: liquidity,
+                        update_pool_liquidity: true,
+                        pool_liquidity: "".to_string(), // only if the tick is valid for the active pool
                         token0_addr: event.token0,
                         amount0_value: amount0.to_string(),
                         token1_addr: event.token1,
@@ -541,22 +541,22 @@ pub fn map_event_amounts(
                         ..Default::default()
                     };
                     if tick_lower <= tick && tick <= tick_upper {
-                        ea.update_pool_value = true;
-                        ea.pool_value = amount.to_string()
+                        ea.update_pool_liquidity = true;
+                        ea.pool_liquidity = amount.to_string()
                     }
 
                     event_amounts.push(ea);
                 }
                 SwapEvent(swap) => {
                     log::debug!("handling swap for pool {}", event.pool_address);
-                    // let liquidity = BigDecimal::from_str(swap.liquidity.as_str()).unwrap();
+                    let liquidity = BigDecimal::from_str(swap.liquidity.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
                     event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
-                        // update_pool_value: true,
-                        pool_value: liquidity,
+                        update_pool_liquidity: false,
+                        pool_liquidity: liquidity.to_string(),
                         token0_addr: event.token0,
                         amount0_value: amount0.to_string(),
                         token1_addr: event.token1,
@@ -598,11 +598,16 @@ pub fn store_native_total_value_locked(
     output: store::StoreAddBigFloat,
 ) {
     for event_amount in event_amounts.event_amounts {
-        if event_amount.update_pool_value {
+        if event_amount.update_pool_liquidity {
+            log::info!("pool addr: {} pool_liquidity: {}", event_amount.pool_address, event_amount.pool_liquidity);
+            if event_amount.pool_liquidity.eq("") {
+                continue;
+            }
+
             output.add(
                 event_amount.log_ordinal,
                 keyer::pool_liquidity(&event_amount.pool_address),
-                &BigDecimal::from_str(event_amount.pool_value.as_str()).unwrap(),
+                &BigDecimal::from_str(event_amount.pool_liquidity.as_str()).unwrap(),
             );
         }
         output.add(
@@ -631,6 +636,29 @@ pub fn store_native_total_value_locked(
             ),
             &BigDecimal::from_str(event_amount.amount1_value.as_str()).unwrap(),
         );
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_native_total_value_locked_swaps(
+    event_amounts: pb::uniswap::EventAmounts,
+    output: store::StoreSet,
+) {
+    for event_amount in event_amounts.event_amounts {
+        if event_amount.pool_liquidity.eq("") {
+            continue;
+        }
+        //todo: clean this up but note that only the only time update_pool_liquidity is
+        // set to false is when we are a swap event that changed the liquidity
+        if !event_amount.update_pool_liquidity {
+            let bg = BigDecimal::from_str(event_amount.pool_liquidity.as_str()).unwrap();
+            let bytes = bg.to_string().as_bytes().to_vec();
+            output.set(
+                event_amount.log_ordinal,
+                keyer::pool_liquidity(&event_amount.pool_address),
+                &bytes,
+            );
+        }
     }
 }
 
