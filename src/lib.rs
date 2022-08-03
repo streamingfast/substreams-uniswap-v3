@@ -502,7 +502,8 @@ pub fn map_event_amounts(
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
-                        update_pool_value: false,
+                        update_pool_value: true,
+                        pool_value: liquidity,
                         token0_addr: event.token0,
                         amount0_value: amount0.neg().to_string(),
                         token1_addr: event.token1,
@@ -531,7 +532,8 @@ pub fn map_event_amounts(
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
-                        update_pool_value: false,
+                        update_pool_value: true,
+                        pool_value: liquidity,
                         token0_addr: event.token0,
                         amount0_value: amount0.to_string(),
                         token1_addr: event.token1,
@@ -554,7 +556,7 @@ pub fn map_event_amounts(
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         // update_pool_value: true,
-                        // pool_value: liquidity,
+                        pool_value: liquidity,
                         token0_addr: event.token0,
                         amount0_value: amount0.to_string(),
                         token1_addr: event.token1,
@@ -596,6 +598,13 @@ pub fn store_native_total_value_locked(
     output: store::StoreAddBigFloat,
 ) {
     for event_amount in event_amounts.event_amounts {
+        if event_amount.update_pool_value {
+            output.add(
+                event_amount.log_ordinal,
+                keyer::pool_liquidity(&event_amount.pool_address),
+                &BigDecimal::from_str(event_amount.pool_value.as_str()).unwrap(),
+            );
+        }
         output.add(
             event_amount.log_ordinal,
             keyer::token_native_total_value_locked(&event_amount.token0_addr),

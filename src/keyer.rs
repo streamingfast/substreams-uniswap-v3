@@ -65,6 +65,10 @@ pub fn token_native_total_value_locked(token_address: &String) -> String {
     format!("token:{}:native", token_address)
 }
 
+pub fn pool_liquidity(pool_address: &String) -> String {
+    format!("pool:{}:liquidity", pool_address)
+}
+
 pub fn token_usd_total_value_locked(token_address: &String) -> String {
     format!("token:{}:usd", token_address)
 }
