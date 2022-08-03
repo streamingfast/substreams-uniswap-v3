@@ -65,6 +65,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
         name,
         symbol,
         decimals,
+        whitelist_pools: vec![],
     });
 }
 
