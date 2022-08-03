@@ -35,6 +35,21 @@ modules:
     inputs:
       - map: map_pools_created
 
+  - name: map_erc20_tokens_whitelist_pools
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - map: map_pools_created
+    output:
+      type: proto:uniswap.types.v1.Erc20Tokens
+
+  - name: store_uniswap_tokens_whitelist_pools
+    kind: store
+    updatePolicy: append
+    valueType: string
+    inputs:
+      - map: map_erc20_tokens_whitelist_pools
+
   - name: map_pool_sqrt_price
     kind: map
     initialBlock: 12369621

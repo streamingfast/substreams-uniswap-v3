@@ -15,10 +15,7 @@ use crate::keyer::{native_pool_from_key, native_token_from_key};
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
-use crate::pb::uniswap::{
-    Burn, EntitiesChanges, EntityChange, Erc20Token, Event, EventAmount, Field, Mint, Pool,
-    PoolSqrtPrice, PoolSqrtPrices, Pools,
-};
+use crate::pb::uniswap::{Burn, EntitiesChanges, EntityChange, Erc20Token, Event, EventAmount, Field, Mint, Pool, PoolSqrtPrice, PoolSqrtPrices, Pools, Erc20Tokens};
 use crate::utils::UNISWAP_V3_FACTORY;
 use bigdecimal::BigDecimal;
 use bigdecimal::{Num, ToPrimitive};
@@ -28,8 +25,10 @@ use std::ops::{Add, Mul, Neg};
 use std::str::FromStr;
 use substreams::errors::Error;
 use substreams::store;
+use substreams::store::StoreAppend;
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
+use crate::price::WHITELIST_TOKENS;
 
 #[substreams::handlers::map]
 pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
@@ -72,12 +71,14 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
                 name: "".to_string(),
                 symbol: "".to_string(),
                 decimals: 0,
+                whitelist_pools: vec![],
             };
             let mut token1 = Erc20Token {
                 address: "".to_string(),
                 name: "".to_string(),
                 symbol: "".to_string(),
                 decimals: 0,
+                whitelist_pools: vec![],
             };
 
             let token0_address: String = Hex(&event.token0).to_string();
@@ -109,7 +110,7 @@ pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
+pub fn store_pools(pools: Pools, output: store::StoreSet) {
     for pool in pools.pools {
         output.set(
             pool.log_ordinal,
@@ -124,6 +125,49 @@ pub fn store_pools(pools: pb::uniswap::Pools, output: store::StoreSet) {
             ),
             &proto::encode(&pool).unwrap(),
         )
+    }
+}
+
+#[substreams::handlers::map]
+pub fn map_erc20_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Error> {
+    let mut erc20_tokens = Erc20Tokens { tokens: vec![] };
+
+    for pool in pools.pools {
+        let mut token0 = pool.token0.unwrap();
+        let mut token1 = pool.token1.unwrap();
+
+        if !erc20_tokens.tokens.contains(&token0) {
+            if WHITELIST_TOKENS.contains(&token0.address.as_str()) {
+                log::info!("adding pool: {} to token: {}", pool.address, token0.address);
+                token0.whitelist_pools.push(pool.address.to_string());
+            }
+
+            erc20_tokens.tokens.push(token0);
+        }
+
+        if !erc20_tokens.tokens.contains(&token1) {
+            if WHITELIST_TOKENS.contains(&token1.address.as_str()) {
+                log::info!("adding pool: {} to token: {}", pool.address, token1.address);
+                token1.whitelist_pools.push(pool.address.to_string())
+            }
+
+            erc20_tokens.tokens.push(token1);
+        }
+    }
+
+    Ok(erc20_tokens)
+}
+
+#[substreams::handlers::store]
+pub fn store_uniswap_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreAppend) {
+    for token in tokens.tokens {
+        for pools in token.whitelist_pools {
+            output_append.append(
+                1,
+                format!("token:{}", token.address),
+                &format!("{};", pools.to_string())
+            )
+        }
     }
 }
 
@@ -165,7 +209,7 @@ pub fn map_pool_sqrt_price(
             }
         }
     }
-    Ok(pb::uniswap::PoolSqrtPrices { pool_sqrt_prices })
+    Ok(PoolSqrtPrices { pool_sqrt_prices })
 }
 
 #[substreams::handlers::store]
