@@ -62,9 +62,18 @@ modules:
   - name: store_pool_sqrt_price
     kind: store
     updatePolicy: set
-    valueType: proto:pb.uniswap.v1.SqrtPriceUpdates
+    valueType: proto:pb.uniswap.v1.SqrtPriceUpdate
     inputs:
       - map: map_pool_sqrt_price
+
+  - name: map_pool_liquidities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v1.Block
+      - store: store_pools
+    output:
+      type: proto:pb.uniswap.v1.PoolLiquidities
 
   - name: store_prices
     kind: store

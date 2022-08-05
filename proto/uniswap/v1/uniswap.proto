@@ -121,32 +121,32 @@ message Mint {
   string amount = 8;
 }
 
-
-
 message EventAmounts {
-  repeated EventAmount EventAmounts =1;
+  repeated EventAmount event_amounts =1;
 }
 
 message EventAmount {
   string pool_address = 1;
-  string pool_liquidity = 2;
-  bool update_pool_liquidity = 3;
-  string token0_addr = 4;
-  string amount0_value = 5;
-  string token1_addr = 6;
-  string amount1_value = 7;
+  string token0_addr = 2;
+  string amount0_value = 3;
+  string token1_addr = 4;
+  string amount1_value = 5;
 
   // internals
   uint64 log_ordinal = 30;
 }
 
+message PoolLiquidities {
+  repeated PoolLiquidity pool_liquidities = 1;
+}
 
+message PoolLiquidity {
+  string pool_address = 1;
+  string liquidity = 2;
 
-
-
-
-
-
+  // internals
+  uint64 log_ordinal = 30;
+}
 
 
 

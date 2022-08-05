@@ -11,13 +11,16 @@ mod price;
 mod rpc;
 mod utils;
 
+use crate::abi::pool::events::Swap;
+use crate::ethpb::v1::StorageChange;
 use crate::keyer::{native_pool_from_key, native_token_from_key};
+use crate::math::decimal_from_bytes;
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::{
     Burn, EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Field, Mint,
-    Pool, PoolSqrtPrice, PoolSqrtPrices, Pools,
+    Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools,
 };
 use crate::price::WHITELIST_TOKENS;
 use crate::utils::UNISWAP_V3_FACTORY;
@@ -26,7 +29,7 @@ use bigdecimal::{Num, ToPrimitive};
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::ops::{Add, Mul, Neg};
-use std::str::FromStr;
+use std::str::{FromStr, Utf8Error};
 use substreams::errors::Error;
 use substreams::store;
 use substreams::store::StoreAppend;
@@ -219,6 +222,85 @@ pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: store::StoreSe
             &proto::encode(&sqrt_price).unwrap(),
         )
     }
+}
+
+#[substreams::handlers::map]
+pub fn map_pool_liquidities(
+    block: ethpb::v1::Block,
+    pools_store: store::StoreGet,
+) -> Result<PoolLiquidities, Error> {
+    let mut pool_liquidities = vec![];
+    log::info!("block: {} {} tx count {}");
+    for trx in block.transaction_traces {
+        if trx.status != 1 {
+            continue;
+        }
+        for call in trx.calls {
+            let call_index = call.index;
+            if call.state_reverted {
+                continue;
+            }
+            for log in call.logs {
+                let pool_key = &format!("pool:{}", Hex(&log.address).to_string());
+                if let Some(swap) = abi::pool::events::Swap::match_and_decode(&log) {
+                    match pools_store.get_last(pool_key) {
+                        None => continue,
+                        Some(pool_bytes) => {
+                            let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                            if !should_handle_swap(&pool) {
+                                continue;
+                            }
+                            log::info!("swap - {} {}", Hex(&trx.hash).to_string(), pool.address);
+                            if let Some(pl) = extract_pool_liquidity(
+                                log.ordinal,
+                                &log.address,
+                                &call.storage_changes,
+                            ) {
+                                pool_liquidities.push(pl)
+                            }
+                        }
+                    }
+                } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
+                    match pools_store.get_last(pool_key) {
+                        None => continue,
+                        Some(pool_bytes) => {
+                            let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                            if !should_handle_mint_and_burn(&pool) {
+                                continue;
+                            }
+                            log::info!("mint - {} {}", Hex(&trx.hash).to_string(), pool.address);
+                            if let Some(pl) = extract_pool_liquidity(
+                                log.ordinal,
+                                &log.address,
+                                &call.storage_changes,
+                            ) {
+                                pool_liquidities.push(pl)
+                            }
+                        }
+                    }
+                } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
+                    match pools_store.get_last(pool_key) {
+                        None => continue,
+                        Some(pool_bytes) => {
+                            let pool: Pool = proto::decode(&pool_bytes).unwrap();
+                            if !should_handle_mint_and_burn(&pool) {
+                                continue;
+                            }
+                            log::info!("burn - {} {}", Hex(&trx.hash).to_string(), pool.address);
+                            if let Some(pl) = extract_pool_liquidity(
+                                log.ordinal,
+                                &log.address,
+                                &call.storage_changes,
+                            ) {
+                                pool_liquidities.push(pl)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(PoolLiquidities { pool_liquidities })
 }
 
 #[substreams::handlers::store]
@@ -502,18 +584,12 @@ pub fn map_event_amounts(
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
-                        update_pool_liquidity: true,
-                        pool_liquidity: "".to_string(), // only if the tick is valid for the active pool
                         token0_addr: event.token0,
                         amount0_value: amount0.neg().to_string(),
                         token1_addr: event.token1,
                         amount1_value: amount1.neg().to_string(),
                         ..Default::default()
                     };
-                    if tick_lower <= tick && tick <= tick_upper {
-                        ea.update_pool_liquidity = true;
-                        ea.pool_liquidity = amount.neg().to_string()
-                    }
                     event_amounts.push(ea);
                 }
                 MintEvent(mint) => {
@@ -532,19 +608,12 @@ pub fn map_event_amounts(
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
-                        update_pool_liquidity: true,
-                        pool_liquidity: "".to_string(), // only if the tick is valid for the active pool
                         token0_addr: event.token0,
                         amount0_value: amount0.to_string(),
                         token1_addr: event.token1,
                         amount1_value: amount1.to_string(),
                         ..Default::default()
                     };
-                    if tick_lower <= tick && tick <= tick_upper {
-                        ea.update_pool_liquidity = true;
-                        ea.pool_liquidity = amount.to_string()
-                    }
-
                     event_amounts.push(ea);
                 }
                 SwapEvent(swap) => {
@@ -555,8 +624,6 @@ pub fn map_event_amounts(
                     event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
-                        update_pool_liquidity: false,
-                        pool_liquidity: liquidity.to_string(),
                         token0_addr: event.token0,
                         amount0_value: amount0.to_string(),
                         token1_addr: event.token1,
@@ -598,18 +665,6 @@ pub fn store_native_total_value_locked(
     output: store::StoreAddBigFloat,
 ) {
     for event_amount in event_amounts.event_amounts {
-        if event_amount.update_pool_liquidity {
-            log::info!("pool addr: {} pool_liquidity: {}", event_amount.pool_address, event_amount.pool_liquidity);
-            if event_amount.pool_liquidity.eq("") {
-                continue;
-            }
-
-            output.add(
-                event_amount.log_ordinal,
-                keyer::pool_liquidity(&event_amount.pool_address),
-                &BigDecimal::from_str(event_amount.pool_liquidity.as_str()).unwrap(),
-            );
-        }
         output.add(
             event_amount.log_ordinal,
             keyer::token_native_total_value_locked(&event_amount.token0_addr),
@@ -636,29 +691,6 @@ pub fn store_native_total_value_locked(
             ),
             &BigDecimal::from_str(event_amount.amount1_value.as_str()).unwrap(),
         );
-    }
-}
-
-#[substreams::handlers::store]
-pub fn store_native_total_value_locked_swaps(
-    event_amounts: pb::uniswap::EventAmounts,
-    output: store::StoreSet,
-) {
-    for event_amount in event_amounts.event_amounts {
-        if event_amount.pool_liquidity.eq("") {
-            continue;
-        }
-        //todo: clean this up but note that only the only time update_pool_liquidity is
-        // set to false is when we are a swap event that changed the liquidity
-        if !event_amount.update_pool_liquidity {
-            let bg = BigDecimal::from_str(event_amount.pool_liquidity.as_str()).unwrap();
-            let bytes = bg.to_string().as_bytes().to_vec();
-            output.set(
-                event_amount.log_ordinal,
-                keyer::pool_liquidity(&event_amount.pool_address),
-                &bytes,
-            );
-        }
     }
 }
 
@@ -1213,4 +1245,57 @@ pub fn graph_out(
     }
 
     Ok(out)
+}
+
+pub fn should_handle_swap(pool: &Pool) -> bool {
+    if pool.ignore_pool {
+        return false;
+    }
+    return &pool.address != "9663f2ca0454accad3e094448ea6f77443880454";
+}
+
+pub fn should_handle_mint_and_burn(pool: &Pool) -> bool {
+    if pool.ignore_pool {
+        return false;
+    }
+    return true;
+}
+
+pub fn extract_pool_liquidity(
+    log_ordinal: u64,
+    pool_address: &Vec<u8>,
+    storageChanges: &Vec<StorageChange>,
+) -> Option<PoolLiquidity> {
+    for sc in storageChanges {
+        if pool_address.eq(&sc.address) {
+            if sc.key[sc.key.len() - 1] == 4 {
+                log::info!(
+                    "storage change: {} {} {} {} {} {}",
+                    Hex(&pool_address).to_string(),
+                    Hex(&sc.address).to_string(),
+                    sc.ordinal,
+                    Hex(&sc.key).to_string(),
+                    Hex(&sc.old_value).to_string(),
+                    Hex(&sc.new_value).to_string(),
+                );
+                match std::str::from_utf8(sc.new_value.as_slice()) {
+                    Ok(str) => {
+                        log::info!("price_str {}", str);
+                    }
+                    Err(err) => {
+                        log::info!("price_str error {:?}", err);
+                    }
+                };
+                BigDecimal::from
+                // let value = decimal_from_bytes(&sc.new_value);
+                // log::info!("decimal from bytes {}", value);
+                return Some(PoolLiquidity {
+                    pool_address: Hex(&pool_address).to_string(),
+                    liquidity: "1".to_string(),
+                    log_ordinal: log_ordinal,
+                });
+            }
+        }
+    }
+    None
 }
