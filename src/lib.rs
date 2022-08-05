@@ -26,7 +26,7 @@ use crate::price::WHITELIST_TOKENS;
 use crate::utils::UNISWAP_V3_FACTORY;
 use bigdecimal::BigDecimal;
 use bigdecimal::{Num, ToPrimitive};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use std::collections::HashMap;
 use std::ops::{Add, Mul, Neg};
 use std::str::{FromStr, Utf8Error};
@@ -230,7 +230,6 @@ pub fn map_pool_liquidities(
     pools_store: store::StoreGet,
 ) -> Result<PoolLiquidities, Error> {
     let mut pool_liquidities = vec![];
-    log::info!("block: {} {} tx count {}");
     for trx in block.transaction_traces {
         if trx.status != 1 {
             continue;
@@ -250,7 +249,6 @@ pub fn map_pool_liquidities(
                             if !should_handle_swap(&pool) {
                                 continue;
                             }
-                            log::info!("swap - {} {}", Hex(&trx.hash).to_string(), pool.address);
                             if let Some(pl) = extract_pool_liquidity(
                                 log.ordinal,
                                 &log.address,
@@ -268,7 +266,6 @@ pub fn map_pool_liquidities(
                             if !should_handle_mint_and_burn(&pool) {
                                 continue;
                             }
-                            log::info!("mint - {} {}", Hex(&trx.hash).to_string(), pool.address);
                             if let Some(pl) = extract_pool_liquidity(
                                 log.ordinal,
                                 &log.address,
@@ -286,7 +283,6 @@ pub fn map_pool_liquidities(
                             if !should_handle_mint_and_burn(&pool) {
                                 continue;
                             }
-                            log::info!("burn - {} {}", Hex(&trx.hash).to_string(), pool.address);
                             if let Some(pl) = extract_pool_liquidity(
                                 log.ordinal,
                                 &log.address,
@@ -1264,34 +1260,14 @@ pub fn should_handle_mint_and_burn(pool: &Pool) -> bool {
 pub fn extract_pool_liquidity(
     log_ordinal: u64,
     pool_address: &Vec<u8>,
-    storageChanges: &Vec<StorageChange>,
+    storage_changes: &Vec<StorageChange>,
 ) -> Option<PoolLiquidity> {
-    for sc in storageChanges {
+    for sc in storage_changes {
         if pool_address.eq(&sc.address) {
             if sc.key[sc.key.len() - 1] == 4 {
-                log::info!(
-                    "storage change: {} {} {} {} {} {}",
-                    Hex(&pool_address).to_string(),
-                    Hex(&sc.address).to_string(),
-                    sc.ordinal,
-                    Hex(&sc.key).to_string(),
-                    Hex(&sc.old_value).to_string(),
-                    Hex(&sc.new_value).to_string(),
-                );
-                match std::str::from_utf8(sc.new_value.as_slice()) {
-                    Ok(str) => {
-                        log::info!("price_str {}", str);
-                    }
-                    Err(err) => {
-                        log::info!("price_str error {:?}", err);
-                    }
-                };
-                BigDecimal::from
-                // let value = decimal_from_bytes(&sc.new_value);
-                // log::info!("decimal from bytes {}", value);
                 return Some(PoolLiquidity {
                     pool_address: Hex(&pool_address).to_string(),
-                    liquidity: "1".to_string(),
+                    liquidity: math::decimal_from_hex_be_bytes(&sc.new_value).to_string(),
                     log_ordinal: log_ordinal,
                 });
             }

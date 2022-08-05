@@ -1,4 +1,4 @@
-use crate::{ Erc20Token, math};
+use crate::{math, Erc20Token};
 use bigdecimal::{BigDecimal, One, Zero};
 use num_bigint::BigInt;
 use std::borrow::Borrow;
@@ -78,32 +78,6 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
     };
 }
 
-pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
-    if exponent.is_zero() {
-        return BigDecimal::one().with_prec(100);
-    }
-    if exponent.is_one() {
-        return amount;
-    }
-    if exponent.lt(&BigInt::zero()) {
-        return math::safe_div(
-            &BigDecimal::one().with_prec(100),
-            &big_decimal_exponated(amount, exponent.neg()),
-        );
-    }
-
-    let mut result = amount.clone();
-    let big_int_one: &BigInt = &BigInt::one();
-
-    let mut i = BigInt::zero();
-    while i.lt(exponent.borrow()) {
-        result = result.mul(amount.clone()).with_prec(100);
-        i = i.add(big_int_one);
-    }
-
-    return result;
-}
-
 pub fn convert_token_to_decimal(amount: &BigInt, decimals: u64) -> BigDecimal {
     let big_float_amount = BigDecimal::from_str(amount.to_string().as_str())
         .unwrap()
@@ -121,5 +95,4 @@ pub fn log_token(token: &Erc20Token, index: u64) {
         token.symbol,
         token.name
     );
-
 }

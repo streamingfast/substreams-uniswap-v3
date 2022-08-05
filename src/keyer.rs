@@ -43,10 +43,6 @@ pub fn prices_pool_token_key(pool_address: &String, token_address: &String) -> S
     format!("pool:{}:{}", pool_address, token_address)
 }
 
-pub fn prices_pool_token1_key(pool_address: &String) -> String {
-    format!("pool:{}:token1", pool_address)
-}
-
 // TODO: is the naming here correct?
 pub fn prices_token_pair(
     token_numerator_address: &String,
@@ -94,6 +90,7 @@ pub fn pool_native_total_value_locked_token(
 pub fn pool_eth_total_value_locked(pool_address: &String) -> String {
     format!("pool:{}:eth", pool_address)
 }
+
 pub fn pool_usd_total_value_locked(pool_address: &String) -> String {
     format!("pool:{}:usd", pool_address)
 }
