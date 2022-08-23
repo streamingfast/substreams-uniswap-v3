@@ -24,7 +24,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - source: sf.ethereum.type.v1.Block
+      - source: sf.ethereum.type.v2.Block
     output:
       type: proto:uniswap.types.v1.Pools
 
@@ -54,7 +54,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - source: sf.ethereum.type.v1.Block
+      - source: sf.ethereum.type.v2.Block
       - store: store_pools
     output:
       type: proto:uniswap.types.v1.PoolSqrtPrices
@@ -70,7 +70,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - source: sf.ethereum.type.v1.Block
+      - source: sf.ethereum.type.v2.Block
       - store: store_pools
     output:
       type: proto:pb.uniswap.v1.PoolLiquidities
@@ -87,7 +87,7 @@ modules:
   - name: map_swap_mints_burns
     kind: map
     inputs:
-      - source: sf.ethereum.type.v1.Block
+      - source: sf.ethereum.type.v2.Block
       - store: store_pools
     output:
       type: proto:uniswap.types.v1.Events
@@ -156,7 +156,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - source: sf.ethereum.type.v1.Block
+      - source: sf.ethereum.type.v2.Block
     output:
       type: proto:uniswap.types.v1.Fees
 
@@ -166,13 +166,13 @@ modules:
     initialBlock: 12369621
     valueType: proto:uniswap.types.v1.Fee
     inputs:
-      - source: sf.ethereum.type.v1.Block
+      - source: sf.ethereum.type.v2.Block
 
   - name: map_flashes
     kind: map
     initialBlock: 12369621
     inputs:
-      - source: sf.ethereum.type.v1.Block
+      - source: sf.ethereum.type.v2.Block
     output:
       type: proto:uniswap.types.v1.Flashes
 
@@ -194,7 +194,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - source: sf.ethereum.type.v1.Block
+      - source: sf.ethereum.type.v2.Block
       - map: map_pool_entities
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
