@@ -57,12 +57,12 @@ modules:
       - source: sf.ethereum.type.v1.Block
       - store: store_pools
     output:
-      type: proto:uniswap.types.v1.SqrtPriceUpdates
+      type: proto:uniswap.types.v1.PoolSqrtPrices
 
   - name: store_pool_sqrt_price
     kind: store
     updatePolicy: set
-    valueType: proto:pb.uniswap.v1.SqrtPriceUpdate
+    valueType: proto:uniswap.types.v1.PoolSqrtPrice
     inputs:
       - map: map_pool_sqrt_price
 
@@ -125,7 +125,7 @@ modules:
       - store: store_pools
       - store: store_prices
       - store: store_tokens_whitelist_pools
-      - store: store_native_total_value_locked # this dependency is unique to US since we will recompute the path to thet the value of a token in ETH
+      - store: store_native_total_value_locked # this dependency is unique to US since we will recompute the path to the value of a token in ETH
 
   - name: store_total_value_locked
     kind: store

@@ -193,7 +193,7 @@ pub fn map_pool_sqrt_price(
                     });
                 }
             }
-        } else if let Some(event) = abi::pool::events::Swap::match_and_decode(log) {
+        } else if let Some(event) = Swap::match_and_decode(log) {
             match helper::get_pool(&pools_store, &pool_address) {
                 Err(err) => {
                     log::info!("skipping pool {}: {:?}", &pool_address, err);
@@ -217,7 +217,7 @@ pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: store::StoreSe
     for sqrt_price in sqrt_prices.pool_sqrt_prices {
         // fixme: probably need to have a similar key for like we have for a swap
         output.set(
-            0,
+            sqrt_price.ordinal,
             keyer::pool_sqrt_price_key(&sqrt_price.pool_address),
             &proto::encode(&sqrt_price).unwrap(),
         )
@@ -566,17 +566,8 @@ pub fn map_event_amounts(
             match event.r#type.unwrap() {
                 BurnEvent(burn) => {
                     log::debug!("handling burn for pool {}", event.pool_address);
-                    let amount = BigDecimal::from_str(burn.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
-                    let tick_lower =
-                        BigDecimal::from_str(burn.tick_lower.to_string().as_str()).unwrap();
-                    let tick_upper =
-                        BigDecimal::from_str(burn.tick_upper.to_string().as_str()).unwrap();
-                    let pool_sqrt_price =
-                        helper::get_pool_sqrt_price(&pool_sqrt_price_store, &event.pool_address)?;
-                    let tick =
-                        BigDecimal::from_str_radix(pool_sqrt_price.tick.as_str(), 10).unwrap();
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
@@ -590,17 +581,8 @@ pub fn map_event_amounts(
                 }
                 MintEvent(mint) => {
                     log::debug!("handling mint for pool {}", event.pool_address);
-                    let amount = BigDecimal::from_str(mint.amount.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
-                    let tick_lower =
-                        BigDecimal::from_str(mint.tick_lower.to_string().as_str()).unwrap();
-                    let tick_upper =
-                        BigDecimal::from_str(mint.tick_upper.to_string().as_str()).unwrap();
-                    let pool_sqrt_price =
-                        helper::get_pool_sqrt_price(&pool_sqrt_price_store, &event.pool_address)?;
-                    let tick =
-                        BigDecimal::from_str_radix(pool_sqrt_price.tick.as_str(), 10).unwrap();
                     let mut ea = EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
@@ -614,7 +596,6 @@ pub fn map_event_amounts(
                 }
                 SwapEvent(swap) => {
                     log::debug!("handling swap for pool {}", event.pool_address);
-                    let liquidity = BigDecimal::from_str(swap.liquidity.as_str()).unwrap();
                     let amount0 = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
                     event_amounts.push(EventAmount {

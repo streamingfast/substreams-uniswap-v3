@@ -7,7 +7,7 @@ pub fn get_pool_sqrt_price(
     pool_address: &String,
 ) -> Result<pb::uniswap::PoolSqrtPrice, Error> {
     return match &pool_sqrt_price_store.get_last(&keyer::pool_sqrt_price_key(&pool_address)) {
-        None => Err(Error::Unexpected("no pool sqrt price found".to_string())),
+        None => Err(Error::Unexpected(format!("no pool sqrt price found for pool: {}", pool_address))),
         Some(bytes) => Ok(proto::decode(bytes).unwrap()),
     };
 }
