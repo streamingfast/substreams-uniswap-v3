@@ -14,7 +14,6 @@ mod utils;
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v1::StorageChange;
 use crate::keyer::{native_pool_from_key, native_token_from_key};
-use crate::math::decimal_from_bytes;
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
@@ -25,14 +24,14 @@ use crate::pb::uniswap::{
 use crate::price::WHITELIST_TOKENS;
 use crate::utils::UNISWAP_V3_FACTORY;
 use bigdecimal::BigDecimal;
-use bigdecimal::{Num, ToPrimitive};
-use num_bigint::{BigInt, BigUint};
+use bigdecimal::ToPrimitive;
+use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::ops::{Add, Mul, Neg};
-use std::str::{FromStr, Utf8Error};
+use std::str::FromStr;
 use substreams::errors::Error;
 use substreams::store;
-use substreams::store::StoreAppend;
+use substreams::store::{StoreAppend, StoreGet, StoreSet};
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
@@ -235,21 +234,21 @@ pub fn map_pool_liquidities(
             continue;
         }
         for call in trx.calls {
-            let call_index = call.index;
+            let _call_index = call.index;
             if call.state_reverted {
                 continue;
             }
             for log in call.logs {
                 let pool_key = &format!("pool:{}", Hex(&log.address).to_string());
-                if let Some(swap) = abi::pool::events::Swap::match_and_decode(&log) {
+                if let Some(_) = Swap::match_and_decode(&log) {
                     match pools_store.get_last(pool_key) {
                         None => continue,
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                            if !should_handle_swap(&pool) {
+                            if !utils::should_handle_swap(&pool) {
                                 continue;
                             }
-                            if let Some(pl) = extract_pool_liquidity(
+                            if let Some(pl) = utils::extract_pool_liquidity(
                                 log.ordinal,
                                 &log.address,
                                 &call.storage_changes,
@@ -263,10 +262,10 @@ pub fn map_pool_liquidities(
                         None => continue,
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                            if !should_handle_mint_and_burn(&pool) {
+                            if !utils::should_handle_mint_and_burn(&pool) {
                                 continue;
                             }
-                            if let Some(pl) = extract_pool_liquidity(
+                            if let Some(pl) = utils::extract_pool_liquidity(
                                 log.ordinal,
                                 &log.address,
                                 &call.storage_changes,
@@ -280,10 +279,10 @@ pub fn map_pool_liquidities(
                         None => continue,
                         Some(pool_bytes) => {
                             let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                            if !should_handle_mint_and_burn(&pool) {
+                            if !utils::should_handle_mint_and_burn(&pool) {
                                 continue;
                             }
-                            if let Some(pl) = extract_pool_liquidity(
+                            if let Some(pl) = utils::extract_pool_liquidity(
                                 log.ordinal,
                                 &log.address,
                                 &call.storage_changes,
@@ -366,7 +365,7 @@ pub fn store_prices(
 }
 
 #[substreams::handlers::map]
-pub fn map_swap_mints_burns(
+pub fn map_swaps_mints_burns(
     block: ethpb::v1::Block,
     pools_store: store::StoreGet,
 ) -> Result<pb::uniswap::Events, Error> {
@@ -409,6 +408,7 @@ pub fn map_swap_mints_burns(
 
                     events.push(Event {
                         log_ordinal: log.ordinal(),
+                        log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
                         token0: pool.token0.as_ref().unwrap().address.to_string(),
                         token1: pool.token1.as_ref().unwrap().address.to_string(),
@@ -425,6 +425,7 @@ pub fn map_swap_mints_burns(
                         r#type: Some(SwapEvent(pb::uniswap::Swap {
                             sender: Hex(&swap.sender).to_string(),
                             recipient: Hex(&swap.recipient).to_string(),
+                            origin: Hex(&log.receipt.transaction.from).to_string(),
                             amount_0: amount0.to_string(), // big_decimal?
                             amount_1: amount1.to_string(), // big_decimal?
                             sqrt_price: swap.sqrt_price_x96.to_string(),
@@ -461,10 +462,11 @@ pub fn map_swap_mints_burns(
                     let amount1_bi = BigInt::from_str(mint.amount1.to_string().as_str()).unwrap();
                     let amount0 = utils::convert_token_to_decimal(&amount0_bi, token0.decimals);
                     let amount1 = utils::convert_token_to_decimal(&amount1_bi, token1.decimals);
-                    log::debug!("amount0: {}, amount1:{}", amount0, amount1);
+                    log::debug!("logOrdinal: {}, amount0: {}, amount1:{}", log.ordinal(), amount0, amount1);
 
                     events.push(Event {
                         log_ordinal: log.ordinal(),
+                        log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
                         token0: pool.token0.unwrap().address,
                         token1: pool.token1.unwrap().address,
@@ -481,6 +483,7 @@ pub fn map_swap_mints_burns(
                         r#type: Some(MintEvent(Mint {
                             owner: Hex(&mint.owner).to_string(),
                             sender: Hex(&mint.sender).to_string(),
+                            origin: Hex(&log.receipt.transaction.from).to_string(),
                             amount: mint.amount.to_string(), // big_decimal?
                             amount_0: amount0.to_string(),
                             amount_1: amount1.to_string(),
@@ -521,6 +524,7 @@ pub fn map_swap_mints_burns(
 
                     events.push(Event {
                         log_ordinal: log.ordinal(),
+                        log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
                         token0: pool.token0.as_ref().unwrap().address.to_string(),
                         token1: pool.token1.as_ref().unwrap().address.to_string(),
@@ -536,11 +540,12 @@ pub fn map_swap_mints_burns(
                             .seconds as u64,
                         r#type: Some(BurnEvent(Burn {
                             owner: Hex(&burn.owner).to_string(),
+                            origin: Hex(&log.receipt.transaction.from).to_string(),
+                            amount: burn.amount.to_string(),
                             amount_0: amount0.to_string(),
                             amount_1: amount1.to_string(),
                             tick_lower: burn.tick_lower.to_i32().unwrap(),
                             tick_upper: burn.tick_upper.to_i32().unwrap(),
-                            amount: burn.amount.to_string(),
                         })),
                     });
                 }
@@ -674,11 +679,11 @@ pub fn store_native_total_value_locked(
 #[substreams::handlers::store]
 pub fn store_eth_prices(
     pool_sqrt_prices: PoolSqrtPrices,
-    pools_store: store::StoreGet,
-    prices_store: store::StoreGet,
-    tokens_whitelist_pools_store: store::StoreGet,
-    total_native_value_locked_store: store::StoreGet,
-    output: store::StoreSet,
+    pools_store: StoreGet,
+    prices_store: StoreGet,
+    tokens_whitelist_pools_store: StoreGet,
+    total_native_value_locked_store: StoreGet,
+    output: StoreSet,
 ) {
     for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
         log::debug!(
@@ -1204,10 +1209,174 @@ fn map_pool_entities(
     Ok(out)
 }
 
+//todo: check the tickLower, tickUpper, amount, amount0, amount1 and amountUSD, for the moment
+// they are stored as String values, but shouldn't it be int instead or BigInt in some cases?
+#[substreams::handlers::map]
+fn map_swaps_mints_burns_entities(
+    events: pb::uniswap::Events,
+    tx_count_store: StoreGet,
+    store_eth_prices: StoreGet,
+) -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges {
+        block_id: vec![],
+        block_number: 0,
+        prev_block_id: vec![],
+        prev_block_number: 0,
+        entity_changes: vec![],
+    };
+
+    for event in events.events {
+        if event.r#type.is_none() {
+            continue;
+        }
+
+        if event.r#type.is_some() {
+            let transaction_count: i32 = match tx_count_store.get_last(keyer::factory_total_tx_count()) {
+                Some(data) => String::from_utf8_lossy(data.as_slice()).to_string().parse::<i32>().unwrap(),
+                None => 0
+            };
+
+            let transaction_id: String = format!("{}#{}", event.transaction_id, transaction_count);
+
+            let token0_derived_eth_price = match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
+                None => {
+                    // initializePool has occurred beforehand so there should always be a price
+                    // maybe just ? instead of returning 1 and bubble up the error if there is one
+                    BigDecimal::from(0 as u64)
+                }
+                Some(derived_eth_price_bytes) => {
+                    utils::decode_bytes_to_big_decimal(derived_eth_price_bytes)
+                }
+            };
+
+            let token1_derived_eth_price: BigDecimal = match store_eth_prices.get_last(keyer::token_eth_price(&event.token1)) {
+                None => {
+                    // initializePool has occurred beforehand so there should always be a price
+                    // maybe just ? instead of returning 1 and bubble up the error if there is one
+                    BigDecimal::from(0 as u64)
+                }
+                Some(derived_eth_price_bytes) => {
+                    utils::decode_bytes_to_big_decimal(derived_eth_price_bytes)
+                }
+            };
+
+            let bundle_eth_price: BigDecimal = match store_eth_prices.get_last(keyer::bundle_eth_price()) {
+                None => {
+                    // initializePool has occurred beforehand so there should always be a price
+                    // maybe just ? instead of returning 1 and bubble up the error if there is one
+                    BigDecimal::from(1 as u64)
+                }
+                Some(bundle_eth_price_bytes) => {
+                    utils::decode_bytes_to_big_decimal(bundle_eth_price_bytes)
+                }
+            };
+
+            match event.r#type.unwrap() {
+                SwapEvent(swap) => {
+                    let amount0: BigDecimal = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
+                    let amount1: BigDecimal = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+
+                    let amount_usd: BigDecimal = utils::calculate_amount_usd(&amount0, &amount1, &token0_derived_eth_price, &token1_derived_eth_price, &bundle_eth_price);
+
+                    out.entity_changes.push(EntityChange {
+                        entity: "Swap".to_string(),
+                        id: string_field_value!(transaction_id),
+                        ordinal: event.log_ordinal,
+                        operation: Operation::Create as i32,
+                        fields: vec![
+                            new_field!("id", FieldType::String, string_field_value!(transaction_id)),
+                            new_field!("transaction", FieldType::String, string_field_value!(event.transaction_id)),
+                            new_field!("timestamp", FieldType::Bigint, big_int_field_value!(event.timestamp.to_string())),
+                            new_field!("pool", FieldType::String, string_field_value!(event.pool_address)),
+                            new_field!("token0", FieldType::String, string_field_value!(event.token0)),
+                            new_field!("token1", FieldType::String, string_field_value!(event.token1)),
+                            new_field!("sender", FieldType::String, string_field_value!(swap.sender)),
+                            new_field!("recipient", FieldType::String, string_field_value!(swap.recipient)),
+                            new_field!("origin", FieldType::String, string_field_value!(swap.origin)),
+                            new_field!("amount0", FieldType::String, string_field_value!(swap.amount_0)),
+                            new_field!("amount1", FieldType::String, string_field_value!(swap.amount_1)),
+                            new_field!("amountUSD", FieldType::String, string_field_value!(amount_usd.to_string())),
+                            new_field!("sqrtPriceX96", FieldType::Int, string_field_value!(swap.sqrt_price)),
+                            new_field!("tick", FieldType::Int, int_field_value!(swap.tick)),
+                            new_field!("logIndex", FieldType::String, string_field_value!(event.log_ordinal.to_string())), // same as log ordinal ?
+                        ]
+                    })
+
+                }
+                MintEvent(mint) => {
+                    let amount0: BigDecimal = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
+                    let amount1: BigDecimal = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
+
+                    let amount_usd: BigDecimal = utils::calculate_amount_usd(&amount0, &amount1, &token0_derived_eth_price, &token1_derived_eth_price, &bundle_eth_price);
+
+                    out.entity_changes.push(EntityChange {
+                        entity: "Mint".to_string(),
+                        id: string_field_value!(transaction_id),
+                        ordinal: event.log_ordinal,
+                        operation: Operation::Create as i32,
+                        fields: vec![
+                            new_field!("id", FieldType::String, string_field_value!(transaction_id)),
+                            new_field!("transaction", FieldType::String, string_field_value!(event.transaction_id)),
+                            new_field!("timestamp", FieldType::Bigint, big_int_field_value!(event.timestamp.to_string())),
+                            new_field!("pool", FieldType::String, string_field_value!(event.pool_address)),
+                            new_field!("token0", FieldType::String, string_field_value!(event.token0)),
+                            new_field!("token1", FieldType::String, string_field_value!(event.token1)),
+                            new_field!("owner", FieldType::String, string_field_value!(mint.owner)),
+                            new_field!("sender", FieldType::String, string_field_value!(mint.sender)),
+                            new_field!("origin", FieldType::String, string_field_value!(mint.origin)),
+                            new_field!("amount", FieldType::String, string_field_value!(mint.amount)),
+                            new_field!("amount0", FieldType::String, string_field_value!(mint.amount_0)),
+                            new_field!("amount1", FieldType::String, string_field_value!(mint.amount_1)),
+                            new_field!("amountUSD", FieldType::String, string_field_value!(amount_usd.to_string())),
+                            new_field!("tickLower", FieldType::String, string_field_value!(mint.tick_lower.to_string())),
+                            new_field!("tickUpper", FieldType::String, string_field_value!(mint.tick_upper.to_string())),
+                            new_field!("logIndex", FieldType::String, string_field_value!(event.log_ordinal.to_string())), // same as log ordinal ?
+                        ],
+                    });
+                }
+                BurnEvent(burn) => {
+                    let amount0: BigDecimal = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
+                    let amount1: BigDecimal = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
+
+                    let amount_usd: BigDecimal = utils::calculate_amount_usd(&amount0, &amount1, &token0_derived_eth_price, &token1_derived_eth_price, &bundle_eth_price);
+
+                    out.entity_changes.push(EntityChange {
+                        entity: "Burn".to_string(),
+                        id: string_field_value!(transaction_id),
+                        ordinal: event.log_ordinal,
+                        operation: Operation::Create as i32,
+                        fields: vec![
+                            new_field!("id", FieldType::String, string_field_value!(transaction_id)),
+                            new_field!("transaction", FieldType::String, string_field_value!(event.transaction_id)),
+                            new_field!("timestamp", FieldType::Bigint, big_int_field_value!(event.timestamp.to_string())),
+                            new_field!("pool", FieldType::String, string_field_value!(event.pool_address)),
+                            new_field!("token0", FieldType::String, string_field_value!(event.token0)),
+                            new_field!("token1", FieldType::String, string_field_value!(event.token1)),
+                            new_field!("owner", FieldType::String, string_field_value!(burn.owner)),
+                            new_field!("origin", FieldType::String, string_field_value!(burn.origin)),
+                            new_field!("amount", FieldType::String, string_field_value!(burn.amount_0)),
+                            new_field!("amount0", FieldType::String, string_field_value!(burn.amount_0)),
+                            new_field!("amount1", FieldType::String, string_field_value!(burn.amount_1)),
+                            new_field!("amountUSD", FieldType::String, string_field_value!(amount_usd.to_string())),
+                            new_field!("tickLower", FieldType::String, string_field_value!(burn.tick_lower.to_string())),
+                            new_field!("tickUpper", FieldType::String, string_field_value!(burn.tick_upper.to_string())),
+                            new_field!("logIndex", FieldType::String, string_field_value!(event.log_ordinal.to_string())), // same as log ordinal ?
+                        ]
+                    })
+                }
+            }
+        }
+
+    }
+
+    Ok(out)
+}
+
 #[substreams::handlers::map]
 pub fn graph_out(
     block: ethpb::v1::Block,
     pool_entities: EntitiesChanges,
+    swaps_mints_burns_entities: EntitiesChanges,
 ) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
         block_id: block.hash,
@@ -1217,42 +1386,16 @@ pub fn graph_out(
         entity_changes: vec![],
     };
 
+    //todo: check if we wand to check the block ordinal here and sort by the ordinal
+    // or simply stream out all the entity changes
+
     for change in pool_entities.entity_changes {
         out.entity_changes.push(change);
     }
 
+    for change in swaps_mints_burns_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
+
     Ok(out)
-}
-
-pub fn should_handle_swap(pool: &Pool) -> bool {
-    if pool.ignore_pool {
-        return false;
-    }
-    return &pool.address != "9663f2ca0454accad3e094448ea6f77443880454";
-}
-
-pub fn should_handle_mint_and_burn(pool: &Pool) -> bool {
-    if pool.ignore_pool {
-        return false;
-    }
-    return true;
-}
-
-pub fn extract_pool_liquidity(
-    log_ordinal: u64,
-    pool_address: &Vec<u8>,
-    storage_changes: &Vec<StorageChange>,
-) -> Option<PoolLiquidity> {
-    for sc in storage_changes {
-        if pool_address.eq(&sc.address) {
-            if sc.key[sc.key.len() - 1] == 4 {
-                return Some(PoolLiquidity {
-                    pool_address: Hex(&pool_address).to_string(),
-                    liquidity: math::decimal_from_hex_be_bytes(&sc.new_value).to_string(),
-                    log_ordinal: log_ordinal,
-                });
-            }
-        }
-    }
-    None
 }
