@@ -43,7 +43,7 @@ macro_rules! int_field_value {
 #[macro_export]
 macro_rules! big_int_field_value {
     ($a:expr) => {
-        BigInt::from_str($a.as_str()).unwrap().to_signed_bytes_le().to_vec()
+        BigInt::from_str($a.as_str()).unwrap().to_signed_bytes_be().to_vec()
     }
 }
 
