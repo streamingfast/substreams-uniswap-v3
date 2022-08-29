@@ -84,7 +84,7 @@ modules:
       - map: map_pool_sqrt_price
       - store: store_pools
 
-  - name: map_swap_mints_burns
+  - name: map_swaps_mints_burns
     kind: map
     inputs:
       - source: sf.ethereum.type.v2.Block
@@ -96,7 +96,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_swap_mints_burns
+      - map: map_swaps_mints_burns
       - store: store_pool_sqrt_price
     output:
       type: proto:uniswap.types.v1.EventAmounts
@@ -106,7 +106,7 @@ modules:
     updatePolicy: add
     valueType: int64
     inputs:
-      - map: map_swap_mints_burns
+      - map: map_swaps_mints_burns
 
   - name: store_native_total_value_locked
     kind: store
@@ -125,7 +125,7 @@ modules:
       - store: store_pools
       - store: store_prices
       - store: store_tokens_whitelist_pools
-      - store: store_native_total_value_locked # this dependency is unique to US since we will recompute the path to the value of a token in ETH
+      - store: store_native_total_value_locked # this dependency is unique to us since we will recompute the path to the value of a token in ETH
 
   - name: store_total_value_locked
     kind: store
@@ -143,14 +143,14 @@ modules:
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Swap
     inputs:
-      - map: map_swap_mints_burns
+      - map: map_swaps_mints_burns
 
   - name: store_ticks
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Tick
     inputs:
-      - map: map_swap_mints_burns
+      - map: map_swaps_mints_burns
 
   - name: map_fees
     kind: map
@@ -187,6 +187,16 @@ modules:
         mode: deltas
       - store: store_prices
         mode: deltas
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges
+
+  - name: map_swaps_mints_burns_entities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - map: map_swaps_mints_burns
+      - store: store_total_tx_counts
+      - store: store_eth_prices
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
 

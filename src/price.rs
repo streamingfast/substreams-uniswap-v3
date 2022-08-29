@@ -135,7 +135,11 @@ pub fn find_eth_per_token(
                 token1.address
             );
 
-            let liquidity = helper::get_pool_total_value_locked_token_or_zero(total_native_value_locked_store, &pool.address, token_address);
+            let liquidity = helper::get_pool_total_value_locked_token_or_zero(
+                total_native_value_locked_store,
+                &pool.address,
+                token_address,
+            );
             log::info!("liquidity is: {}", liquidity);
 
             if liquidity.gt(&BigDecimal::zero()) {

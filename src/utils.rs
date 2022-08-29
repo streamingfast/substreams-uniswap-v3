@@ -1,11 +1,10 @@
-use crate::{math, Erc20Token};
-use bigdecimal::{BigDecimal, One, Zero};
+use crate::{math, Erc20Token, Pool, PoolLiquidity, StorageChange};
+use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
-use std::borrow::Borrow;
-use std::ops::{Add, Mul, Neg};
+use std::ops::{Add, Mul};
 use std::str;
 use std::str::FromStr;
-use substreams::{hex, log};
+use substreams::{hex, log, Hex};
 
 // const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 // const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -86,6 +85,39 @@ pub fn convert_token_to_decimal(amount: &BigInt, decimals: u64) -> BigDecimal {
     return math::divide_by_decimals(big_float_amount, decimals);
 }
 
+pub fn should_handle_swap(pool: &Pool) -> bool {
+    if pool.ignore_pool {
+        return false;
+    }
+    return &pool.address != "9663f2ca0454accad3e094448ea6f77443880454";
+}
+
+pub fn should_handle_mint_and_burn(pool: &Pool) -> bool {
+    if pool.ignore_pool {
+        return false;
+    }
+    return true;
+}
+
+pub fn extract_pool_liquidity(
+    log_ordinal: u64,
+    pool_address: &Vec<u8>,
+    storage_changes: &Vec<StorageChange>,
+) -> Option<PoolLiquidity> {
+    for sc in storage_changes {
+        if pool_address.eq(&sc.address) {
+            if sc.key[sc.key.len() - 1] == 4 {
+                return Some(PoolLiquidity {
+                    pool_address: Hex(&pool_address).to_string(),
+                    liquidity: math::decimal_from_hex_be_bytes(&sc.new_value).to_string(),
+                    log_ordinal: log_ordinal,
+                });
+            }
+        }
+    }
+    None
+}
+
 pub fn log_token(token: &Erc20Token, index: u64) {
     log::info!(
         "token {} addr: {}, name: {}, symbol: {}, decimals: {}",
@@ -95,4 +127,21 @@ pub fn log_token(token: &Erc20Token, index: u64) {
         token.symbol,
         token.name
     );
+}
+
+pub fn calculate_amount_usd(
+    amount0: &BigDecimal,
+    amount1: &BigDecimal,
+    token0_derived_eth_price: &BigDecimal,
+    token1_derived_eth_price: &BigDecimal,
+    bundle_eth_price: &BigDecimal,
+) -> BigDecimal {
+    return amount0
+        .mul(token0_derived_eth_price.mul(bundle_eth_price.clone()))
+        .add(amount1.mul(token1_derived_eth_price.mul(bundle_eth_price)));
+}
+
+pub fn decode_bytes_to_big_decimal(bytes: Vec<u8>) -> BigDecimal {
+    let bytes_as_str = str::from_utf8(bytes.as_slice()).unwrap();
+    return BigDecimal::from_str(bytes_as_str).unwrap().with_prec(100);
 }
