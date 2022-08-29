@@ -83,19 +83,21 @@ message Event {
     Mint mint = 3;
   }
   uint64 log_ordinal = 100;
-  string pool_address = 101;
-  string token0 = 102;
-  string token1 = 103;
-  string fee = 104;
-  string transaction_id = 105;
-  uint64 timestamp = 106;
+  uint64 log_index = 101;
+  string pool_address = 102;
+  string token0 = 103;
+  string token1 = 104;
+  string fee = 105;
+  string transaction_id = 106;
+  uint64 timestamp = 107;
 }
 
 message Swap {
   string sender = 1;
   string recipient = 2;
-  string amount_0 = 3;
-  string amount_1 = 4;
+  string origin = 3;
+  string amount_0 = 4;
+  string amount_1 = 5;
   string sqrt_price = 6;
   string liquidity = 7;
   int32 tick = 8;
@@ -103,17 +105,18 @@ message Swap {
 
 message Burn {
   string owner = 1;
-  string amount_0 = 2;
-  string amount_1 = 3;
-  int32 tick_lower = 4;
-  int32 tick_upper = 5;
-  string amount = 6;
+  string origin = 2;
+  string amount = 3;
+  string amount_0 = 4;
+  string amount_1 = 5;
+  int32 tick_lower = 6;
+  int32 tick_upper = 7;
 }
 
 message Mint {
   string owner = 1;
   string sender = 2;
-  //  string origin = 3; // should be the transaction origin, do we need this?
+  string origin = 3;
   string amount_0 = 4;
   string amount_1 = 5;
   int32 tick_lower = 6;
@@ -148,17 +151,6 @@ message PoolLiquidity {
   uint64 log_ordinal = 30;
 }
 
-
-
-
-
-
-
-
-
-
-
-
 message Ticks {
   repeated Tick ticks = 1;
 }
@@ -169,29 +161,6 @@ message Tick {
   string price0 = 3; //BigDecimal
   string price1 = 4; //BigDecimal
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 message Fees {
   repeated Fee fees = 1;
