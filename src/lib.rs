@@ -462,7 +462,12 @@ pub fn map_swaps_mints_burns(
                     let amount1_bi = BigInt::from_str(mint.amount1.to_string().as_str()).unwrap();
                     let amount0 = utils::convert_token_to_decimal(&amount0_bi, token0.decimals);
                     let amount1 = utils::convert_token_to_decimal(&amount1_bi, token1.decimals);
-                    log::debug!("logOrdinal: {}, amount0: {}, amount1:{}", log.ordinal(), amount0, amount1);
+                    log::debug!(
+                        "logOrdinal: {}, amount0: {}, amount1:{}",
+                        log.ordinal(),
+                        amount0,
+                        amount1
+                    );
 
                     events.push(Event {
                         log_ordinal: log.ordinal(),
@@ -1231,52 +1236,65 @@ fn map_swaps_mints_burns_entities(
         }
 
         if event.r#type.is_some() {
-            let transaction_count: i32 = match tx_count_store.get_last(keyer::factory_total_tx_count()) {
-                Some(data) => String::from_utf8_lossy(data.as_slice()).to_string().parse::<i32>().unwrap(),
-                None => 0
-            };
+            let transaction_count: i32 =
+                match tx_count_store.get_last(keyer::factory_total_tx_count()) {
+                    Some(data) => String::from_utf8_lossy(data.as_slice())
+                        .to_string()
+                        .parse::<i32>()
+                        .unwrap(),
+                    None => 0,
+                };
 
             let transaction_id: String = format!("{}#{}", event.transaction_id, transaction_count);
 
-            let token0_derived_eth_price = match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
-                None => {
-                    // initializePool has occurred beforehand so there should always be a price
-                    // maybe just ? instead of returning 1 and bubble up the error if there is one
-                    BigDecimal::from(0 as u64)
-                }
-                Some(derived_eth_price_bytes) => {
-                    utils::decode_bytes_to_big_decimal(derived_eth_price_bytes)
-                }
-            };
+            let token0_derived_eth_price =
+                match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
+                    None => {
+                        // initializePool has occurred beforehand so there should always be a price
+                        // maybe just ? instead of returning 1 and bubble up the error if there is one
+                        BigDecimal::from(0 as u64)
+                    }
+                    Some(derived_eth_price_bytes) => {
+                        utils::decode_bytes_to_big_decimal(derived_eth_price_bytes)
+                    }
+                };
 
-            let token1_derived_eth_price: BigDecimal = match store_eth_prices.get_last(keyer::token_eth_price(&event.token1)) {
-                None => {
-                    // initializePool has occurred beforehand so there should always be a price
-                    // maybe just ? instead of returning 1 and bubble up the error if there is one
-                    BigDecimal::from(0 as u64)
-                }
-                Some(derived_eth_price_bytes) => {
-                    utils::decode_bytes_to_big_decimal(derived_eth_price_bytes)
-                }
-            };
+            let token1_derived_eth_price: BigDecimal =
+                match store_eth_prices.get_last(keyer::token_eth_price(&event.token1)) {
+                    None => {
+                        // initializePool has occurred beforehand so there should always be a price
+                        // maybe just ? instead of returning 1 and bubble up the error if there is one
+                        BigDecimal::from(0 as u64)
+                    }
+                    Some(derived_eth_price_bytes) => {
+                        utils::decode_bytes_to_big_decimal(derived_eth_price_bytes)
+                    }
+                };
 
-            let bundle_eth_price: BigDecimal = match store_eth_prices.get_last(keyer::bundle_eth_price()) {
-                None => {
-                    // initializePool has occurred beforehand so there should always be a price
-                    // maybe just ? instead of returning 1 and bubble up the error if there is one
-                    BigDecimal::from(1 as u64)
-                }
-                Some(bundle_eth_price_bytes) => {
-                    utils::decode_bytes_to_big_decimal(bundle_eth_price_bytes)
-                }
-            };
+            let bundle_eth_price: BigDecimal =
+                match store_eth_prices.get_last(keyer::bundle_eth_price()) {
+                    None => {
+                        // initializePool has occurred beforehand so there should always be a price
+                        // maybe just ? instead of returning 1 and bubble up the error if there is one
+                        BigDecimal::from(1 as u64)
+                    }
+                    Some(bundle_eth_price_bytes) => {
+                        utils::decode_bytes_to_big_decimal(bundle_eth_price_bytes)
+                    }
+                };
 
             match event.r#type.unwrap() {
                 SwapEvent(swap) => {
                     let amount0: BigDecimal = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
                     let amount1: BigDecimal = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
 
-                    let amount_usd: BigDecimal = utils::calculate_amount_usd(&amount0, &amount1, &token0_derived_eth_price, &token1_derived_eth_price, &bundle_eth_price);
+                    let amount_usd: BigDecimal = utils::calculate_amount_usd(
+                        &amount0,
+                        &amount1,
+                        &token0_derived_eth_price,
+                        &token1_derived_eth_price,
+                        &bundle_eth_price,
+                    );
 
                     out.entity_changes.push(EntityChange {
                         entity: "Swap".to_string(),
@@ -1284,30 +1302,91 @@ fn map_swaps_mints_burns_entities(
                         ordinal: event.log_ordinal,
                         operation: Operation::Create as i32,
                         fields: vec![
-                            new_field!("id", FieldType::String, string_field_value!(transaction_id)),
-                            new_field!("transaction", FieldType::String, string_field_value!(event.transaction_id)),
-                            new_field!("timestamp", FieldType::Bigint, big_int_field_value!(event.timestamp.to_string())),
-                            new_field!("pool", FieldType::String, string_field_value!(event.pool_address)),
-                            new_field!("token0", FieldType::String, string_field_value!(event.token0)),
-                            new_field!("token1", FieldType::String, string_field_value!(event.token1)),
-                            new_field!("sender", FieldType::String, string_field_value!(swap.sender)),
-                            new_field!("recipient", FieldType::String, string_field_value!(swap.recipient)),
-                            new_field!("origin", FieldType::String, string_field_value!(swap.origin)),
-                            new_field!("amount0", FieldType::String, string_field_value!(swap.amount_0)),
-                            new_field!("amount1", FieldType::String, string_field_value!(swap.amount_1)),
-                            new_field!("amountUSD", FieldType::String, string_field_value!(amount_usd.to_string())),
-                            new_field!("sqrtPriceX96", FieldType::Int, string_field_value!(swap.sqrt_price)),
+                            new_field!(
+                                "id",
+                                FieldType::String,
+                                string_field_value!(transaction_id)
+                            ),
+                            new_field!(
+                                "transaction",
+                                FieldType::String,
+                                string_field_value!(event.transaction_id)
+                            ),
+                            new_field!(
+                                "timestamp",
+                                FieldType::Bigint,
+                                big_int_field_value!(event.timestamp.to_string())
+                            ),
+                            new_field!(
+                                "pool",
+                                FieldType::String,
+                                string_field_value!(event.pool_address)
+                            ),
+                            new_field!(
+                                "token0",
+                                FieldType::String,
+                                string_field_value!(event.token0)
+                            ),
+                            new_field!(
+                                "token1",
+                                FieldType::String,
+                                string_field_value!(event.token1)
+                            ),
+                            new_field!(
+                                "sender",
+                                FieldType::String,
+                                string_field_value!(swap.sender)
+                            ),
+                            new_field!(
+                                "recipient",
+                                FieldType::String,
+                                string_field_value!(swap.recipient)
+                            ),
+                            new_field!(
+                                "origin",
+                                FieldType::String,
+                                string_field_value!(swap.origin)
+                            ),
+                            new_field!(
+                                "amount0",
+                                FieldType::String,
+                                string_field_value!(swap.amount_0)
+                            ),
+                            new_field!(
+                                "amount1",
+                                FieldType::String,
+                                string_field_value!(swap.amount_1)
+                            ),
+                            new_field!(
+                                "amountUSD",
+                                FieldType::String,
+                                string_field_value!(amount_usd.to_string())
+                            ),
+                            new_field!(
+                                "sqrtPriceX96",
+                                FieldType::Int,
+                                string_field_value!(swap.sqrt_price)
+                            ),
                             new_field!("tick", FieldType::Int, int_field_value!(swap.tick)),
-                            new_field!("logIndex", FieldType::String, string_field_value!(event.log_ordinal.to_string())), // same as log ordinal ?
-                        ]
+                            new_field!(
+                                "logIndex",
+                                FieldType::String,
+                                string_field_value!(event.log_ordinal.to_string())
+                            ),
+                        ],
                     })
-
                 }
                 MintEvent(mint) => {
                     let amount0: BigDecimal = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
                     let amount1: BigDecimal = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
 
-                    let amount_usd: BigDecimal = utils::calculate_amount_usd(&amount0, &amount1, &token0_derived_eth_price, &token1_derived_eth_price, &bundle_eth_price);
+                    let amount_usd: BigDecimal = utils::calculate_amount_usd(
+                        &amount0,
+                        &amount1,
+                        &token0_derived_eth_price,
+                        &token1_derived_eth_price,
+                        &bundle_eth_price,
+                    );
 
                     out.entity_changes.push(EntityChange {
                         entity: "Mint".to_string(),
@@ -1315,22 +1394,82 @@ fn map_swaps_mints_burns_entities(
                         ordinal: event.log_ordinal,
                         operation: Operation::Create as i32,
                         fields: vec![
-                            new_field!("id", FieldType::String, string_field_value!(transaction_id)),
-                            new_field!("transaction", FieldType::String, string_field_value!(event.transaction_id)),
-                            new_field!("timestamp", FieldType::Bigint, big_int_field_value!(event.timestamp.to_string())),
-                            new_field!("pool", FieldType::String, string_field_value!(event.pool_address)),
-                            new_field!("token0", FieldType::String, string_field_value!(event.token0)),
-                            new_field!("token1", FieldType::String, string_field_value!(event.token1)),
+                            new_field!(
+                                "id",
+                                FieldType::String,
+                                string_field_value!(transaction_id)
+                            ),
+                            new_field!(
+                                "transaction",
+                                FieldType::String,
+                                string_field_value!(event.transaction_id)
+                            ),
+                            new_field!(
+                                "timestamp",
+                                FieldType::Bigint,
+                                big_int_field_value!(event.timestamp.to_string())
+                            ),
+                            new_field!(
+                                "pool",
+                                FieldType::String,
+                                string_field_value!(event.pool_address)
+                            ),
+                            new_field!(
+                                "token0",
+                                FieldType::String,
+                                string_field_value!(event.token0)
+                            ),
+                            new_field!(
+                                "token1",
+                                FieldType::String,
+                                string_field_value!(event.token1)
+                            ),
                             new_field!("owner", FieldType::String, string_field_value!(mint.owner)),
-                            new_field!("sender", FieldType::String, string_field_value!(mint.sender)),
-                            new_field!("origin", FieldType::String, string_field_value!(mint.origin)),
-                            new_field!("amount", FieldType::String, string_field_value!(mint.amount)),
-                            new_field!("amount0", FieldType::String, string_field_value!(mint.amount_0)),
-                            new_field!("amount1", FieldType::String, string_field_value!(mint.amount_1)),
-                            new_field!("amountUSD", FieldType::String, string_field_value!(amount_usd.to_string())),
-                            new_field!("tickLower", FieldType::String, string_field_value!(mint.tick_lower.to_string())),
-                            new_field!("tickUpper", FieldType::String, string_field_value!(mint.tick_upper.to_string())),
-                            new_field!("logIndex", FieldType::String, string_field_value!(event.log_ordinal.to_string())), // same as log ordinal ?
+                            new_field!(
+                                "sender",
+                                FieldType::String,
+                                string_field_value!(mint.sender)
+                            ),
+                            new_field!(
+                                "origin",
+                                FieldType::String,
+                                string_field_value!(mint.origin)
+                            ),
+                            new_field!(
+                                "amount",
+                                FieldType::String,
+                                string_field_value!(mint.amount)
+                            ),
+                            new_field!(
+                                "amount0",
+                                FieldType::String,
+                                string_field_value!(mint.amount_0)
+                            ),
+                            new_field!(
+                                "amount1",
+                                FieldType::String,
+                                string_field_value!(mint.amount_1)
+                            ),
+                            new_field!(
+                                "amountUSD",
+                                FieldType::String,
+                                string_field_value!(amount_usd.to_string())
+                            ),
+                            new_field!(
+                                "tickLower",
+                                FieldType::String,
+                                string_field_value!(mint.tick_lower.to_string())
+                            ),
+                            new_field!(
+                                "tickUpper",
+                                FieldType::String,
+                                string_field_value!(mint.tick_upper.to_string())
+                            ),
+                            new_field!(
+                                "logIndex",
+                                FieldType::String,
+                                string_field_value!(event.log_ordinal.to_string())
+                            ),
                         ],
                     });
                 }
@@ -1338,7 +1477,13 @@ fn map_swaps_mints_burns_entities(
                     let amount0: BigDecimal = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
                     let amount1: BigDecimal = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
 
-                    let amount_usd: BigDecimal = utils::calculate_amount_usd(&amount0, &amount1, &token0_derived_eth_price, &token1_derived_eth_price, &bundle_eth_price);
+                    let amount_usd: BigDecimal = utils::calculate_amount_usd(
+                        &amount0,
+                        &amount1,
+                        &token0_derived_eth_price,
+                        &token1_derived_eth_price,
+                        &bundle_eth_price,
+                    );
 
                     out.entity_changes.push(EntityChange {
                         entity: "Burn".to_string(),
@@ -1346,27 +1491,82 @@ fn map_swaps_mints_burns_entities(
                         ordinal: event.log_ordinal,
                         operation: Operation::Create as i32,
                         fields: vec![
-                            new_field!("id", FieldType::String, string_field_value!(transaction_id)),
-                            new_field!("transaction", FieldType::String, string_field_value!(event.transaction_id)),
-                            new_field!("timestamp", FieldType::Bigint, big_int_field_value!(event.timestamp.to_string())),
-                            new_field!("pool", FieldType::String, string_field_value!(event.pool_address)),
-                            new_field!("token0", FieldType::String, string_field_value!(event.token0)),
-                            new_field!("token1", FieldType::String, string_field_value!(event.token1)),
+                            new_field!(
+                                "id",
+                                FieldType::String,
+                                string_field_value!(transaction_id)
+                            ),
+                            new_field!(
+                                "transaction",
+                                FieldType::String,
+                                string_field_value!(event.transaction_id)
+                            ),
+                            new_field!(
+                                "timestamp",
+                                FieldType::Bigint,
+                                big_int_field_value!(event.timestamp.to_string())
+                            ),
+                            new_field!(
+                                "pool",
+                                FieldType::String,
+                                string_field_value!(event.pool_address)
+                            ),
+                            new_field!(
+                                "token0",
+                                FieldType::String,
+                                string_field_value!(event.token0)
+                            ),
+                            new_field!(
+                                "token1",
+                                FieldType::String,
+                                string_field_value!(event.token1)
+                            ),
                             new_field!("owner", FieldType::String, string_field_value!(burn.owner)),
-                            new_field!("origin", FieldType::String, string_field_value!(burn.origin)),
-                            new_field!("amount", FieldType::String, string_field_value!(burn.amount_0)),
-                            new_field!("amount0", FieldType::String, string_field_value!(burn.amount_0)),
-                            new_field!("amount1", FieldType::String, string_field_value!(burn.amount_1)),
-                            new_field!("amountUSD", FieldType::String, string_field_value!(amount_usd.to_string())),
-                            new_field!("tickLower", FieldType::String, string_field_value!(burn.tick_lower.to_string())),
-                            new_field!("tickUpper", FieldType::String, string_field_value!(burn.tick_upper.to_string())),
-                            new_field!("logIndex", FieldType::String, string_field_value!(event.log_ordinal.to_string())), // same as log ordinal ?
-                        ]
+                            new_field!(
+                                "origin",
+                                FieldType::String,
+                                string_field_value!(burn.origin)
+                            ),
+                            new_field!(
+                                "amount",
+                                FieldType::String,
+                                string_field_value!(burn.amount_0)
+                            ),
+                            new_field!(
+                                "amount0",
+                                FieldType::String,
+                                string_field_value!(burn.amount_0)
+                            ),
+                            new_field!(
+                                "amount1",
+                                FieldType::String,
+                                string_field_value!(burn.amount_1)
+                            ),
+                            new_field!(
+                                "amountUSD",
+                                FieldType::String,
+                                string_field_value!(amount_usd.to_string())
+                            ),
+                            new_field!(
+                                "tickLower",
+                                FieldType::String,
+                                string_field_value!(burn.tick_lower.to_string())
+                            ),
+                            new_field!(
+                                "tickUpper",
+                                FieldType::String,
+                                string_field_value!(burn.tick_upper.to_string())
+                            ),
+                            new_field!(
+                                "logIndex",
+                                FieldType::String,
+                                string_field_value!(event.log_ordinal.to_string())
+                            ),
+                        ],
                     })
                 }
             }
         }
-
     }
 
     Ok(out)
