@@ -132,6 +132,25 @@ pub fn factory_total_tx_count() -> String {
     format!("factory:{}", Hex(utils::UNISWAP_V3_FACTORY))
 }
 
+// ------------------------------------------------
+//      store_swaps
+// ------------------------------------------------
+pub fn swap_volume_token_0(pool_address: &String) -> String {
+    format!("swap:{}:volume:token0", pool_address)
+}
+
+pub fn swap_volume_token_1(pool_address: &String) -> String {
+    format!("swap:{}:volume:token1", pool_address)
+}
+
+pub fn swap_volume_usd(pool_address: &String) -> String {
+    format!("swap:{}:volume:usd", pool_address)
+}
+
+pub fn swap_untracked_volume_usd(pool_address: &String) -> String {
+    format!("swap:{}:volume:untracked:usd", pool_address)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -18,8 +18,8 @@ use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::{
-    Burn, EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Field, Mint,
-    Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools,
+    Burn, EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Events,
+    Field, Mint, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools,
 };
 use crate::price::WHITELIST_TOKENS;
 use crate::utils::UNISWAP_V3_FACTORY;
@@ -27,11 +27,11 @@ use bigdecimal::BigDecimal;
 use bigdecimal::ToPrimitive;
 use num_bigint::BigInt;
 use std::collections::HashMap;
-use std::ops::{Add, Mul, Neg};
+use std::ops::{Add, Div, Mul, Neg};
 use std::str::FromStr;
 use substreams::errors::Error;
 use substreams::store;
-use substreams::store::{StoreAppend, StoreGet, StoreSet};
+use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
@@ -367,13 +367,13 @@ pub fn store_prices(
 #[substreams::handlers::map]
 pub fn map_swaps_mints_burns(
     block: ethpb::v1::Block,
-    pools_store: store::StoreGet,
-) -> Result<pb::uniswap::Events, Error> {
+    pools_store: StoreGet,
+) -> Result<Events, Error> {
     let mut events = vec![];
     for log in block.logs() {
         let pool_key = &format!("pool:{}", Hex(&log.address()).to_string());
 
-        if let Some(swap) = abi::pool::events::Swap::match_and_decode(log) {
+        if let Some(swap) = Swap::match_and_decode(log) {
             match pools_store.get_last(pool_key) {
                 None => {
                     log::info!(
@@ -413,7 +413,7 @@ pub fn map_swaps_mints_burns(
                         token0: pool.token0.as_ref().unwrap().address.to_string(),
                         token1: pool.token1.as_ref().unwrap().address.to_string(),
                         fee: pool.fee_tier.to_string(),
-                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(), // todo: need to add #tx_count at the end
                         timestamp: block
                             .header
                             .as_ref()
@@ -426,8 +426,8 @@ pub fn map_swaps_mints_burns(
                             sender: Hex(&swap.sender).to_string(),
                             recipient: Hex(&swap.recipient).to_string(),
                             origin: Hex(&log.receipt.transaction.from).to_string(),
-                            amount_0: amount0.to_string(), // big_decimal?
-                            amount_1: amount1.to_string(), // big_decimal?
+                            amount_0: amount0.to_string(),
+                            amount_1: amount1.to_string(),
                             sqrt_price: swap.sqrt_price_x96.to_string(),
                             liquidity: swap.liquidity.to_string(),
                             tick: swap.tick.to_i32().unwrap(),
@@ -489,7 +489,7 @@ pub fn map_swaps_mints_burns(
                             owner: Hex(&mint.owner).to_string(),
                             sender: Hex(&mint.sender).to_string(),
                             origin: Hex(&log.receipt.transaction.from).to_string(),
-                            amount: mint.amount.to_string(), // big_decimal?
+                            amount: mint.amount.to_string(),
                             amount_0: amount0.to_string(),
                             amount_1: amount1.to_string(),
                             tick_lower: mint.tick_lower.to_i32().unwrap(),
@@ -557,14 +557,11 @@ pub fn map_swaps_mints_burns(
             }
         }
     }
-    Ok(pb::uniswap::Events { events })
+    Ok(Events { events })
 }
 
 #[substreams::handlers::map]
-pub fn map_event_amounts(
-    events: pb::uniswap::Events,
-    pool_sqrt_price_store: store::StoreGet,
-) -> Result<pb::uniswap::EventAmounts, Error> {
+pub fn map_event_amounts(events: Events) -> Result<pb::uniswap::EventAmounts, Error> {
     let mut event_amounts = vec![];
     for event in events.events {
         log::debug!("transaction id: {}", event.transaction_id);
@@ -625,7 +622,7 @@ pub fn map_event_amounts(
 }
 
 #[substreams::handlers::store]
-pub fn store_total_tx_counts(events: pb::uniswap::Events, output: store::StoreAddInt64) {
+pub fn store_total_tx_counts(events: Events, output: store::StoreAddInt64) {
     for event in events.events {
         output.add(
             event.log_ordinal,
@@ -647,9 +644,95 @@ pub fn store_total_tx_counts(events: pb::uniswap::Events, output: store::StoreAd
 }
 
 #[substreams::handlers::store]
+pub fn store_swaps_volume(
+    events: Events,
+    total_tx_counts: StoreGet,
+    store_eth_prices: StoreGet,
+    output: StoreAddBigFloat,
+) {
+    for event in events.events {
+        match total_tx_counts.get_last(keyer::pool_total_tx_count(&event.pool_address)) {
+            None => {}
+            Some(_) => match event.r#type.unwrap() {
+                SwapEvent(swap) => {
+                    let mut eth_price_in_usd: BigDecimal = BigDecimal::from(0 as i32);
+
+                    match store_eth_prices.get_last(keyer::bundle_eth_price()) {
+                        None => continue,
+                        Some(bytes) => eth_price_in_usd = math::decimal_from_bytes(&bytes),
+                    }
+
+                    let mut token0_derived_eth_price: BigDecimal = BigDecimal::from(0 as i32);
+                    match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
+                        None => continue,
+                        Some(bytes) => token0_derived_eth_price = math::decimal_from_bytes(&bytes),
+                    }
+
+                    let mut token1_derived_eth_price: BigDecimal = BigDecimal::from(0 as i32);
+                    match store_eth_prices.get_last(keyer::token_eth_price(&event.token1)) {
+                        None => continue,
+                        Some(bytes) => token1_derived_eth_price = math::decimal_from_bytes(&bytes),
+                    }
+
+                    let mut amount0_abs: BigDecimal =
+                        BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
+                    if amount0_abs.lt(&BigDecimal::from(0 as u64)) {
+                        amount0_abs = amount0_abs.mul(BigDecimal::from(-1 as i64))
+                    }
+
+                    let mut amount1_abs: BigDecimal =
+                        BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+                    if amount1_abs.lt(&BigDecimal::from(0 as u64)) {
+                        amount1_abs = amount1_abs.mul(BigDecimal::from(-1 as i64))
+                    }
+
+                    let amount_total_usd_tracked: BigDecimal = utils::get_tracked_amount_usd(
+                        &event.token0,
+                        &event.token1,
+                        &token0_derived_eth_price,
+                        &token1_derived_eth_price,
+                        &amount0_abs,
+                        &amount1_abs,
+                        &eth_price_in_usd,
+                    )
+                    .div(BigDecimal::from(2 as i32));
+
+                    let amount_total_usd_untracked: BigDecimal = amount0_abs
+                        .clone()
+                        .add(amount1_abs.clone())
+                        .div(BigDecimal::from(2 as i32));
+
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_volume_token_0(&event.pool_address),
+                        &amount0_abs,
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_volume_token_1(&event.pool_address),
+                        &amount1_abs,
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_volume_usd(&event.pool_address),
+                        &amount_total_usd_tracked,
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_untracked_volume_usd(&event.pool_address),
+                        &amount_total_usd_untracked,
+                    );
+                }
+                _ => {}
+            },
+        }
+    }
+}
+
+#[substreams::handlers::store]
 pub fn store_native_total_value_locked(
     event_amounts: pb::uniswap::EventAmounts,
-    output: store::StoreAddBigFloat,
+    output: StoreAddBigFloat,
 ) {
     for event_amount in event_amounts.event_amounts {
         output.add(
@@ -1002,11 +1085,13 @@ pub fn store_total_value_locked(
 //
 
 #[substreams::handlers::map]
-fn map_pool_entities(
+pub fn map_pool_entities(
     pools_created: Pools,
     pool_sqrt_price_deltas: store::Deltas,
     native_total_value_locked_deltas: store::Deltas,
     price_deltas: store::Deltas,
+    tx_count_deltas: store::Deltas,
+    swaps_volume_deltas: store::Deltas,
 ) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
         block_id: vec![],
@@ -1018,19 +1103,19 @@ fn map_pool_entities(
 
     for pool in pools_created.pools {
         let change = EntityChange {
-            entity: "pool".to_string(),
+            entity: "Pool".to_string(),
             id: string_field_value!(pool.address.as_str()),
             ordinal: pool.log_ordinal,
             operation: Operation::Create as i32,
             fields: vec![
                 new_field!("id", FieldType::String, string_field_value!(pool.address)),
                 new_field!(
-                    "created_at_timestamp",
+                    "createdAtTimestamp",
                     FieldType::Bigint,
                     big_int_field_value!(pool.created_at_timestamp)
                 ),
                 new_field!(
-                    "created_at_block_number",
+                    "createdAtBlockNumber",
                     FieldType::String,
                     string_field_value!(pool.created_at_block_number)
                 ),
@@ -1044,8 +1129,122 @@ fn map_pool_entities(
                     FieldType::String,
                     string_field_value!(pool.token1.unwrap().address)
                 ),
-                new_field!("fee_tier", FieldType::Int, int_field_value!(pool.fee_tier)),
-                new_field!("tick", FieldType::Int, int_field_value!(pool.tick_spacing)),
+                new_field!("feeTier", FieldType::Int, int_field_value!(pool.fee_tier)),
+                new_field!(
+                    "liquidity",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "sqrt_price",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "feeGrowthGlobal0X128",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "feeGrowthGlobal1X128",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "token0Price",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "token1Price",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "tick",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "observationIndex",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "volumeToken0",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "volumeToken1",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "volumeUSD",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "untrackedVolumeUSD",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "feesUSD",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "txCount",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "collectedFeesToken0",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "collectedFeesToken1",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "collectedFeesUSD",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "totalValueLockedToken0",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "totalValueLockedToken1",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "totalValueLockedETH",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "totalValueLockedUSD",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "totalValueLockedUSDUntracked",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "liquidityProviderCount",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
             ],
         };
         out.entity_changes.push(change);
@@ -1075,7 +1274,7 @@ fn map_pool_entities(
         let new_value: PoolSqrtPrice = proto::decode(&pool_sqrt_price_delta.new_value).unwrap();
 
         let mut change = EntityChange {
-            entity: "pool".to_string(),
+            entity: "Pool".to_string(),
             id: string_field_value!(pool_sqrt_price_delta
                 .key
                 .as_str()
@@ -1089,7 +1288,7 @@ fn map_pool_entities(
         match pool_sqrt_price_delta.operation {
             1 => {
                 change.fields.push(update_field!(
-                    "sqrt_price",
+                    "sqrtPrice",
                     FieldType::Bigdecimal,
                     big_decimal_string_field_value!("0".to_string()),
                     big_decimal_string_field_value!(new_value.sqrt_price)
@@ -1105,7 +1304,7 @@ fn map_pool_entities(
                 let old_value: PoolSqrtPrice =
                     proto::decode(&pool_sqrt_price_delta.new_value).unwrap();
                 change.fields.push(update_field!(
-                    "sqrt_price",
+                    "sqrtPrice",
                     FieldType::Bigdecimal,
                     big_decimal_string_field_value!(old_value.sqrt_price),
                     big_decimal_string_field_value!(new_value.sqrt_price)
@@ -1171,10 +1370,10 @@ fn map_pool_entities(
         let field_name: &str;
         match key_parts.next().unwrap() {
             "token0" => {
-                field_name = "token0_price";
+                field_name = "token0Price";
             }
             "token1" => {
-                field_name = "token1_price";
+                field_name = "token1Price";
             }
             _ => {
                 continue;
@@ -1182,7 +1381,7 @@ fn map_pool_entities(
         }
 
         let mut change = EntityChange {
-            entity: "pool".to_string(),
+            entity: "Pool".to_string(),
             id: string_field_value!(pool_address),
             ordinal: delta.ordinal,
             operation: Operation::Update as i32,
@@ -1211,14 +1410,58 @@ fn map_pool_entities(
         out.entity_changes.push(change);
     }
 
+    for tx_delta in tx_count_deltas {
+        if !tx_delta.key.starts_with("pools:") {
+            continue;
+        }
+        out.entity_changes.push(EntityChange {
+            entity: "Pool".to_string(),
+            id: string_field_value!(tx_delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: tx_delta.ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![update_field!(
+                "txCount",
+                FieldType::Bigint,
+                tx_delta.old_value,
+                tx_delta.new_value
+            )],
+        })
+    }
+
+    for swaps_volume_delta in swaps_volume_deltas {
+        let mut change: EntityChange = EntityChange {
+            entity: "Pool".to_string(),
+            id: string_field_value!(swaps_volume_delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: swaps_volume_delta.ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![],
+        };
+        match swaps_volume_delta.key.as_str().split(":").last().unwrap() {
+            "token0" => change.fields.push(update_field!(
+                "volumeToken0",
+                FieldType::Bigint,
+                swaps_volume_delta.old_value,
+                swaps_volume_delta.new_value
+            )),
+            "token1" => change.fields.push(update_field!(
+                "volumeToken1",
+                FieldType::Bigint,
+                swaps_volume_delta.old_value,
+                swaps_volume_delta.new_value
+            )),
+            _ => {}
+        }
+        out.entity_changes.push(change);
+    }
+
     Ok(out)
 }
 
 //todo: check the tickLower, tickUpper, amount, amount0, amount1 and amountUSD, for the moment
 // they are stored as String values, but shouldn't it be int instead or BigInt in some cases?
 #[substreams::handlers::map]
-fn map_swaps_mints_burns_entities(
-    events: pb::uniswap::Events,
+pub fn map_swaps_mints_burns_entities(
+    events: Events,
     tx_count_store: StoreGet,
     store_eth_prices: StoreGet,
 ) -> Result<EntitiesChanges, Error> {

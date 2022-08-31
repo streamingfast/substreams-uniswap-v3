@@ -1,4 +1,4 @@
-use crate::{math, Erc20Token, Pool, PoolLiquidity, StorageChange};
+use crate::{math, Erc20Token, Pool, PoolLiquidity, StorageChange, WHITELIST_TOKENS};
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use std::ops::{Add, Mul};
@@ -144,4 +144,41 @@ pub fn calculate_amount_usd(
 pub fn decode_bytes_to_big_decimal(bytes: Vec<u8>) -> BigDecimal {
     let bytes_as_str = str::from_utf8(bytes.as_slice()).unwrap();
     return BigDecimal::from_str(bytes_as_str).unwrap().with_prec(100);
+}
+
+pub fn get_tracked_amount_usd(
+    token0_id: &String,
+    token1_id: &String,
+    token0_derived_eth_price: &BigDecimal,
+    token1_derived_eth_price: &BigDecimal,
+    amount0_abs: &BigDecimal,
+    amount1_abs: &BigDecimal,
+    eth_price_in_usd: &BigDecimal,
+) -> BigDecimal {
+    let price0_usd = token0_derived_eth_price.mul(eth_price_in_usd.clone());
+    let price1_usd = token1_derived_eth_price.mul(eth_price_in_usd);
+
+    // both are whitelist tokens, return sum of both amounts
+    if WHITELIST_TOKENS.contains(&token0_id.as_str())
+        && WHITELIST_TOKENS.contains(&token0_id.as_str())
+    {
+        return amount0_abs.mul(price0_usd).add(amount1_abs.mul(price1_usd));
+    }
+
+    // take double value of the whitelisted token amount
+    if WHITELIST_TOKENS.contains(&token0_id.as_str())
+        && !WHITELIST_TOKENS.contains(&token1_id.as_str())
+    {
+        return amount0_abs.mul(price0_usd).mul(BigDecimal::from(2 as i32));
+    }
+
+    // take double value of the whitelisted token amount
+    if !WHITELIST_TOKENS.contains(&token0_id.as_str())
+        && WHITELIST_TOKENS.contains(&token1_id.as_str())
+    {
+        return amount1_abs.mul(price1_usd).mul(BigDecimal::from(2 as i32));
+    }
+
+    // neither token is on white list, tracked amount is 0
+    return BigDecimal::from(0 as i32);
 }
