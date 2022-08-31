@@ -36,7 +36,6 @@ message Pool {
   uint64 log_ordinal = 31;
   string transaction_id = 32;
   bool ignore_pool = 33;
-//      liquidity: BigInt!
 //      feeGrowthGlobal0X128: BigInt!
 //      feeGrowthGlobal1X128: BigInt!
 //      token0Price: BigDecimal!

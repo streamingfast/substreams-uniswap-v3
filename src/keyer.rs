@@ -154,7 +154,32 @@ pub fn swap_untracked_volume_usd(pool_address: &String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Num;
+    use bigdecimal::BigDecimal;
     use prost::bytes::Buf;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_bigdecimal_from_bytes() {
+        let bytes: [u8; 32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 4,
+        ];
+        let v = BigDecimal::parse_bytes(bytes.as_slice(), 14);
+        assert_eq!(Some(BigDecimal::from(4)), v)
+    }
+
+    #[test]
+    fn test_bigdecimal_from_string() {
+        let bytes: [u8; 32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 4,
+        ];
+        let bytes_str = Hex(&bytes).to_string();
+        println!("{}", bytes_str);
+        let eql = bytes_str == "0000000000000000000000000000000000000000000000000000000000000004";
+        assert_eq!(true, eql)
+    }
 
     #[test]
     fn test_valid_token_key() {

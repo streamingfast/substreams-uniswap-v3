@@ -5,7 +5,6 @@ package:
   url: https://github.com/streamingfast/substreams-uniswap-v3
   doc: |
     These substream modules compose all the things to build up the Uniswap v3 substreams.
-
     See individual modules docs for help.
 
 protobuf:
@@ -66,15 +65,6 @@ modules:
     inputs:
       - map: map_pool_sqrt_price
 
-  - name: map_pool_liquidities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_pools
-    output:
-      type: proto:pb.uniswap.v1.PoolLiquidities
-
   - name: store_prices
     kind: store
     updatePolicy: set
@@ -83,6 +73,23 @@ modules:
     inputs:
       - map: map_pool_sqrt_price
       - store: store_pools
+
+  - name: map_pool_liquidities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pools
+    output:
+      type: proto:uniswap.types.v1.PoolLiquidities
+
+  - name: store_pool_liquidities
+    kind: store
+    updatePolicy: set
+    initialBlock: 12369621
+    valueType: string
+    inputs:
+      - map: map_pool_liquidities
 
   - name: map_swaps_mints_burns
     kind: map
@@ -134,6 +141,7 @@ modules:
       - store: store_prices
       - store: store_tokens_whitelist_pools
       - store: store_native_total_value_locked # this dependency is unique to us since we will recompute the path to the value of a token in ETH
+      - store: store_pool_liquidities
 
   - name: store_total_value_locked
     kind: store
