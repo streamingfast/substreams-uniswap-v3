@@ -403,7 +403,7 @@ pub fn map_swaps_mints_burns(
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                    if !should_handle_swap(&pool) {
+                    if !utils::should_handle_swap(&pool) {
                         continue;
                     }
 
@@ -455,7 +455,7 @@ pub fn map_swaps_mints_burns(
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                    if !should_handle_mint_and_burn(&pool) {
+                    if !utils::should_handle_mint_and_burn(&pool) {
                         continue;
                     }
 
@@ -514,7 +514,7 @@ pub fn map_swaps_mints_burns(
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                    if !should_handle_mint_and_burn(&pool) {
+                    if !utils::should_handle_mint_and_burn(&pool) {
                         continue;
                     }
 
@@ -1178,7 +1178,7 @@ pub fn map_pool_entities(
         out.entity_changes.push(change)
     }
 
-    for prices_store_delta in prices_store_deltas {
+    for delta in prices_store_deltas {
         let mut key_parts = delta.key.as_str().split(":");
         let pool_address = key_parts.nth(1).unwrap();
         let field_name: &str;

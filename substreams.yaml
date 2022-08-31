@@ -141,6 +141,7 @@ modules:
       - store: store_prices
       - store: store_tokens_whitelist_pools
       - store: store_native_total_value_locked # this dependency is unique to us since we will recompute the path to the value of a token in ETH
+      - store: store_pool_liquidities
 
   - name: store_total_value_locked
     kind: store
