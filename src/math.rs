@@ -16,14 +16,12 @@ pub fn safe_div(amount0: &BigDecimal, amount1: &BigDecimal) -> BigDecimal {
 // converts the string representation (in bytes) of a decimal
 pub fn decimal_from_bytes(price_bytes: &Vec<u8>) -> BigDecimal {
     let price_str = std::str::from_utf8(price_bytes.as_slice()).unwrap();
-    return BigDecimal::from_str(price_str).unwrap().with_prec(100);
+    return BigDecimal::from_str(price_str).unwrap();
 }
 
 pub fn decimal_from_hex_be_bytes(price_bytes: &Vec<u8>) -> BigDecimal {
     let big_uint_amount = BigUint::from_bytes_be(price_bytes.as_slice());
-    return BigDecimal::from_str(big_uint_amount.to_string().as_str())
-        .unwrap()
-        .with_prec(100);
+    return BigDecimal::from_str(big_uint_amount.to_string().as_str()).unwrap();
 }
 
 pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
@@ -47,5 +45,5 @@ pub fn divide_by_decimals(big_float_amount: BigDecimal, decimals: u64) -> BigDec
     )
     .unwrap()
     .with_prec(100);
-    return big_float_amount.div(bd).with_prec(100);
+    return big_float_amount.div(bd);
 }

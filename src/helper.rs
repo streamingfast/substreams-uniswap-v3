@@ -1,5 +1,6 @@
 use crate::{keyer, math, pb};
 use bigdecimal::{BigDecimal, Zero};
+use std::fmt::format;
 use substreams::{errors::Error, proto, store::StoreGet};
 
 pub fn get_pool_sqrt_price(
@@ -7,7 +8,9 @@ pub fn get_pool_sqrt_price(
     pool_address: &String,
 ) -> Result<pb::uniswap::PoolSqrtPrice, Error> {
     return match &pool_sqrt_price_store.get_last(&keyer::pool_sqrt_price_key(&pool_address)) {
-        None => Err(Error::Unexpected(format!("no pool sqrt price found for pool: {}", pool_address))),
+        None => Err(Error::Unexpected(
+            format!("no sqrt price found for pool {}", pool_address).to_string(),
+        )),
         Some(bytes) => Ok(proto::decode(bytes).unwrap()),
     };
 }
@@ -95,15 +98,13 @@ pub fn get_pool_total_value_locked_token_or_zero(
 }
 
 pub fn get_pool_liquidity(
-    liquidity_store: &StoreGet,
+    pool_liquidities_store: &StoreGet,
     pool_address: &String,
-) -> BigDecimal {
-    return match liquidity_store.get_last(&keyer::pool_liquidity(pool_address)) {
-        None => BigDecimal::zero().with_prec(100),
-        Some(bytes) => BigDecimal::parse_bytes(bytes.as_slice(), 10)
-            .unwrap()
-            .with_prec(100),
-    }
+) -> Result<BigDecimal, Error> {
+    return match &pool_liquidities_store.get_last(&keyer::pool_liquidity(&pool_address)) {
+        None => Err(Error::Unexpected("pool liquidity not found".to_string())),
+        Some(bytes) => Ok(math::decimal_from_bytes(&bytes)),
+    };
 }
 
 pub fn get_eth_price(eth_prices_store: &StoreGet) -> Result<BigDecimal, Error> {

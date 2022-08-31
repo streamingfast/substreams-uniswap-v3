@@ -1,5 +1,5 @@
 use crate::{helper, math, Erc20Token};
-use bigdecimal::{BigDecimal, One, Zero};
+use bigdecimal::{BigDecimal, One, ParseBigDecimalError, Zero};
 use num_bigint::BigInt;
 use std::ops::{Div, Mul};
 use std::str;
@@ -79,6 +79,7 @@ pub fn find_eth_per_token(
     pool_address: &String,
     token_address: &String,
     pools_store: &StoreGet,
+    pool_liquidities_store: &StoreGet,
     tokens_whitelist_pools_store: &StoreGet,
     total_native_value_locked_store: &StoreGet,
     prices_store: &StoreGet,
@@ -135,12 +136,14 @@ pub fn find_eth_per_token(
                 token1.address
             );
 
-            let liquidity = helper::get_pool_total_value_locked_token_or_zero(
-                total_native_value_locked_store,
-                &pool.address,
-                token_address,
-            );
-            log::info!("liquidity is: {}", liquidity);
+            let liquidity = match helper::get_pool_liquidity(pool_liquidities_store, &pool.address)
+            {
+                Ok(l) => l,
+                Err(err) => {
+                    log::info!("failed to get pool liquidity {}: {:?}", &pool.address, err);
+                    BigDecimal::zero()
+                }
+            };
 
             if liquidity.gt(&BigDecimal::zero()) {
                 if &token0.address == token_address {
