@@ -120,8 +120,17 @@ modules:
     valueType: bigint
     inputs:
       - map: map_swaps_mints_burns
+      - store: store_pools
       - store: store_total_tx_counts
       - store: store_eth_prices
+
+  - name: store_pool_fee_growth_global_x128
+    kind: store
+    initialBlock: 12369621
+    updatePolicy: set
+    valueType: string
+    inputs:
+      - map: map_pools_created
 
   - name: store_native_total_value_locked
     kind: store
@@ -143,10 +152,18 @@ modules:
       - store: store_native_total_value_locked # this dependency is unique to us since we will recompute the path to the value of a token in ETH
       - store: store_pool_liquidities
 
+  - name: store_total_value_locked_by_tokens
+    kind: store
+    initialBlock: 12369621
+    updatePolicy: add
+    valueType: bigfloat
+    inputs:
+      - map: map_swaps_mints_burns
+
   - name: store_total_value_locked
     kind: store
-    updatePolicy: add
     initialBlock: 12369621
+    updatePolicy: add
     valueType: bigfloat
     inputs:
       - store: store_native_total_value_locked
@@ -200,6 +217,12 @@ modules:
       - store: store_pool_sqrt_price
         mode: deltas
       - store: store_native_total_value_locked
+        mode: deltas
+      - store: store_total_value_locked
+        mode: deltas
+      - store: store_total_value_locked_by_tokens
+        mode: deltas
+      - store: store_pool_fee_growth_global_x128
         mode: deltas
       - store: store_prices
         mode: deltas

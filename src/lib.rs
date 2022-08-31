@@ -12,27 +12,26 @@ mod rpc;
 mod utils;
 
 use crate::abi::pool::events::Swap;
-use crate::ethpb::v1::StorageChange;
+use crate::ethpb::v1::{Block, StorageChange};
 use crate::keyer::{native_pool_from_key, native_token_from_key};
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::{
     Burn, EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Events,
-    Field, Mint, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools,
+    Field, Mint, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick,
 };
 use crate::price::WHITELIST_TOKENS;
 use crate::utils::UNISWAP_V3_FACTORY;
-use crate::FieldType::Bigint;
-use bigdecimal::BigDecimal;
 use bigdecimal::ToPrimitive;
+use bigdecimal::{BigDecimal, FromPrimitive};
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Neg};
 use std::str::FromStr;
 use substreams::errors::Error;
 use substreams::store;
-use substreams::store::{StoreAddBigFloat, StoreAppend, StoreGet, StoreSet};
+use substreams::store::{StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet};
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
@@ -172,10 +171,7 @@ pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreApp
 }
 
 #[substreams::handlers::map]
-pub fn map_pool_sqrt_price(
-    block: ethpb::v1::Block,
-    pools_store: store::StoreGet,
-) -> Result<PoolSqrtPrices, Error> {
+pub fn map_pool_sqrt_price(block: Block, pools_store: StoreGet) -> Result<PoolSqrtPrices, Error> {
     let mut pool_sqrt_prices = vec![];
     for log in block.logs() {
         let pool_address = &Hex(log.address()).to_string();
@@ -213,7 +209,7 @@ pub fn map_pool_sqrt_price(
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: store::StoreSet) {
+pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: StoreSet) {
     for sqrt_price in sqrt_prices.pool_sqrt_prices {
         log::info!("storing sqrt price {}", &sqrt_price.pool_address);
         // fixme: probably need to have a similar key for like we have for a swap
@@ -226,10 +222,7 @@ pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: store::StoreSe
 }
 
 #[substreams::handlers::map]
-pub fn map_pool_liquidities(
-    block: ethpb::v1::Block,
-    pools_store: store::StoreGet,
-) -> Result<PoolLiquidities, Error> {
+pub fn map_pool_liquidities(block: Block, pools_store: StoreGet) -> Result<PoolLiquidities, Error> {
     let mut pool_liquidities = vec![];
     let mut debug = false;
     for trx in block.transaction_traces {
@@ -622,45 +615,51 @@ pub fn map_event_amounts(events: Events) -> Result<pb::uniswap::EventAmounts, Er
 }
 
 #[substreams::handlers::store]
-pub fn store_total_tx_counts(events: Events, output: store::StoreAddInt64) {
+pub fn store_total_tx_counts(events: Events, output: store::StoreAddBigInt) {
     for event in events.events {
         output.add(
             event.log_ordinal,
             keyer::pool_total_tx_count(&event.pool_address),
-            1,
+            &BigInt::from(1 as i32),
         );
         output.add(
             event.log_ordinal,
             keyer::token_total_tx_count(&event.token0),
-            1,
+            &BigInt::from(1 as i32),
         );
         output.add(
             event.log_ordinal,
             keyer::token_total_tx_count(&event.token1),
-            1,
+            &BigInt::from(1 as i32),
         );
-        output.add(event.log_ordinal, keyer::factory_total_tx_count(), 1);
+        output.add(
+            event.log_ordinal,
+            keyer::factory_total_tx_count(),
+            &BigInt::from(1 as i32),
+        );
     }
 }
 
+//todo: maybe change the name of this substreams and actually have something related to the events
+// overall and not just the swaps ??
 #[substreams::handlers::store]
 pub fn store_swaps_volume(
     events: Events,
-    total_tx_counts: StoreGet,
+    store_pool: StoreGet,
+    store_total_tx_counts: StoreGet,
     store_eth_prices: StoreGet,
     output: StoreAddBigFloat,
 ) {
     for event in events.events {
-        match total_tx_counts.get_last(keyer::pool_total_tx_count(&event.pool_address)) {
+        let pool: Pool = match store_pool.get_last(keyer::pool_key(&event.pool_address)) {
+            None => continue,
+            Some(bytes) => proto::decode(&bytes).unwrap(),
+        };
+        match store_total_tx_counts.get_last(keyer::pool_total_tx_count(&event.pool_address)) {
             None => {}
             Some(_) => match event.r#type.unwrap() {
                 SwapEvent(swap) => {
-                    let mut eth_price_in_usd: BigDecimal = BigDecimal::from(0 as i32);
-
-                    match store_eth_prices.get_last(keyer::bundle_eth_price()) {
-                        None => continue,
-                        Some(bytes) => eth_price_in_usd = math::decimal_from_bytes(&bytes),
-                    }
+                    let mut eth_price_in_usd = helper::get_eth_price(&store_eth_prices).unwrap();
 
                     let mut token0_derived_eth_price: BigDecimal = BigDecimal::from(0 as i32);
                     match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
@@ -702,6 +701,12 @@ pub fn store_swaps_volume(
                         .add(amount1_abs.clone())
                         .div(BigDecimal::from(2 as i32));
 
+                    let fee_tier: BigDecimal = BigDecimal::from(pool.fee_tier);
+                    let fee_usd: BigDecimal = amount_total_usd_tracked
+                        .clone()
+                        .mul(fee_tier)
+                        .div(BigDecimal::from(1000000 as u64));
+
                     output.add(
                         event.log_ordinal,
                         keyer::swap_volume_token_0(&event.pool_address),
@@ -722,10 +727,40 @@ pub fn store_swaps_volume(
                         keyer::swap_untracked_volume_usd(&event.pool_address),
                         &amount_total_usd_untracked,
                     );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_fee_usd(&event.pool_address),
+                        &fee_usd,
+                    )
                 }
                 _ => {}
             },
         }
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_pool_fee_growth_global_x128(pools: Pools, output: StoreSet) {
+    for pool in pools.pools {
+        log::info!(
+            "pool address: {} trx_id:{}",
+            pool.address,
+            pool.transaction_id
+        );
+        let (bd1, bd2) = rpc::fee_growth_global_x128_call(&pool.address);
+        log::debug!("big decimal1: {}", bd1);
+        log::debug!("big decimal2: {}", bd2);
+
+        output.set(
+            pool.log_ordinal,
+            keyer::pool_fee_growth_global_x128(&pool.address, "token0".to_string()),
+            &Vec::from(bd1.to_string().as_str()),
+        );
+        output.set(
+            pool.log_ordinal,
+            keyer::pool_fee_growth_global_x128(&pool.address, "token1".to_string()),
+            &Vec::from(bd1.to_string().as_str()),
+        );
     }
 }
 
@@ -844,12 +879,47 @@ pub fn store_eth_prices(
 }
 
 #[substreams::handlers::store]
+pub fn store_total_value_locked_by_tokens(events: Events, output: StoreAddBigFloat) {
+    for event in events.events {
+        let mut amount0: BigDecimal = BigDecimal::from(0 as i32);
+        let mut amount1: BigDecimal = BigDecimal::from(0 as i32);
+
+        match event.r#type.unwrap() {
+            BurnEvent(burn) => {
+                amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
+                amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
+            }
+            MintEvent(mint) => {
+                amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
+                amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
+            }
+            SwapEvent(swap) => {
+                amount0 = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
+                amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+            }
+        }
+
+        output.add(
+            event.log_ordinal,
+            keyer::total_value_locked_tokens(&event.pool_address, "token0".to_string()),
+            &amount0,
+        );
+        output.add(
+            event.log_ordinal,
+            keyer::total_value_locked_tokens(&event.pool_address, "token1".to_string()),
+            &amount1,
+        );
+    }
+}
+
+#[substreams::handlers::store]
 pub fn store_total_value_locked(
     native_total_value_locked_deltas: store::Deltas,
-    pools_store: store::StoreGet,
-    eth_prices_store: store::StoreGet,
-    output: store::StoreSet,
+    pools_store: StoreGet,
+    eth_prices_store: StoreGet,
+    output: StoreSet,
 ) {
+    // fixme: @julien: what is the use for the pool aggregator here ?
     let mut pool_aggregator: HashMap<String, (u64, BigDecimal)> = HashMap::from([]);
     let eth_price_usd = helper::get_eth_price(&eth_prices_store).unwrap();
     for native_total_value_locked in native_total_value_locked_deltas {
@@ -908,12 +978,12 @@ pub fn store_total_value_locked(
                     pool_total_value_locked_eth.clone().mul(&eth_price_usd);
                 output.set(
                     native_total_value_locked.ordinal,
-                    keyer::pool_eth_total_value_locked(&token_addr),
+                    keyer::pool_eth_total_value_locked(&pool_addr),
                     &Vec::from(pool_total_value_locked_eth.to_string()),
                 );
                 output.set(
                     native_total_value_locked.ordinal,
-                    keyer::pool_eth_total_value_locked(&token_addr),
+                    keyer::pool_usd_total_value_locked(&pool_addr),
                     &Vec::from(pool_total_value_locked_usd.to_string()),
                 );
 
@@ -928,12 +998,175 @@ pub fn store_total_value_locked(
     }
 }
 
+#[substreams::handlers::store]
+pub fn store_ticks(events: Events, output_set: StoreSet) {
+    for event in events.events {
+        match event.r#type.unwrap() {
+            SwapEvent(_) => {}
+            BurnEvent(_) => {
+                // todo
+            }
+            MintEvent(mint) => {
+                let tick_lower_big_int = BigInt::from_str(&mint.tick_lower.to_string()).unwrap();
+                let tick_lower_price0 = math::big_decimal_exponated(
+                    BigDecimal::from_f64(1.0001).unwrap().with_prec(100),
+                    tick_lower_big_int,
+                );
+                let tick_lower_price1 =
+                    math::safe_div(&BigDecimal::from(1 as i32), &tick_lower_price0);
+
+                let tick_lower: Tick = Tick {
+                    pool_address: event.pool_address.to_string(),
+                    idx: mint.tick_lower.to_string(),
+                    price0: tick_lower_price0.to_string(),
+                    price1: tick_lower_price1.to_string(),
+                };
+
+                output_set.set(
+                    event.log_ordinal,
+                    format!(
+                        "tick:{}:pool:{}",
+                        mint.tick_lower.to_string(),
+                        event.pool_address.to_string()
+                    ),
+                    &proto::encode(&tick_lower).unwrap(),
+                );
+
+                let tick_upper_big_int = BigInt::from_str(&mint.tick_upper.to_string()).unwrap();
+                let tick_upper_price0 = math::big_decimal_exponated(
+                    BigDecimal::from_f64(1.0001).unwrap().with_prec(100),
+                    tick_upper_big_int,
+                );
+                let tick_upper_price1 =
+                    math::safe_div(&BigDecimal::from(1 as i32), &tick_upper_price0);
+                let tick_upper: Tick = Tick {
+                    pool_address: event.pool_address.to_string(),
+                    idx: mint.tick_upper.to_string(),
+                    price0: tick_upper_price0.to_string(),
+                    price1: tick_upper_price1.to_string(),
+                };
+
+                output_set.set(
+                    event.log_ordinal,
+                    format!(
+                        "tick:{}:pool:{}",
+                        mint.tick_upper.to_string(),
+                        event.pool_address.to_string()
+                    ),
+                    &proto::encode(&tick_upper).unwrap(),
+                );
+            }
+        }
+    }
+}
+
+// #[substreams::handlers::map]
+// pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
+//     let mut out = pb::uniswap::Fees { fees: vec![] };
+//
+//     for trx in block.transaction_traces {
+//         for call in trx.calls.iter() {
+//             if call.state_reverted {
+//                 continue;
+//             }
+//
+//             for log in call.logs.iter() {
+//                 if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
+//                     continue;
+//                 }
+//
+//                 let ev = abi::factory::events::FeeAmountEnabled::decode(&log).unwrap();
+//
+//                 out.fees.push(pb::uniswap::Fee {
+//                     fee: ev.fee.as_u32(),
+//                     tick_spacing: ev.tick_spacing.to_i32().unwrap(),
+//                 });
+//             }
+//         }
+//     }
+//
+//     Ok(out)
+// }
+//
+// #[substreams::handlers::store]
+// pub fn store_fees(block: ethpb::v1::Block, output: store::StoreSet) {
+//     for trx in block.transaction_traces {
+//         for call in trx.calls.iter() {
+//             if call.state_reverted {
+//                 continue;
+//             }
+//             for log in call.logs.iter() {
+//                 if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
+//                     continue;
+//                 }
+//
+//                 let event = abi::factory::events::FeeAmountEnabled::decode(&log).unwrap();
+//
+//                 let fee = pb::uniswap::Fee {
+//                     fee: event.fee.as_u32(),
+//                     tick_spacing: event.tick_spacing.to_i32().unwrap(),
+//                 };
+//
+//                 output.set(
+//                     log.ordinal,
+//                     format!("fee:{}:{}", fee.fee, fee.tick_spacing),
+//                     &proto::encode(&fee).unwrap(),
+//                 );
+//             }
+//         }
+//     }
+// }
+//
+// #[substreams::handlers::map]
+// pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Error> {
+//     let mut out = pb::uniswap::Flashes { flashes: vec![] };
+//
+//     for trx in block.transaction_traces {
+//         for call in trx.calls.iter() {
+//             if call.state_reverted {
+//                 continue;
+//             }
+//             for log in call.logs.iter() {
+//                 if abi::pool::events::Swap::match_log(&log) {
+//                     log::debug!("log ordinal: {}", log.ordinal);
+//                 }
+//                 if !abi::pool::events::Flash::match_log(&log) {
+//                     continue;
+//                 }
+//
+//                 let flash = abi::pool::events::Flash::decode(&log).unwrap();
+//
+//                 out.flashes.push(Flash {
+//                     sender: Hex(&flash.sender).to_string(),
+//                     recipient: Hex(&flash.recipient).to_string(),
+//                     amount_0: flash.amount0.as_u64(),
+//                     amount_1: flash.amount1.as_u64(),
+//                     paid_0: flash.paid0.as_u64(),
+//                     paid_1: flash.paid1.as_u64(),
+//                     transaction_id: Hex(&trx.hash).to_string(),
+//                     log_ordinal: log.ordinal,
+//                 });
+//             }
+//         }
+//     }
+//
+//     Ok(out)
+// }
+
+// NOTE:
+//  pool liquidity is a 2 part process, for swaps is a set
+//  and for mint and burns is an add process so it can't be
+//  done in the same substreams
+// todo: break this substreams in different files
 #[substreams::handlers::map]
 pub fn map_pool_entities(
     pools_created: Pools,
     pool_sqrt_price_deltas: store::Deltas,
     pool_liquidities_store_deltas: store::Deltas,
-    prices_store_deltas: store::Deltas,
+    total_value_locked_deltas: store::Deltas,
+    total_value_locked_by_tokens_deltas: store::Deltas,
+    pool_fee_growth_global_x128_deltas: store::Deltas,
+    price_deltas: store::Deltas,
     tx_count_deltas: store::Deltas,
     swaps_volume_deltas: store::Deltas,
 ) -> Result<EntitiesChanges, Error> {
@@ -956,8 +1189,8 @@ pub fn map_pool_entities(
                 ),
                 new_field!(
                     "createdAtBlockNumber",
-                    FieldType::String,
-                    string_field_value!(pool.created_at_block_number)
+                    FieldType::Bigint,
+                    big_int_field_value!(pool.created_at_block_number)
                 ),
                 new_field!(
                     "token0",
@@ -969,7 +1202,11 @@ pub fn map_pool_entities(
                     FieldType::String,
                     string_field_value!(pool.token1.unwrap().address)
                 ),
-                new_field!("feeTier", FieldType::Int, int_field_value!(pool.fee_tier)),
+                new_field!(
+                    "feeTier",
+                    FieldType::Bigint,
+                    big_int_field_value!(pool.fee_tier.to_string())
+                ),
                 new_field!(
                     "liquidity",
                     FieldType::Bigint,
@@ -992,13 +1229,13 @@ pub fn map_pool_entities(
                 ),
                 new_field!(
                     "token0Price",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "token1Price",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "tick",
@@ -1012,28 +1249,28 @@ pub fn map_pool_entities(
                 ),
                 new_field!(
                     "volumeToken0",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "volumeToken1",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "volumeUSD",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "untrackedVolumeUSD",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "feesUSD",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "txCount",
@@ -1042,43 +1279,43 @@ pub fn map_pool_entities(
                 ),
                 new_field!(
                     "collectedFeesToken0",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "collectedFeesToken1",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "collectedFeesUSD",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "totalValueLockedToken0",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "totalValueLockedToken1",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "totalValueLockedETH",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "totalValueLockedUSD",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "totalValueLockedUSDUntracked",
-                    FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
                 ),
                 new_field!(
                     "liquidityProviderCount",
@@ -1111,15 +1348,15 @@ pub fn map_pool_entities(
             1 => {
                 change.fields.push(update_field!(
                     "sqrtPrice",
-                    FieldType::Bigdecimal,
-                    big_decimal_string_field_value!("0".to_string()),
-                    big_decimal_string_field_value!(new_value.sqrt_price)
+                    FieldType::Bigint,
+                    big_int_field_value!("0".to_string()),
+                    big_int_field_value!(new_value.sqrt_price)
                 ));
                 change.fields.push(update_field!(
                     "tick",
                     FieldType::Bigint,
                     big_decimal_string_field_value!("0".to_string()),
-                    big_decimal_string_field_value!(new_value.tick)
+                    big_int_field_value!(new_value.tick)
                 ));
             }
             2 => {
@@ -1127,15 +1364,15 @@ pub fn map_pool_entities(
                     proto::decode(&pool_sqrt_price_delta.new_value).unwrap();
                 change.fields.push(update_field!(
                     "sqrtPrice",
-                    FieldType::Bigdecimal,
-                    big_decimal_string_field_value!(old_value.sqrt_price),
-                    big_decimal_string_field_value!(new_value.sqrt_price)
+                    FieldType::Bigint,
+                    big_int_field_value!(old_value.sqrt_price),
+                    big_int_field_value!(new_value.sqrt_price)
                 ));
                 change.fields.push(update_field!(
                     "tick",
                     FieldType::Bigint,
                     big_int_field_value!(old_value.tick),
-                    big_decimal_string_field_value!(new_value.tick)
+                    big_int_field_value!(new_value.tick)
                 ));
             }
             _ => {}
@@ -1178,7 +1415,7 @@ pub fn map_pool_entities(
         out.entity_changes.push(change)
     }
 
-    for delta in prices_store_deltas {
+    for delta in price_deltas {
         let mut key_parts = delta.key.as_str().split(":");
         let pool_address = key_parts.nth(1).unwrap();
         let field_name: &str;
@@ -1224,48 +1461,159 @@ pub fn map_pool_entities(
         out.entity_changes.push(change);
     }
 
-    for tx_delta in tx_count_deltas {
-        if !tx_delta.key.starts_with("pools:") {
+    for delta in tx_count_deltas {
+        if !delta.key.starts_with("pool:") {
             continue;
         }
+
         out.entity_changes.push(EntityChange {
             entity: "Pool".to_string(),
-            id: string_field_value!(tx_delta.key.as_str().split(":").nth(1).unwrap()),
-            ordinal: tx_delta.ordinal,
+            id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: delta.ordinal,
             operation: Operation::Update as i32,
             fields: vec![update_field!(
                 "txCount",
                 FieldType::Bigint,
-                tx_delta.old_value,
-                tx_delta.new_value
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.old_value.as_ref()).to_string()
+                ),
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.new_value.as_ref()).to_string()
+                )
             )],
         })
     }
 
-    for swaps_volume_delta in swaps_volume_deltas {
+    for delta in total_value_locked_deltas {
         let mut change: EntityChange = EntityChange {
             entity: "Pool".to_string(),
-            id: string_field_value!(swaps_volume_delta.key.as_str().split(":").nth(1).unwrap()),
-            ordinal: swaps_volume_delta.ordinal,
+            id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: delta.ordinal,
             operation: Operation::Update as i32,
             fields: vec![],
         };
-        match swaps_volume_delta.key.as_str().split(":").last().unwrap() {
+
+        match delta.key.as_str().split(":").last().unwrap() {
+            "usd" => change.fields.push(update_field!(
+                "totalValueLockedUSD",
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
+            )),
+            "eth" => change.fields.push(update_field!(
+                "totalValueLockedETH",
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
+            )),
+            _ => {}
+        }
+    }
+
+    for delta in total_value_locked_by_tokens_deltas {
+        let mut change: EntityChange = EntityChange {
+            entity: "Pool".to_string(),
+            id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: delta.ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![],
+        };
+
+        match delta.key.as_str().split(":").last().unwrap() {
+            "token0" => change.fields.push(update_field!(
+                "totalValueLockedToken0",
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
+            )),
+            "token1" => change.fields.push(update_field!(
+                "totalValueLockedToken1",
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
+            )),
+            _ => {}
+        }
+
+        out.entity_changes.push(change);
+    }
+
+    for delta in swaps_volume_deltas {
+        let mut change: EntityChange = EntityChange {
+            entity: "Pool".to_string(),
+            id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: delta.ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![],
+        };
+        match delta.key.as_str().split(":").last().unwrap() {
             "token0" => change.fields.push(update_field!(
                 "volumeToken0",
-                FieldType::Bigint,
-                swaps_volume_delta.old_value,
-                swaps_volume_delta.new_value
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
             )),
             "token1" => change.fields.push(update_field!(
                 "volumeToken1",
-                FieldType::Bigint,
-                swaps_volume_delta.old_value,
-                swaps_volume_delta.new_value
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
+            )),
+            "usd" => change.fields.push(update_field!(
+                "volumeUSD",
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
+            )),
+            "untrackedUSD" => change.fields.push(update_field!(
+                "untrackedVolumeUSD",
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
+            )),
+            "feesUSD" => change.fields.push(update_field!(
+                "feesUSD",
+                FieldType::Bigdecimal,
+                big_decimal_vec_field_value!(delta.old_value),
+                big_decimal_vec_field_value!(delta.new_value)
             )),
             _ => {}
         }
         out.entity_changes.push(change);
+    }
+
+    for delta in pool_fee_growth_global_x128_deltas {
+        let mut change: EntityChange = EntityChange {
+            entity: "Pool".to_string(),
+            id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+            ordinal: delta.ordinal,
+            operation: Operation::Update as i32,
+            fields: vec![],
+        };
+
+        match delta.key.as_str().split(":").nth(1).unwrap() {
+            "token0" => change.fields.push(update_field!(
+                "feeGrowthGlobal0X128",
+                FieldType::Bigint,
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.old_value.as_ref()).to_string()
+                ),
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.new_value.as_ref()).to_string()
+                )
+            )),
+            "token1" => change.fields.push(update_field!(
+                "feeGrowthGlobal1X128",
+                FieldType::Bigint,
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.old_value.as_ref()).to_string()
+                ),
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.new_value.as_ref()).to_string()
+                )
+            )),
+            _ => {}
+        }
     }
 
     Ok(out)

@@ -30,33 +30,36 @@ macro_rules! update_field {
 macro_rules! string_field_value {
     ($a:expr) => {
         $a.as_bytes().to_vec()
-    }
+    };
 }
 
 #[macro_export]
 macro_rules! int_field_value {
     ($a:expr) => {
         $a.to_be_bytes().to_vec()
-    }
+    };
 }
 
 #[macro_export]
 macro_rules! big_int_field_value {
     ($a:expr) => {
-        BigInt::from_str($a.as_str()).unwrap().to_signed_bytes_be().to_vec()
-    }
+        BigInt::from_str($a.as_str())
+            .unwrap()
+            .to_signed_bytes_be()
+            .to_vec()
+    };
 }
 
 #[macro_export]
 macro_rules! big_decimal_string_field_value {
     ($a:expr) => {
         $a.as_bytes().to_vec()
-    }
+    };
 }
 
 #[macro_export]
 macro_rules! big_decimal_vec_field_value {
     ($a:expr) => {
         $a
-    }
+    };
 }

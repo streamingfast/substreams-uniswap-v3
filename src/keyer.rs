@@ -55,6 +55,13 @@ pub fn prices_token_pair(
 }
 
 // ------------------------------------------------
+//      store_pool_fee_growth_global_x128
+// ------------------------------------------------
+pub fn pool_fee_growth_global_x128(pool_address: &String, token: String) -> String {
+    format!("fee:{}:{}", pool_address, token)
+}
+
+// ------------------------------------------------
 //      store_native_total_value_locked && store_total_value_locked
 // ------------------------------------------------
 pub fn token_native_total_value_locked(token_address: &String) -> String {
@@ -107,6 +114,13 @@ pub fn native_pool_from_key(key: &String) -> Option<(String, String)> {
 }
 
 // ------------------------------------------------
+//      store_total_value_locked_by_tokens
+// ------------------------------------------------
+pub fn total_value_locked_tokens(pool_address: &String, token: String) -> String {
+    format!("pool:{}:{}", pool_address, token)
+}
+
+// ------------------------------------------------
 //      store_derived_eth_prices
 // ------------------------------------------------
 pub fn token_eth_price(token_address: &String) -> String {
@@ -148,7 +162,11 @@ pub fn swap_volume_usd(pool_address: &String) -> String {
 }
 
 pub fn swap_untracked_volume_usd(pool_address: &String) -> String {
-    format!("swap:{}:volume:untracked:usd", pool_address)
+    format!("swap:{}:volume:untrackedUSD", pool_address)
+}
+
+pub fn swap_fee_usd(pool_address: &String) -> String {
+    format!("swap:{}:feesUSD", pool_address)
 }
 
 #[cfg(test)]
