@@ -1,6 +1,5 @@
 use crate::{keyer, math, pb};
 use bigdecimal::{BigDecimal, Zero};
-use std::fmt::format;
 use substreams::{errors::Error, proto, store::StoreGet};
 
 pub fn get_pool_sqrt_price(
@@ -73,8 +72,9 @@ pub fn get_pool_price(
     ordinal: u64,
     pool_address: &String,
     token_address: &String,
+    token: String,
 ) -> Result<BigDecimal, Error> {
-    let key = keyer::prices_pool_token_key(pool_address, token_address);
+    let key = keyer::prices_pool_token_key(pool_address, token_address, token);
     return match &prices_store.get_at(ordinal, &key) {
         None => Err(Error::Unexpected("price not found".to_string())),
         Some(bytes) => Ok(math::decimal_from_bytes(&bytes)),

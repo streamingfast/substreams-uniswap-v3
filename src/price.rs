@@ -197,6 +197,7 @@ pub fn find_eth_per_token(
                             log_ordinal,
                             &pool.address,
                             &token1.address,
+                            "token1".to_string(),
                         ) {
                             Ok(p) => p,
                             Err(err) => {
@@ -261,6 +262,7 @@ pub fn find_eth_per_token(
                             log_ordinal,
                             &pool.address,
                             &token0.address,
+                            "token0".to_string(),
                         ) {
                             Ok(p) => p,
                             Err(err) => {
@@ -281,11 +283,14 @@ pub fn find_eth_per_token(
 }
 
 pub fn get_eth_price_in_usd(prices_store: &StoreGet, ordinal: u64) -> BigDecimal {
+    // USDC is the token0 in this pool kinda same point as
+    // mentioned earlier, token0 hard-coded is not clean
     match helper::get_pool_price(
         prices_store,
         ordinal,
         &USDC_WETH_03_POOL.to_string(),
         &USDC_ADDRESS.to_string(),
+        "token0".to_string(),
     ) {
         Err(_) => BigDecimal::zero(),
         Ok(price) => price,
