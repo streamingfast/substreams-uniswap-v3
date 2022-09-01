@@ -921,8 +921,16 @@ pub fn store_total_value_locked(
 ) {
     // fixme: @julien: what is the use for the pool aggregator here ?
     let mut pool_aggregator: HashMap<String, (u64, BigDecimal)> = HashMap::from([]);
-    let eth_price_usd = helper::get_eth_price(&eth_prices_store).unwrap();
+
+    // fixme: are we sure we want to unwrap and fail here ? we can't even fo over the first block..
+    // let eth_price_usd = helper::get_eth_price(&eth_prices_store).unwrap();
+
     for native_total_value_locked in native_total_value_locked_deltas {
+        let eth_price_usd: BigDecimal = match &eth_prices_store.get_last(&keyer::bundle_eth_price())
+        {
+            None => continue,
+            Some(bytes) => math::decimal_from_bytes(&bytes),
+        };
         if let Some(token_addr) = native_token_from_key(&native_total_value_locked.key) {
             let value = math::decimal_from_bytes(&native_total_value_locked.new_value);
             let token_derive_eth =
