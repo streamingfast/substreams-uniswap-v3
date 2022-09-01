@@ -12,7 +12,7 @@ mod rpc;
 mod utils;
 
 use crate::abi::pool::events::Swap;
-use crate::ethpb::v1::{Block, StorageChange};
+use crate::ethpb::v2::{Block, StorageChange};
 use crate::keyer::{native_pool_from_key, native_token_from_key};
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
@@ -36,7 +36,7 @@ use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]
-pub fn map_pools_created(block: ethpb::v1::Block) -> Result<Pools, Error> {
+pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
     let mut pools = vec![];
     for log in block.logs() {
         if let Some(event) = abi::factory::events::PoolCreated::match_and_decode(log) {
@@ -377,7 +377,7 @@ pub fn store_prices(
 
 #[substreams::handlers::map]
 pub fn map_swaps_mints_burns(
-    block: ethpb::v1::Block,
+    block: ethpb::v2::Block,
     pools_store: StoreGet,
 ) -> Result<Events, Error> {
     let mut events = vec![];
@@ -615,7 +615,7 @@ pub fn map_event_amounts(events: Events) -> Result<pb::uniswap::EventAmounts, Er
 }
 
 #[substreams::handlers::store]
-pub fn store_total_tx_counts(events: Events, output: store::StoreAddBigInt) {
+pub fn store_total_tx_counts(events: Events, output: StoreAddBigInt) {
     for event in events.events {
         output.add(
             event.log_ordinal,
@@ -1069,7 +1069,7 @@ pub fn store_ticks(events: Events, output_set: StoreSet) {
 }
 
 // #[substreams::handlers::map]
-// pub fn map_fees(block: ethpb::v1::Block) -> Result<pb::uniswap::Fees, Error> {
+// pub fn map_fees(block: ethpb::v2::Block) -> Result<pb::uniswap::Fees, Error> {
 //     let mut out = pb::uniswap::Fees { fees: vec![] };
 //
 //     for trx in block.transaction_traces {
@@ -1097,7 +1097,7 @@ pub fn store_ticks(events: Events, output_set: StoreSet) {
 // }
 //
 // #[substreams::handlers::store]
-// pub fn store_fees(block: ethpb::v1::Block, output: store::StoreSet) {
+// pub fn store_fees(block: ethpb::v2::Block, output: store::StoreSet) {
 //     for trx in block.transaction_traces {
 //         for call in trx.calls.iter() {
 //             if call.state_reverted {
@@ -1126,7 +1126,7 @@ pub fn store_ticks(events: Events, output_set: StoreSet) {
 // }
 //
 // #[substreams::handlers::map]
-// pub fn map_flashes(block: ethpb::v1::Block) -> Result<pb::uniswap::Flashes, Error> {
+// pub fn map_flashes(block: ethpb::v2::Block) -> Result<pb::uniswap::Flashes, Error> {
 //     let mut out = pb::uniswap::Flashes { flashes: vec![] };
 //
 //     for trx in block.transaction_traces {
@@ -1987,7 +1987,7 @@ pub fn map_swaps_mints_burns_entities(
 
 #[substreams::handlers::map]
 pub fn graph_out(
-    block: ethpb::v1::Block,
+    block: ethpb::v2::Block,
     pool_entities: EntitiesChanges,
     swaps_mints_burns_entities: EntitiesChanges,
 ) -> Result<EntitiesChanges, Error> {

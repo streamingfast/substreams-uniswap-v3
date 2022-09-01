@@ -10,18 +10,18 @@ crate-type = ["cdylib"]
 [dependencies]
 ethabi = "17.0"
 wasm-bindgen = "0.2.79"
-prost = { version = "0.10.1" }
-prost-types = "0.10.1"
+prost = { version = "0.11.0" }
+prost-types = "0.11.0"
 hex = "0.4.3"
-substreams = { version = "0.0.18" }
-substreams-ethereum = { version = "0.1.9" }
+substreams = { version = "0.0.20" }
+substreams-ethereum = { version = "0.2.1-rc" }
 num-bigint = "0.4"
 bigdecimal = "0.3"
 pad = "0.1"
 
 [build-dependencies]
-prost-build = "0.10.1"
+prost-build = "0.11.0"
 anyhow = "1"
-substreams-ethereum = { version = "0.1.9"}
+substreams-ethereum = { version = "0.2.1-rc"}
 
 

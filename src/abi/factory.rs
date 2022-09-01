@@ -43,7 +43,7 @@
                 174u8,
                 204u8,
             ];
-            pub fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+            pub fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
                 if log.topics.len() != 3usize {
                     return false;
                 }
@@ -54,7 +54,7 @@
                     == Self::TOPIC_ID;
             }
             pub fn decode(
-                log: &substreams_ethereum::pb::eth::v1::Log,
+                log: &substreams_ethereum::pb::eth::v2::Log,
             ) -> Result<Self, String> {
                 Ok(Self {
                     fee: ethabi::decode(
@@ -79,11 +79,11 @@
         }
         impl substreams_ethereum::Event for FeeAmountEnabled {
             const NAME: &'static str = "FeeAmountEnabled";
-            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+            fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
                 Self::match_log(log)
             }
             fn decode(
-                log: &substreams_ethereum::pb::eth::v1::Log,
+                log: &substreams_ethereum::pb::eth::v2::Log,
             ) -> Result<Self, String> {
                 Self::decode(log)
             }
@@ -128,7 +128,7 @@
                 21u8,
                 156u8,
             ];
-            pub fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+            pub fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
                 if log.topics.len() != 3usize {
                     return false;
                 }
@@ -139,7 +139,7 @@
                     == Self::TOPIC_ID;
             }
             pub fn decode(
-                log: &substreams_ethereum::pb::eth::v1::Log,
+                log: &substreams_ethereum::pb::eth::v2::Log,
             ) -> Result<Self, String> {
                 Ok(Self {
                     old_owner: ethabi::decode(
@@ -179,11 +179,11 @@
         }
         impl substreams_ethereum::Event for OwnerChanged {
             const NAME: &'static str = "OwnerChanged";
-            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+            fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
                 Self::match_log(log)
             }
             fn decode(
-                log: &substreams_ethereum::pb::eth::v1::Log,
+                log: &substreams_ethereum::pb::eth::v2::Log,
             ) -> Result<Self, String> {
                 Self::decode(log)
             }
@@ -231,7 +231,7 @@
                 113u8,
                 24u8,
             ];
-            pub fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+            pub fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
                 if log.topics.len() != 4usize {
                     return false;
                 }
@@ -242,7 +242,7 @@
                     == Self::TOPIC_ID;
             }
             pub fn decode(
-                log: &substreams_ethereum::pb::eth::v1::Log,
+                log: &substreams_ethereum::pb::eth::v2::Log,
             ) -> Result<Self, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Int(24usize), ethabi::ParamType::Address],
@@ -298,10 +298,14 @@
                         .into_uint()
                         .expect(INTERNAL_ERR),
                     tick_spacing: {
-                        values.pop().expect(INTERNAL_ERR);
-                        num_bigint::BigInt::from_signed_bytes_be(
-                            log.data[0usize..32usize].as_ref(),
-                        )
+                        let mut v = [0 as u8; 32];
+                        values
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_int()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        num_bigint::BigInt::from_signed_bytes_be(&v)
                     },
                     pool: values
                         .pop()
@@ -315,11 +319,11 @@
         }
         impl substreams_ethereum::Event for PoolCreated {
             const NAME: &'static str = "PoolCreated";
-            fn match_log(log: &substreams_ethereum::pb::eth::v1::Log) -> bool {
+            fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
                 Self::match_log(log)
             }
             fn decode(
-                log: &substreams_ethereum::pb::eth::v1::Log,
+                log: &substreams_ethereum::pb::eth::v2::Log,
             ) -> Result<Self, String> {
                 Self::decode(log)
             }
