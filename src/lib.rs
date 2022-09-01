@@ -1198,18 +1198,6 @@ pub fn map_pool_entities(
             .push(db::pool_liquidities_entity_change(delta))
     }
 
-    for delta in price_deltas {
-        if let Some(change) = db::price_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in tx_count_deltas {
-        if let Some(change) = db::tx_count_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
     for delta in total_value_locked_deltas {
         if let Some(change) = db::total_value_locked_entity_change(delta) {
             out.entity_changes.push(change);
@@ -1222,14 +1210,26 @@ pub fn map_pool_entities(
         }
     }
 
-    for delta in swaps_volume_deltas {
-        if let Some(change) = db::swap_volume_entity_change(delta) {
+    for delta in pool_fee_growth_global_x128_deltas {
+        if let Some(change) = db::pool_fee_growth_global_x128_entity_change(delta) {
             out.entity_changes.push(change);
         }
     }
 
-    for delta in pool_fee_growth_global_x128_deltas {
-        if let Some(change) = db::pool_fee_growth_global_x128_entity_change(delta) {
+    for delta in price_deltas {
+        if let Some(change) = db::price_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
+    }
+
+    for delta in tx_count_deltas {
+        if let Some(change) = db::tx_count_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
+    }
+
+    for delta in swaps_volume_deltas {
+        if let Some(change) = db::swap_volume_entity_change(delta) {
             out.entity_changes.push(change);
         }
     }
@@ -1238,7 +1238,7 @@ pub fn map_pool_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_token_entities() -> Result<EntitiesChanges, Error> {
+pub fn map_token_entities(pools_created: Pools) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
         block_id: vec![],
         block_number: 0,
@@ -1246,6 +1246,15 @@ pub fn map_token_entities() -> Result<EntitiesChanges, Error> {
         prev_block_number: 0,
         entity_changes: vec![],
     };
+
+    //todo: when a pool is created, we also save the token (id, name, symbol and decimals)
+    // issue here is what if we have multiple pools with t1-t2, t1-t3, t1-t4, etc.
+    // we will have t1 generate multiple entity changes for nothings since it has
+    // already been emitted -- subgraph doesn't solve this either
+    for pool in pools_created.pools {
+        out.entity_changes
+            .append(&mut db::tokens_created_entity_change(pool));
+    }
 
     Ok(out)
 }
