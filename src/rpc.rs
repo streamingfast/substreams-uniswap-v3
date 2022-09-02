@@ -4,9 +4,20 @@ use num_bigint::BigInt;
 use substreams::log;
 use substreams_ethereum::pb::eth as ethpb;
 
+pub fn token_total_supply_call(token_address: &String) -> BigInt {
+    let rpc_calls: ethpb::rpc::RpcCalls =
+        create_token_total_supply_calls(&hex::decode(token_address).unwrap());
+
+    let rpc_responses_unmarshalled: ethpb::rpc::RpcResponses =
+        substreams_ethereum::rpc::eth_call(&rpc_calls);
+    let responses = rpc_responses_unmarshalled.responses;
+
+    return BigInt::from_signed_bytes_be(responses[0].raw.as_ref());
+}
+
 pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDecimal) {
     let rpc_calls: ethpb::rpc::RpcCalls =
-        create_fee_growth_global_x123_calls(&hex::decode(pool_address).unwrap());
+        create_fee_growth_global_x128_calls(&hex::decode(pool_address).unwrap());
 
     let rpc_responses_unmarshalled: ethpb::rpc::RpcResponses =
         substreams_ethereum::rpc::eth_call(&rpc_calls);
@@ -87,6 +98,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
         name,
         symbol,
         decimals,
+        token_supply: "".to_string(),
         whitelist_pools: vec![],
     });
 }
@@ -114,20 +126,31 @@ fn create_rpc_calls(addr: &Vec<u8>) -> ethpb::rpc::RpcCalls {
     };
 }
 
-fn create_fee_growth_global_x123_calls(addr: &Vec<u8>) -> ethpb::rpc::RpcCalls {
-    let fee_growth_global_0_x128_method_signature = hex::decode("f3058399").unwrap();
-    let fee_growth_global_1_x128_method_signature = hex::decode("46141319").unwrap();
+fn create_fee_growth_global_x128_calls(addr: &Vec<u8>) -> ethpb::rpc::RpcCalls {
+    let fee_growth_global_0_x128_data = hex::decode("f3058399").unwrap();
+    let fee_growth_global_1_x128_data = hex::decode("46141319").unwrap();
 
     return ethpb::rpc::RpcCalls {
         calls: vec![
             ethpb::rpc::RpcCall {
                 to_addr: Vec::from(addr.clone()),
-                data: fee_growth_global_0_x128_method_signature,
+                data: fee_growth_global_0_x128_data,
             },
             ethpb::rpc::RpcCall {
                 to_addr: Vec::from(addr.clone()),
-                data: fee_growth_global_1_x128_method_signature,
+                data: fee_growth_global_1_x128_data,
             },
         ],
+    };
+}
+
+fn create_token_total_supply_calls(addr: &Vec<u8>) -> ethpb::rpc::RpcCalls {
+    let token_total_supply_data = hex::decode("18160ddd").unwrap();
+
+    return ethpb::rpc::RpcCalls {
+        calls: vec![ethpb::rpc::RpcCall {
+            to_addr: Vec::from(addr.clone()),
+            data: token_total_supply_data,
+        }],
     };
 }

@@ -521,87 +521,172 @@ pub fn tokens_created_entity_change(pool: Pool) -> Vec<EntityChange> {
     let token0: &Erc20Token = pool.token0.as_ref().unwrap();
     let token1: &Erc20Token = pool.token1.as_ref().unwrap();
     // create 2 entity changes
-    return vec![EntityChange {
-        entity: "Token".to_string(),
-        id: string_field_value!(pool.address),
-        ordinal: pool.log_ordinal,
-        operation: Operation::Create as i32,
-        fields: vec![
-            new_field!("id", FieldType::String, string_field_value!(token0.address)),
-            new_field!(
-                "symbol",
-                FieldType::String,
-                string_field_value!(token0.symbol)
-            ),
-            new_field!("name", FieldType::String, string_field_value!(token0.name)),
-            new_field!(
-                "decimals",
-                FieldType::Bigint,
-                big_int_field_value!(token0.decimals.to_string())
-            ),
-            new_field!(
-                "totalSupply",
-                FieldType::Bigint,
-                big_int_field_value!(BigInt::from(0 as i32).to_string())
-            ),
-            new_field!(
-                "volume",
-                FieldType::Bigdecimal,
-                big_decimal_string_field_value!("0".to_string())
-            ),
-            new_field!(
-                "volumeUSD",
-                FieldType::Bigdecimal,
-                big_decimal_string_field_value!("0".to_string())
-            ),
-            new_field!(
-                "untrackedVolumeUSD",
-                FieldType::Bigdecimal,
-                big_decimal_string_field_value!("0".to_string())
-            ),
-            new_field!(
-                "feesUSD",
-                FieldType::Bigdecimal,
-                big_decimal_string_field_value!("0".to_string())
-            ),
-            new_field!(
-                "txCount",
-                FieldType::Bigint,
-                big_int_field_value!(BigInt::from(0 as i32).to_string())
-            ),
-            new_field!(
-                "poolCount",
-                FieldType::Bigint,
-                big_int_field_value!(BigInt::from(0 as i32).to_string())
-            ),
-            new_field!(
-                "totalValueLocked",
-                FieldType::Bigdecimal,
-                big_decimal_string_field_value!("0".to_string())
-            ),
-            new_field!(
-                "totalValueLockedUSD",
-                FieldType::Bigdecimal,
-                big_decimal_string_field_value!("0".to_string())
-            ),
-            new_field!(
-                "totalValueLockedUSDUntracked",
-                FieldType::Bigdecimal,
-                big_decimal_string_field_value!("0".to_string())
-            ),
-            new_field!(
-                "derivedETH",
-                FieldType::Bigdecimal,
-                big_decimal_string_field_value!("0".to_string())
-            ),
-            //todo: should the field type be stored as bytes or
-            // should we create a new type called array?
+    return vec![
+        EntityChange {
+            entity: "Token".to_string(),
+            id: string_field_value!(pool.address),
+            ordinal: pool.log_ordinal,
+            operation: Operation::Create as i32,
+            fields: vec![
+                new_field!("id", FieldType::String, string_field_value!(token0.address)),
+                new_field!(
+                    "symbol",
+                    FieldType::String,
+                    string_field_value!(token0.symbol)
+                ),
+                new_field!("name", FieldType::String, string_field_value!(token0.name)),
+                new_field!(
+                    "decimals",
+                    FieldType::Bigint,
+                    big_int_field_value!(token0.decimals.to_string())
+                ),
+                new_field!(
+                    "totalSupply",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "volume",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "volumeUSD",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "untrackedVolumeUSD",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "feesUSD",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "txCount",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "poolCount",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "totalValueLocked",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "totalValueLockedUSD",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "totalValueLockedUSDUntracked",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "derivedETH",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                //todo: should the field type be stored as bytes or
+                // should we create a new type called array?
 
-            // new_field!(
-            //     "whitelistPools",
-            //     FieldType::Array,
-            //     big_decimal_string_field_value!("0".to_string())
-            // ),
-        ],
-    }];
+                // new_field!(
+                //     "whitelistPools",
+                //     FieldType::Array,
+                //     big_decimal_string_field_value!("0".to_string())
+                // ),
+            ],
+        },
+        EntityChange {
+            entity: "Token".to_string(),
+            id: string_field_value!(pool.address),
+            ordinal: pool.log_ordinal,
+            operation: Operation::Create as i32,
+            fields: vec![
+                new_field!("id", FieldType::String, string_field_value!(token1.address)),
+                new_field!(
+                    "symbol",
+                    FieldType::String,
+                    string_field_value!(token1.symbol)
+                ),
+                new_field!("name", FieldType::String, string_field_value!(token1.name)),
+                new_field!(
+                    "decimals",
+                    FieldType::Bigint,
+                    big_int_field_value!(token1.decimals.to_string())
+                ),
+                new_field!(
+                    "totalSupply",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "volume",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "volumeUSD",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "untrackedVolumeUSD",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "feesUSD",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "txCount",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "poolCount",
+                    FieldType::Bigint,
+                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                ),
+                new_field!(
+                    "totalValueLocked",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "totalValueLockedUSD",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "totalValueLockedUSDUntracked",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                new_field!(
+                    "derivedETH",
+                    FieldType::Bigdecimal,
+                    big_decimal_string_field_value!("0".to_string())
+                ),
+                //todo: should the field type be stored as bytes or
+                // should we create a new type called array?
+
+                // new_field!(
+                //     "whitelistPools",
+                //     FieldType::Array,
+                //     big_decimal_string_field_value!("0".to_string())
+                // ),
+            ],
+        },
+    ];
 }

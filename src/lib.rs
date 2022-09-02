@@ -77,6 +77,7 @@ pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
                 name: "".to_string(),
                 symbol: "".to_string(),
                 decimals: 0,
+                token_supply: "".to_string(),
                 whitelist_pools: vec![],
             };
             let mut token1 = Erc20Token {
@@ -84,6 +85,7 @@ pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
                 name: "".to_string(),
                 symbol: "".to_string(),
                 decimals: 0,
+                token_supply: "".to_string(),
                 whitelist_pools: vec![],
             };
 
@@ -106,6 +108,12 @@ pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
                     token1 = token;
                 }
             }
+
+            let token0_total_supply: BigInt = rpc::token_total_supply_call(&token0_address);
+            token0.token_supply = token0_total_supply.to_string();
+
+            let token1_total_supply: BigInt = rpc::token_total_supply_call(&token1_address);
+            token1.token_supply = token1_total_supply.to_string();
 
             pool.token0 = Some(token0.clone());
             pool.token1 = Some(token1.clone());

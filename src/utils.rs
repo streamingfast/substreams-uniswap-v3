@@ -31,6 +31,7 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
             name: "DGD".to_string(),
             symbol: "DGD".to_string(),
             decimals: 9,
+            token_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
         "7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9" => Some(Erc20Token {
@@ -39,6 +40,7 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
             name: "Aave Token".to_string(),
             symbol: "AAVE".to_string(),
             decimals: 18,
+            token_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
         "eb9951021698b42e4399f9cbb6267aa35f82d59d" => Some(Erc20Token {
@@ -47,6 +49,7 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
             name: "LIF".to_string(),
             symbol: "LIF".to_string(),
             decimals: 18,
+            token_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
         "bdeb4b83251fb146687fa19d1c660f99411eefe3" => Some(Erc20Token {
@@ -55,6 +58,7 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
             name: "savedroid".to_string(),
             symbol: "SVD".to_string(),
             decimals: 18,
+            token_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
         "bb9bc244d798123fde783fcc1c72d3bb8c189413" => Some(Erc20Token {
@@ -63,6 +67,7 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
             name: "TheDAO".to_string(),
             symbol: "TheDAO".to_string(),
             decimals: 16,
+            token_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
         "38c6a68304cdefb9bec48bbfaaba5c5b47818bb2" => Some(Erc20Token {
@@ -71,6 +76,7 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
             name: "HPBCoin".to_string(),
             symbol: "HPB".to_string(),
             decimals: 18,
+            token_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
         _ => None,
