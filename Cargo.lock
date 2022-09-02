@@ -421,9 +421,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.13.1"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "074864da206b4973b84eb91683020dbefd6a8c3f0f38e054d93954e891935e4e"
+checksum = "2f7254b99e31cad77da24b08ebf628882739a608578bb1bcdfc1f9c21260d7c0"
 
 [[package]]
 name = "pad"
@@ -796,11 +796,12 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum"
-version = "0.2.1"
+version = "0.2.2-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "259e21a087e877283c44de98d398563f3122dfe2ba14a6cc317f1a73ae0d312e"
+checksum = "98a99bade9cba53dc436474fc66b39acfea9e93c81026d22e4dfde69e03cff50"
 dependencies = [
  "getrandom",
+ "substreams",
  "substreams-ethereum-abigen",
  "substreams-ethereum-core",
  "substreams-ethereum-derive",
@@ -808,9 +809,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum-abigen"
-version = "0.2.1"
+version = "0.2.2-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51e572cce41b3b746ea04ac4e370fffff6f38795d672d2d365393b9ed905aeb0"
+checksum = "d1599da94850954204777c7e5138954895a041430233d77e74c9561cd9ce6ac3"
 dependencies = [
  "anyhow",
  "ethabi",
@@ -825,9 +826,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum-core"
-version = "0.2.1"
+version = "0.2.2-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a406cbe0706e01cd9fd361c1a420165ad7bf85c053a8e11ad64e2f36af3f83d"
+checksum = "07e50b1340c938466d6d6c47c4b22afeba5bf26d5b85c63a79fcda3f3dc84382"
 dependencies = [
  "ethabi",
  "getrandom",
@@ -839,9 +840,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum-derive"
-version = "0.2.1"
+version = "0.2.2-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b20ab412a6885716fd71633918fcff7d0395593d508b67f70486e41f5dc840f6"
+checksum = "c087a087449f2a5d5bd1cabe1bd7bf1b9bd22413a1c7abc6de88d49bf7efd278"
 dependencies = [
  "ethabi",
  "heck",
