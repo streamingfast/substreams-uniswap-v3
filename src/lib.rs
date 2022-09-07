@@ -37,7 +37,7 @@ use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]
-pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
+pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
     let mut pools = vec![];
     for log in block.logs() {
         if let Some(event) = abi::factory::events::PoolCreated::match_and_decode(log) {
@@ -77,7 +77,7 @@ pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
                 name: "".to_string(),
                 symbol: "".to_string(),
                 decimals: 0,
-                token_supply: "".to_string(),
+                total_supply: "".to_string(),
                 whitelist_pools: vec![],
             };
             let mut token1 = Erc20Token {
@@ -85,7 +85,7 @@ pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
                 name: "".to_string(),
                 symbol: "".to_string(),
                 decimals: 0,
-                token_supply: "".to_string(),
+                total_supply: "".to_string(),
                 whitelist_pools: vec![],
             };
 
@@ -110,10 +110,10 @@ pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
             }
 
             let token0_total_supply: BigInt = rpc::token_total_supply_call(&token0_address);
-            token0.token_supply = token0_total_supply.to_string();
+            token0.total_supply = token0_total_supply.to_string();
 
             let token1_total_supply: BigInt = rpc::token_total_supply_call(&token1_address);
-            token1.token_supply = token1_total_supply.to_string();
+            token1.total_supply = token1_total_supply.to_string();
 
             pool.token0 = Some(token0.clone());
             pool.token1 = Some(token1.clone());
@@ -124,7 +124,7 @@ pub fn map_pools_created(block: ethpb::v2::Block) -> Result<Pools, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_pools(pools: Pools, output: store::StoreSet) {
+pub fn store_pools(pools: Pools, output: StoreSet) {
     for pool in pools.pools {
         output.set(
             pool.log_ordinal,
@@ -389,10 +389,7 @@ pub fn store_prices(pool_sqrt_prices: PoolSqrtPrices, pools_store: StoreGet, out
 }
 
 #[substreams::handlers::map]
-pub fn map_swaps_mints_burns(
-    block: ethpb::v2::Block,
-    pools_store: StoreGet,
-) -> Result<Events, Error> {
+pub fn map_swaps_mints_burns(block: Block, pools_store: StoreGet) -> Result<Events, Error> {
     let mut events = vec![];
     for log in block.logs() {
         let pool_key = &format!("pool:{}", Hex(&log.address()).to_string());
@@ -697,6 +694,13 @@ pub fn store_swaps_volume(
                     if amount1_abs.lt(&BigDecimal::from(0 as u64)) {
                         amount1_abs = amount1_abs.mul(BigDecimal::from(-1 as i64))
                     }
+
+                    log::info!("trx_id: {}", event.transaction_id);
+                    log::info!("bundle.ethPriceUSD: {}", eth_price_in_usd);
+                    log::info!("token0_derived_eth_price: {}", token0_derived_eth_price);
+                    log::info!("token1_derived_eth_price: {}", token1_derived_eth_price);
+                    log::info!("amount0_abs: {}", amount0_abs);
+                    log::info!("amount1_abs: {}", amount1_abs);
 
                     let amount_total_usd_tracked: BigDecimal = utils::get_tracked_amount_usd(
                         &event.token0,
