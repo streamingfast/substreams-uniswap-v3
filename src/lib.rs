@@ -344,8 +344,9 @@ pub fn store_prices(pool_sqrt_prices: PoolSqrtPrices, pools_store: StoreGet, out
                 let token0 = pool.token0.as_ref().unwrap();
                 let token1 = pool.token1.as_ref().unwrap();
                 log::info!(
-                    "pool addr: {}, token 0 addr: {}, token 1 addr: {}",
+                    "pool addr: {}, pool trx_id: {}, token 0 addr: {}, token 1 addr: {}",
                     pool.address,
+                    pool.transaction_id,
                     token0.address,
                     token1.address
                 );
