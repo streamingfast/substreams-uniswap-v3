@@ -116,7 +116,7 @@ pub fn extract_pool_liquidity(
                 return Some(PoolLiquidity {
                     pool_address: Hex(&pool_address).to_string(),
                     liquidity: math::decimal_from_hex_be_bytes(&sc.new_value).to_string(),
-                    log_ordinal: log_ordinal,
+                    log_ordinal,
                 });
             }
         }

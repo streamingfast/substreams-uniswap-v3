@@ -67,18 +67,18 @@ pub fn pool_fee_growth_global_x128(pool_address: &String, token: String) -> Stri
 }
 
 // ------------------------------------------------
-//      store_native_total_value_locked && store_total_value_locked
+//      store_total_value_locked
 // ------------------------------------------------
-pub fn token_native_total_value_locked(token_address: &String) -> String {
-    format!("token:{}:native", token_address)
-}
-
-pub fn pool_liquidity(pool_address: &String) -> String {
-    format!("pool:{}:liquidity", pool_address)
-}
-
 pub fn token_usd_total_value_locked(token_address: &String) -> String {
     format!("token:{}:usd", token_address)
+}
+
+pub fn pool_eth_total_value_locked(pool_address: &String) -> String {
+    format!("pool:{}:eth", pool_address)
+}
+
+pub fn pool_usd_total_value_locked(pool_address: &String) -> String {
+    format!("pool:{}:usd", pool_address)
 }
 
 pub fn native_token_from_key(key: &String) -> Option<String> {
@@ -90,21 +90,6 @@ pub fn native_token_from_key(key: &String) -> Option<String> {
         return None;
     }
     return Some(chunks[1].to_string());
-}
-
-pub fn pool_native_total_value_locked_token(
-    pool_address: &String,
-    token_address: &String,
-) -> String {
-    format!("pool:{}:{}:native", pool_address, token_address)
-}
-
-pub fn pool_eth_total_value_locked(pool_address: &String) -> String {
-    format!("pool:{}:eth", pool_address)
-}
-
-pub fn pool_usd_total_value_locked(pool_address: &String) -> String {
-    format!("pool:{}:usd", pool_address)
 }
 
 pub fn native_pool_from_key(key: &String) -> Option<(String, String)> {
@@ -119,10 +104,35 @@ pub fn native_pool_from_key(key: &String) -> Option<(String, String)> {
 }
 
 // ------------------------------------------------
+//      store_native_total_value_locked
+// ------------------------------------------------
+pub fn token_native_total_value_locked(token_address: &String) -> String {
+    format!("token:{}:native", token_address)
+}
+
+pub fn pool_native_total_value_locked_token(
+    pool_address: &String,
+    token_address: &String,
+) -> String {
+    format!("pool:{}:{}:native", pool_address, token_address)
+}
+
+// ------------------------------------------------
+//      store_pool_liquidities
+// ------------------------------------------------
+pub fn pool_liquidity(pool_address: &String) -> String {
+    format!("pool:{}:liquidity", pool_address)
+}
+
+// ------------------------------------------------
 //      store_total_value_locked_by_tokens
 // ------------------------------------------------
-pub fn total_value_locked_tokens(pool_address: &String, token: String) -> String {
-    format!("pool:{}:{}", pool_address, token)
+pub fn total_value_locked_by_tokens(
+    pool_address: &String,
+    token_address: &String,
+    token: String,
+) -> String {
+    format!("pool:{}:{}:{}", pool_address, token_address, token)
 }
 
 // ------------------------------------------------
@@ -172,6 +182,22 @@ pub fn swap_untracked_volume_usd(pool_address: &String) -> String {
 
 pub fn swap_fee_usd(pool_address: &String) -> String {
     format!("swap:{}:feesUSD", pool_address)
+}
+
+pub fn swap_token_volume(token_address: &String, token: String) -> String {
+    format!("{}:{}", token_address, token)
+}
+
+pub fn swap_token_volume_usd(token_address: &String) -> String {
+    format!("{}:volume:usd", token_address)
+}
+
+pub fn swap_token_volume_untracked_volume_usd(token_address: &String) -> String {
+    format!("{}:volume:untrackedUSD", token_address)
+}
+
+pub fn swap_token_fee_usd(token_address: &String) -> String {
+    format!("{}:feesUSD", token_address)
 }
 
 #[cfg(test)]

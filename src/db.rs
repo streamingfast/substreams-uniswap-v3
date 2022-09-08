@@ -14,7 +14,7 @@ use substreams::{log, proto, Hex};
 // -------------------
 //  Map Pool Entities
 // -------------------
-pub fn pools_created_entity_change(pool: Pool) -> EntityChange {
+pub fn pools_created_pool_entity_change(pool: Pool) -> EntityChange {
     return EntityChange {
         entity: "Pool".to_string(),
         id: string_field_value!(pool.address),
@@ -218,7 +218,9 @@ pub fn pool_sqrt_price_entity_change(pool_sqrt_price_delta: StoreDelta) -> Optio
     Some(change)
 }
 
-pub fn pool_liquidities_entity_change(pool_liquidities_store_delta: StoreDelta) -> EntityChange {
+pub fn pool_liquidities_pool_entity_change(
+    pool_liquidities_store_delta: StoreDelta,
+) -> EntityChange {
     let mut change = EntityChange {
         entity: "Pool".to_string(),
         id: string_field_value!(pool_liquidities_store_delta
@@ -254,7 +256,7 @@ pub fn pool_liquidities_entity_change(pool_liquidities_store_delta: StoreDelta) 
     change
 }
 
-pub fn price_entity_change(price_delta: StoreDelta) -> Option<EntityChange> {
+pub fn price_pool_entity_change(price_delta: StoreDelta) -> Option<EntityChange> {
     let mut key_parts = price_delta.key.as_str().split(":");
     let pool_address = key_parts.nth(1).unwrap();
     let field_name: &str;
@@ -301,7 +303,7 @@ pub fn price_entity_change(price_delta: StoreDelta) -> Option<EntityChange> {
     Some(change)
 }
 
-pub fn tx_count_entity_change(tx_count_delta: StoreDelta) -> Option<EntityChange> {
+pub fn tx_count_pool_entity_change(tx_count_delta: StoreDelta) -> Option<EntityChange> {
     if !tx_count_delta.key.starts_with("pool:") {
         return None;
     }
@@ -324,7 +326,7 @@ pub fn tx_count_entity_change(tx_count_delta: StoreDelta) -> Option<EntityChange
     });
 }
 
-pub fn total_value_locked_entity_change(
+pub fn total_value_locked_pool_entity_change(
     total_value_locked_delta: StoreDelta,
 ) -> Option<EntityChange> {
     if !total_value_locked_delta.key.starts_with("pool:") {
@@ -343,11 +345,6 @@ pub fn total_value_locked_entity_change(
         operation: Operation::Update as i32,
         fields: vec![],
     };
-
-    log::info!(
-        "change key: {}",
-        Hex(&total_value_locked_delta.key).to_string()
-    );
 
     match total_value_locked_delta
         .key
@@ -374,7 +371,7 @@ pub fn total_value_locked_entity_change(
     Some(change)
 }
 
-pub fn total_value_locked_by_token_entity_change(
+pub fn total_value_locked_by_token_pool_entity_change(
     total_value_locked_by_tokens_delta: StoreDelta,
 ) -> Option<EntityChange> {
     let mut change: EntityChange = EntityChange {
@@ -415,7 +412,7 @@ pub fn total_value_locked_by_token_entity_change(
     Some(change)
 }
 
-pub fn swap_volume_entity_change(swap_volume_delta: StoreDelta) -> Option<EntityChange> {
+pub fn swap_volume_pool_entity_change(swap_volume_delta: StoreDelta) -> Option<EntityChange> {
     let mut change: EntityChange = EntityChange {
         entity: "Pool".to_string(),
         id: string_field_value!(swap_volume_delta.key.as_str().split(":").nth(1).unwrap()),
@@ -517,7 +514,7 @@ pub fn pool_fee_growth_global_x128_entity_change(
 // --------------------
 //  Map Token Entities
 // --------------------
-pub fn tokens_created_entity_change(pool: Pool) -> Vec<EntityChange> {
+pub fn tokens_created_token_entity_change(pool: Pool) -> Vec<EntityChange> {
     let token0: &Erc20Token = pool.token0.as_ref().unwrap();
     let token1: &Erc20Token = pool.token1.as_ref().unwrap();
     // create 2 entity changes
@@ -543,7 +540,7 @@ pub fn tokens_created_entity_change(pool: Pool) -> Vec<EntityChange> {
                 new_field!(
                     "totalSupply",
                     FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    big_int_field_value!(token0.total_supply)
                 ),
                 new_field!(
                     "volume",
@@ -626,7 +623,7 @@ pub fn tokens_created_entity_change(pool: Pool) -> Vec<EntityChange> {
                 new_field!(
                     "totalSupply",
                     FieldType::Bigint,
-                    big_int_field_value!(BigInt::from(0 as i32).to_string())
+                    big_int_field_value!(token1.total_supply)
                 ),
                 new_field!(
                     "volume",
@@ -689,4 +686,169 @@ pub fn tokens_created_entity_change(pool: Pool) -> Vec<EntityChange> {
             ],
         },
     ];
+}
+
+/// key -> swap:{pool_id}:volume:{token_id}:(token0/token1)
+pub fn swap_volume_token_entity_change(swap_volume_delta: StoreDelta) -> Option<EntityChange> {
+    let mut change: EntityChange = EntityChange {
+        entity: "Token".to_string(),
+        id: string_field_value!(swap_volume_delta.key.as_str().split(":").nth(0).unwrap()),
+        ordinal: swap_volume_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![],
+    };
+    match swap_volume_delta.key.as_str().split(":").last().unwrap() {
+        "token0" | "token1" => change.fields.push(update_field!(
+            "volume",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        "usd" => change.fields.push(update_field!(
+            "volumeUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        "untrackedUSD" => change.fields.push(update_field!(
+            "untrackedVolumeUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        "feesUSD" => change.fields.push(update_field!(
+            "feesUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        _ => {
+            return None;
+        }
+    }
+
+    Some(change)
+}
+
+pub fn tx_count_token_entity_change(tx_count_delta: StoreDelta) -> Option<EntityChange> {
+    if !tx_count_delta.key.starts_with("token:") {
+        return None;
+    }
+
+    return Some(EntityChange {
+        entity: "Token".to_string(),
+        id: string_field_value!(tx_count_delta.key.as_str().split(":").nth(1).unwrap()),
+        ordinal: tx_count_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![update_field!(
+            "txCount",
+            FieldType::Bigint,
+            big_int_field_value!(
+                BigInt::from_signed_bytes_be(tx_count_delta.old_value.as_ref()).to_string()
+            ),
+            big_int_field_value!(
+                BigInt::from_signed_bytes_be(tx_count_delta.new_value.as_ref()).to_string()
+            )
+        )],
+    });
+}
+
+pub fn total_value_locked_by_token_token_entity_change(
+    total_value_locked_by_tokens_delta: StoreDelta,
+) -> EntityChange {
+    EntityChange {
+        entity: "Token".to_string(),
+        id: string_field_value!(total_value_locked_by_tokens_delta
+            .key
+            .as_str()
+            .split(":")
+            .nth(2)
+            .unwrap()),
+        ordinal: total_value_locked_by_tokens_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![update_field!(
+            "totalValueLocked",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(total_value_locked_by_tokens_delta.old_value),
+            big_decimal_vec_field_value!(total_value_locked_by_tokens_delta.new_value)
+        )],
+    }
+}
+
+pub fn total_value_locked_usd_token_entity_change(
+    total_value_locked_usd_delta: StoreDelta,
+) -> Option<EntityChange> {
+    if !total_value_locked_usd_delta.key.starts_with("token:") {
+        return None;
+    }
+
+    let mut change: EntityChange = EntityChange {
+        entity: "Token".to_string(),
+        id: string_field_value!(total_value_locked_usd_delta
+            .key
+            .as_str()
+            .split(":")
+            .nth(1)
+            .unwrap()),
+        ordinal: total_value_locked_usd_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![],
+    };
+
+    match total_value_locked_usd_delta
+        .key
+        .as_str()
+        .split(":")
+        .last()
+        .unwrap()
+    {
+        "usd" => change.fields.push(update_field!(
+            "totalValueLockedUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(total_value_locked_usd_delta.old_value),
+            big_decimal_vec_field_value!(total_value_locked_usd_delta.new_value)
+        )),
+        _ => return None,
+    }
+
+    Some(change)
+}
+
+pub fn derived_eth_prices_token_entity_change(
+    derived_eth_prices_delta: StoreDelta,
+) -> Option<EntityChange> {
+    if !derived_eth_prices_delta.key.starts_with("token:") {
+        return None;
+    }
+
+    let mut change: EntityChange = EntityChange {
+        entity: "Token".to_string(),
+        id: string_field_value!(derived_eth_prices_delta
+            .key
+            .as_str()
+            .split(":")
+            .nth(1)
+            .unwrap()),
+        ordinal: derived_eth_prices_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![],
+    };
+
+    match derived_eth_prices_delta
+        .key
+        .as_str()
+        .split(":")
+        .last()
+        .unwrap()
+    {
+        "eth" => change.fields.push(update_field!(
+            "derivedETH",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(derived_eth_prices_delta.old_value),
+            big_decimal_vec_field_value!(derived_eth_prices_delta.new_value)
+        )),
+        _ => return None,
+    }
+
+    Some(change)
 }
