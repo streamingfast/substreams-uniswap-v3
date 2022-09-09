@@ -19,6 +19,14 @@ binaries:
     file: target/wasm32-unknown-unknown/release/substreams_uniswap_v3.wasm
 
 modules:
+  - name: map_factory_created
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:uniswap.types.v1.Factory
+
   - name: map_pools_created
     kind: map
     initialBlock: 12369621
@@ -208,6 +216,14 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:uniswap.types.v1.Flashes
+
+  - name: map_factory_entities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges
 
   - name: map_pool_entities
     kind: map

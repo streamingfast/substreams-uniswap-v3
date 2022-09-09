@@ -10,7 +10,9 @@ use substreams::{hex, log, Hex};
 // const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 // const _USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 
+pub const UNISWAP_V3_SMART_CONTRACT_BLOCK: u64 = 12369621;
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
+pub const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
 
 pub const _STABLE_COINS: [&str; 6] = [
     "6b175474e89094c44da98b954eedeac495271d0f",

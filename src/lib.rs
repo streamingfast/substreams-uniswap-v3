@@ -20,10 +20,11 @@ use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::{
     Burn, EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Events,
-    Field, Mint, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick,
+    Factory, Field, Mint, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices,
+    Pools, Tick,
 };
 use crate::price::WHITELIST_TOKENS;
-use crate::utils::UNISWAP_V3_FACTORY;
+use crate::utils::{UNISWAP_V3_FACTORY, UNISWAP_V3_SMART_CONTRACT_BLOCK};
 use bigdecimal::ToPrimitive;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use num_bigint::BigInt;
@@ -35,6 +36,23 @@ use substreams::store;
 use substreams::store::{StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet};
 use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
+
+#[substreams::handlers::map]
+pub fn map_factory_created(block: Block) -> Result<Factory, Error> {
+    let mut factory: Factory = Factory {
+        ..Default::default()
+    };
+    if block.number == UNISWAP_V3_SMART_CONTRACT_BLOCK as u64 {
+        for log in block.logs() {
+            if log.address() == UNISWAP_V3_FACTORY {
+                factory.id = "1f98431c8ad98523631ae4a59f267346ea31f984".to_string();
+                factory.owner = "0000000000000000000000000000000000000000".to_string();
+            }
+        }
+    }
+
+    return Ok(factory);
+}
 
 #[substreams::handlers::map]
 pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
@@ -1237,6 +1255,15 @@ pub fn store_ticks(events: Events, output_set: StoreSet) {
 //
 //     Ok(out)
 // }
+
+#[substreams::handlers::map]
+pub fn map_factory_entities() -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges {
+        ..Default::default()
+    };
+
+    Ok(out)
+}
 
 #[substreams::handlers::map]
 pub fn map_pool_entities(

@@ -2,6 +2,22 @@ syntax = "proto3";
 
 package uniswap.types.v1;
 
+message Factory {
+  string id = 1;
+  string pool_count = 2;
+  string tx_count = 3;
+  string total_volume_usd = 4;
+  string total_volume_eth = 5;
+  string total_fees_usd = 6;
+  string total_fees_eth = 7;
+  string untracked_volume_usd = 8;
+  string total_value_locked_usd = 9;
+  string total_value_locked_eth = 10;
+  string total_value_locked_usd_untracked = 11;
+  string total_value_locked_eth_untracked = 12;
+  string owner = 13;
+}
+
 message ERC20Tokens {
   repeated ERC20Token tokens = 1;
 }
