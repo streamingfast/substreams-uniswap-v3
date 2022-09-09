@@ -1728,8 +1728,9 @@ pub fn map_swaps_mints_burns_entities(
 
 #[substreams::handlers::map]
 pub fn graph_out(
-    block: ethpb::v2::Block,
+    block: Block,
     pool_entities: EntitiesChanges,
+    token_entities: EntitiesChanges,
     swaps_mints_burns_entities: EntitiesChanges,
 ) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
@@ -1744,6 +1745,10 @@ pub fn graph_out(
     // or simply stream out all the entity changes
 
     for change in pool_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
+
+    for change in token_entities.entity_changes {
         out.entity_changes.push(change);
     }
 
