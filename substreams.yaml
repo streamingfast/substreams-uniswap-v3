@@ -42,6 +42,13 @@ modules:
     inputs:
       - map: map_pools_created
 
+  - name: store_pool_count
+    kind: store
+    updatePolicy: set
+    valueType: string
+    inputs:
+      - map: map_pools_created
+
   - name: map_tokens_whitelist_pools
     kind: map
     initialBlock: 12369621
@@ -222,6 +229,15 @@ modules:
     initialBlock: 12369621
     inputs:
       - source: sf.ethereum.type.v2.Block
+      - map: map_factory_created
+      - store: store_pool_count
+        mode: deltas
+      - store: store_total_tx_counts
+        mode: deltas
+      - store: store_swaps_volume
+        mode: deltas
+      - store: store_total_value_locked
+        mode: deltas
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
 

@@ -47,11 +47,22 @@ pub fn map_factory_created(block: Block) -> Result<Factory, Error> {
             if log.address() == UNISWAP_V3_FACTORY {
                 factory.id = "1f98431c8ad98523631ae4a59f267346ea31f984".to_string();
                 factory.owner = "0000000000000000000000000000000000000000".to_string();
+                factory.log_ordinal = log.ordinal();
+                factory.transaction_id = Hex(&log.receipt.transaction.hash).to_string();
             }
         }
     }
 
     return Ok(factory);
+}
+
+#[substreams::handlers::store]
+pub fn store_factory(factory: Factory, output: StoreSet) {
+    output.set(
+        factory.log_ordinal,
+        keyer::factory_key(),
+        &proto::encode(&factory).unwrap(),
+    )
 }
 
 #[substreams::handlers::map]
@@ -156,6 +167,17 @@ pub fn store_pools(pools: Pools, output: StoreSet) {
                 &pool.token1.as_ref().unwrap().address,
             ),
             &proto::encode(&pool).unwrap(),
+        );
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_pool_count(pools: Pools, output: StoreAddBigInt) {
+    for pool in pools.pools {
+        output.add(
+            pool.log_ordinal,
+            keyer::factory_pool_count_key(),
+            &BigInt::from(1 as i32),
         )
     }
 }
@@ -679,8 +701,6 @@ pub fn store_total_tx_counts(events: Events, output: StoreAddBigInt) {
     }
 }
 
-//todo: maybe change the name of this substreams and actually have something related to the events
-// overall and not just the swaps ??
 #[substreams::handlers::store]
 pub fn store_swaps_volume(
     events: Events,
@@ -742,6 +762,9 @@ pub fn store_swaps_volume(
                     )
                     .div(BigDecimal::from(2 as i32));
 
+                    let amount_total_eth_tracked =
+                        math::safe_div(&amount_total_usd_tracked, &eth_price_in_usd);
+
                     let amount_total_usd_untracked: BigDecimal = amount0_abs
                         .clone()
                         .add(amount1_abs.clone())
@@ -749,6 +772,10 @@ pub fn store_swaps_volume(
 
                     let fee_tier: BigDecimal = BigDecimal::from(pool.fee_tier);
                     let fee_usd: BigDecimal = amount_total_usd_tracked
+                        .clone()
+                        .mul(fee_tier.clone())
+                        .div(BigDecimal::from(1000000 as u64));
+                    let fee_eth: BigDecimal = amount_total_eth_tracked
                         .clone()
                         .mul(fee_tier)
                         .div(BigDecimal::from(1000000 as u64));
@@ -818,6 +845,16 @@ pub fn store_swaps_volume(
                         keyer::swap_token_fee_usd(&event.token1),
                         &fee_usd,
                     );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_factory_total_volume_eth(),
+                        &amount_total_eth_tracked,
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_factory_total_fees_eth(),
+                        &fee_eth,
+                    )
                 }
                 _ => {}
             },
@@ -1257,10 +1294,45 @@ pub fn store_ticks(events: Events, output_set: StoreSet) {
 // }
 
 #[substreams::handlers::map]
-pub fn map_factory_entities() -> Result<EntitiesChanges, Error> {
+pub fn map_factory_entities(
+    block: Block,
+    factory: Factory,
+    pool_count_deltas: store::Deltas,
+    tx_count_deltas: store::Deltas,
+    swaps_volume_deltas: store::Deltas,
+    total_value_locked_deltas: store::Deltas,
+) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
         ..Default::default()
     };
+
+    if block.number == 12369621 {
+        out.entity_changes
+            .push(db::factory_created_factory_entity_change(factory));
+    }
+
+    for delta in pool_count_deltas {
+        out.entity_changes
+            .push(db::pool_created_factory_entity_change(delta))
+    }
+
+    for delta in tx_count_deltas {
+        if let Some(change) = db::tx_count_factory_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
+    }
+
+    for delta in swaps_volume_deltas {
+        if let Some(change) = db::swap_volume_factory_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
+    }
+
+    for delta in total_value_locked_deltas {
+        if let Some(change) = db::total_value_locked_factory_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
+    }
 
     Ok(out)
 }

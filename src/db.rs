@@ -3,13 +3,213 @@ use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::Field;
 use crate::{
     big_decimal_string_field_value, big_decimal_vec_field_value, big_int_field_value, new_field,
-    string_field_value, update_field, EntityChange, Erc20Token, Pool, PoolSqrtPrice,
+    string_field_value, update_field, utils, EntityChange, Erc20Token, Factory, Pool,
+    PoolSqrtPrice,
 };
 use num_bigint::BigInt;
 use std::str::FromStr;
 use substreams::pb::substreams::store_delta::Operation;
 use substreams::pb::substreams::StoreDelta;
 use substreams::{log, proto, Hex};
+
+// -------------------
+//  Map Factory Entities
+// -------------------
+pub fn factory_created_factory_entity_change(factory: Factory) -> EntityChange {
+    return EntityChange {
+        entity: "Factory".to_string(),
+        id: string_field_value!(factory.id),
+        ordinal: factory.log_ordinal,
+        operation: Operation::Create as i32,
+        fields: vec![
+            new_field!("id", FieldType::String, string_field_value!(factory.id)),
+            new_field!(
+                "poolCount",
+                FieldType::Bigint,
+                big_int_field_value!(BigInt::from(0 as i32).to_string())
+            ),
+            new_field!(
+                "txCount",
+                FieldType::Bigint,
+                big_int_field_value!(BigInt::from(0 as i32).to_string())
+            ),
+            new_field!(
+                "totalVolumeUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "totalVolumeETH",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "totalFeesUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "totalFeesETH",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "untrackedVolumeUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "totalValueLockedUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "totalValueLockedETH",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "totalValueLockedUSDUntracked",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "totalValueLockedETHUntracked",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+        ],
+    };
+}
+
+pub fn pool_created_factory_entity_change(pool_count_delta: StoreDelta) -> EntityChange {
+    return EntityChange {
+        entity: "Factory".to_string(),
+        id: string_field_value!(Hex(utils::UNISWAP_V3_FACTORY).to_string()),
+        ordinal: pool_count_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![update_field!(
+            "poolCount",
+            FieldType::Bigint,
+            big_int_field_value!(
+                BigInt::from_signed_bytes_be(pool_count_delta.old_value.as_ref()).to_string()
+            ),
+            big_int_field_value!(
+                BigInt::from_signed_bytes_be(pool_count_delta.new_value.as_ref()).to_string()
+            )
+        )],
+    };
+}
+
+pub fn tx_count_factory_entity_change(tx_count_delta: StoreDelta) -> Option<EntityChange> {
+    if !tx_count_delta.key.starts_with("factory:") {
+        return None;
+    }
+
+    return Some(EntityChange {
+        entity: "Factory".to_string(),
+        id: string_field_value!(Hex(utils::UNISWAP_V3_FACTORY).to_string()),
+        ordinal: tx_count_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![update_field!(
+            "txCount",
+            FieldType::Bigint,
+            big_int_field_value!(
+                BigInt::from_signed_bytes_be(tx_count_delta.old_value.as_ref()).to_string()
+            ),
+            big_int_field_value!(
+                BigInt::from_signed_bytes_be(tx_count_delta.new_value.as_ref()).to_string()
+            )
+        )],
+    });
+}
+
+pub fn swap_volume_factory_entity_change(swap_volume_delta: StoreDelta) -> Option<EntityChange> {
+    let mut change: EntityChange = EntityChange {
+        entity: "Factory".to_string(),
+        id: string_field_value!(Hex(utils::UNISWAP_V3_FACTORY).to_string()),
+        ordinal: swap_volume_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![],
+    };
+    match swap_volume_delta.key.as_str().split(":").last().unwrap() {
+        "usd" => change.fields.push(update_field!(
+            "totalVolumeUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        "untrackedUSD" => change.fields.push(update_field!(
+            "untrackedVolumeUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        "feesUSD" => change.fields.push(update_field!(
+            "totalFeesUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        "totalVolumeETH" => change.fields.push(update_field!(
+            "totalVolumeETH",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        "totalFeesETH" => change.fields.push(update_field!(
+            "totalFeesETH",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(swap_volume_delta.old_value),
+            big_decimal_vec_field_value!(swap_volume_delta.new_value)
+        )),
+        _ => {
+            return None;
+        }
+    }
+    Some(change)
+}
+
+// todo: set correct values
+pub fn total_value_locked_factory_entity_change(
+    total_value_locked_delta: StoreDelta,
+) -> Option<EntityChange> {
+    if !total_value_locked_delta.key.starts_with("pool:") {
+        return None;
+    }
+
+    let mut change: EntityChange = EntityChange {
+        entity: "Factory".to_string(),
+        id: string_field_value!(Hex(utils::UNISWAP_V3_FACTORY).to_string()),
+        ordinal: total_value_locked_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![],
+    };
+
+    match total_value_locked_delta
+        .key
+        .as_str()
+        .split(":")
+        .last()
+        .unwrap()
+    {
+        "usd" => change.fields.push(update_field!(
+            "totalValueLockedUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(total_value_locked_delta.old_value),
+            big_decimal_vec_field_value!(total_value_locked_delta.new_value)
+        )),
+        "eth" => change.fields.push(update_field!(
+            "totalValueLockedETH",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(total_value_locked_delta.old_value),
+            big_decimal_vec_field_value!(total_value_locked_delta.new_value)
+        )),
+        _ => {}
+    }
+
+    Some(change)
+}
 
 // -------------------
 //  Map Pool Entities

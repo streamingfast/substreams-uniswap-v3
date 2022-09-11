@@ -16,6 +16,8 @@ message Factory {
   string total_value_locked_usd_untracked = 11;
   string total_value_locked_eth_untracked = 12;
   string owner = 13;
+  uint64 log_ordinal = 14;
+  string transaction_id = 15;
 }
 
 message ERC20Tokens {
