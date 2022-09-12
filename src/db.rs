@@ -15,14 +15,18 @@ use substreams::{log, proto, Hex};
 // -------------------
 //  Map Factory Entities
 // -------------------
-pub fn factory_created_factory_entity_change(factory: Factory) -> EntityChange {
+pub fn factory_created_factory_entity_change() -> EntityChange {
     return EntityChange {
         entity: "Factory".to_string(),
-        id: string_field_value!(factory.id),
-        ordinal: factory.log_ordinal,
+        id: string_field_value!(Hex(utils::UNISWAP_V3_FACTORY).to_string()),
+        ordinal: 1,
         operation: Operation::Create as i32,
         fields: vec![
-            new_field!("id", FieldType::String, string_field_value!(factory.id)),
+            new_field!(
+                "id",
+                FieldType::String,
+                string_field_value!(Hex(utils::UNISWAP_V3_FACTORY).to_string())
+            ),
             new_field!(
                 "poolCount",
                 FieldType::Bigint,
@@ -77,6 +81,11 @@ pub fn factory_created_factory_entity_change(factory: Factory) -> EntityChange {
                 "totalValueLockedETHUntracked",
                 FieldType::Bigdecimal,
                 big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "owner",
+                FieldType::String,
+                string_field_value!(Hex(utils::ZERO_ADDRESS).to_string())
             ),
         ],
     };

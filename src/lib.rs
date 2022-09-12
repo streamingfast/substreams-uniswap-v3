@@ -38,34 +38,6 @@ use substreams::{log, proto, Hex};
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]
-pub fn map_factory_created(block: Block) -> Result<Factory, Error> {
-    let mut factory: Factory = Factory {
-        ..Default::default()
-    };
-    if block.number == UNISWAP_V3_SMART_CONTRACT_BLOCK as u64 {
-        for log in block.logs() {
-            if log.address() == UNISWAP_V3_FACTORY {
-                factory.id = "1f98431c8ad98523631ae4a59f267346ea31f984".to_string();
-                factory.owner = "0000000000000000000000000000000000000000".to_string();
-                factory.log_ordinal = log.ordinal();
-                factory.transaction_id = Hex(&log.receipt.transaction.hash).to_string();
-            }
-        }
-    }
-
-    return Ok(factory);
-}
-
-#[substreams::handlers::store]
-pub fn store_factory(factory: Factory, output: StoreSet) {
-    output.set(
-        factory.log_ordinal,
-        keyer::factory_key(),
-        &proto::encode(&factory).unwrap(),
-    )
-}
-
-#[substreams::handlers::map]
 pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
     let mut pools = vec![];
     for log in block.logs() {
@@ -629,7 +601,7 @@ pub fn map_event_amounts(events: Events) -> Result<pb::uniswap::EventAmounts, Er
                     log::debug!("handling burn for pool {}", event.pool_address);
                     let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
-                    let mut ea = EventAmount {
+                    event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         token0_addr: event.token0,
@@ -637,14 +609,13 @@ pub fn map_event_amounts(events: Events) -> Result<pb::uniswap::EventAmounts, Er
                         token1_addr: event.token1,
                         amount1_value: amount1.neg().to_string(),
                         ..Default::default()
-                    };
-                    event_amounts.push(ea);
+                    });
                 }
                 MintEvent(mint) => {
                     log::debug!("handling mint for pool {}", event.pool_address);
                     let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
                     let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
-                    let mut ea = EventAmount {
+                    event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         token0_addr: event.token0,
@@ -652,8 +623,7 @@ pub fn map_event_amounts(events: Events) -> Result<pb::uniswap::EventAmounts, Er
                         token1_addr: event.token1,
                         amount1_value: amount1.to_string(),
                         ..Default::default()
-                    };
-                    event_amounts.push(ea);
+                    });
                 }
                 SwapEvent(swap) => {
                     log::debug!("handling swap for pool {}", event.pool_address);
@@ -674,6 +644,14 @@ pub fn map_event_amounts(events: Events) -> Result<pb::uniswap::EventAmounts, Er
     }
     Ok(pb::uniswap::EventAmounts { event_amounts })
 }
+
+//todo: need to find a way to compute totalValueLockedETH for the factory
+// -> factory.totalValueLockedETH = factory.totalValueLockedETH.minus(pool.totalValueLockedETH)
+//    on each mint, burn and swap, we have to minus the totalValueLockedETH with the previous
+//    totalValueLockedETH from the pool and then add the newly computed pool.totalValueLockedETH
+//    to factory.totalValueLockedETH
+// Does the mean we need a substreams to read and write in the same store? Or think of a way to
+// keep the last value of pool.totalValueLockedETH and then "set" it?
 
 #[substreams::handlers::store]
 pub fn store_total_tx_counts(events: Events, output: StoreAddBigInt) {
@@ -1296,7 +1274,6 @@ pub fn store_ticks(events: Events, output_set: StoreSet) {
 #[substreams::handlers::map]
 pub fn map_factory_entities(
     block: Block,
-    factory: Factory,
     pool_count_deltas: store::Deltas,
     tx_count_deltas: store::Deltas,
     swaps_volume_deltas: store::Deltas,
@@ -1308,7 +1285,7 @@ pub fn map_factory_entities(
 
     if block.number == 12369621 {
         out.entity_changes
-            .push(db::factory_created_factory_entity_change(factory));
+            .push(db::factory_created_factory_entity_change());
     }
 
     for delta in pool_count_deltas {

@@ -19,14 +19,6 @@ binaries:
     file: target/wasm32-unknown-unknown/release/substreams_uniswap_v3.wasm
 
 modules:
-  - name: map_factory_created
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-    output:
-      type: proto:uniswap.types.v1.Factory
-
   - name: map_pools_created
     kind: map
     initialBlock: 12369621
@@ -229,7 +221,6 @@ modules:
     initialBlock: 12369621
     inputs:
       - source: sf.ethereum.type.v2.Block
-      - map: map_factory_created
       - store: store_pool_count
         mode: deltas
       - store: store_total_tx_counts
