@@ -14,24 +14,24 @@ mod utils;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
-use crate::keyer::{native_pool_from_key, native_token_from_key};
+use crate::keyer::native_pool_from_key;
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::{
     Burn, EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Events,
-    Factory, Field, Mint, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices,
-    Pools, Tick,
+    Field, Mint, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick,
 };
 use crate::price::WHITELIST_TOKENS;
-use crate::utils::{UNISWAP_V3_FACTORY, UNISWAP_V3_SMART_CONTRACT_BLOCK};
+use crate::utils::UNISWAP_V3_FACTORY;
 use bigdecimal::ToPrimitive;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use num_bigint::BigInt;
 use std::collections::HashMap;
-use std::ops::{Add, Div, Mul, Neg};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::str::FromStr;
 use substreams::errors::Error;
+use substreams::pb::substreams::StoreDeltas;
 use substreams::store;
 use substreams::store::{StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet};
 use substreams::{log, proto, Hex};
@@ -652,6 +652,63 @@ pub fn map_event_amounts(events: Events) -> Result<pb::uniswap::EventAmounts, Er
 //    to factory.totalValueLockedETH
 // Does the mean we need a substreams to read and write in the same store? Or think of a way to
 // keep the last value of pool.totalValueLockedETH and then "set" it?
+#[substreams::handlers::store]
+pub fn store_totals(
+    store_eth_prices: StoreGet,
+    total_value_locked_deltas: store::Deltas,
+    output: StoreAddBigFloat,
+) {
+    let mut pool_total_value_locked_eth_new_value: BigDecimal = BigDecimal::from(0);
+    for delta in total_value_locked_deltas {
+        if !delta.key.starts_with("pool:") {
+            continue;
+        }
+        match delta.key.as_str().split(":").last().unwrap() {
+            "eth" => {
+                let pool_total_value_locked_eth_old_value: BigDecimal =
+                    math::decimal_from_bytes(&delta.old_value);
+                pool_total_value_locked_eth_new_value = math::decimal_from_bytes(&delta.new_value);
+
+                let pool_total_value_locked_eth_diff: BigDecimal =
+                    pool_total_value_locked_eth_old_value
+                        .sub(pool_total_value_locked_eth_new_value.clone());
+
+                output.add(
+                    delta.ordinal,
+                    keyer::factory_total_value_locked_eth(),
+                    &pool_total_value_locked_eth_diff,
+                )
+            }
+            "usd" => {
+                let bundle_eth_price: BigDecimal = match store_eth_prices.get_last("bundle") {
+                    Some(price) => math::decimal_from_bytes(&price),
+                    None => continue,
+                };
+                log::debug!("eth_price_usd: {}", bundle_eth_price);
+
+                let total_value_locked_usd: BigDecimal = pool_total_value_locked_eth_new_value
+                    .clone()
+                    .mul(bundle_eth_price);
+
+                // here we have to do a hackish way to set the value, to not have to
+                // create a new store which would do the same but that would set the
+                // value instead of summing it, what we do is calculate the difference
+                // and simply add/sub the difference and that mimics the same as setting
+                // the value
+                let total_value_locked_usd_old_value: BigDecimal =
+                    math::decimal_from_bytes(&delta.old_value);
+                let diff: BigDecimal = total_value_locked_usd.sub(total_value_locked_usd_old_value);
+
+                output.add(
+                    delta.ordinal,
+                    keyer::factory_total_value_locked_usd(),
+                    &diff,
+                );
+            }
+            _ => continue,
+        }
+    }
+}
 
 #[substreams::handlers::store]
 pub fn store_total_tx_counts(events: Events, output: StoreAddBigInt) {
@@ -907,7 +964,7 @@ pub fn store_eth_prices(
     prices_store: StoreGet,
     tokens_whitelist_pools_store: StoreGet,
     total_native_value_locked_store: StoreGet,
-    pool_liquidities_store: store::StoreGet,
+    pool_liquidities_store: StoreGet,
     output: StoreSet,
 ) {
     for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
@@ -1041,11 +1098,18 @@ pub fn store_total_value_locked(
             None => continue,
             Some(bytes) => math::decimal_from_bytes(&bytes),
         };
-        if let Some(token_addr) = native_token_from_key(&native_total_value_locked.key) {
+        log::debug!(
+            "eth_price_usd: {}, native_total_value_locked.key: {}",
+            eth_price_usd,
+            native_total_value_locked.key
+        );
+        if let Some(token_addr) = keyer::native_token_from_key(&native_total_value_locked.key) {
             let value = math::decimal_from_bytes(&native_total_value_locked.new_value);
             let token_derive_eth =
                 helper::get_token_eth_price(&eth_prices_store, &token_addr).unwrap();
+
             let total_value_locked_usd = value.mul(token_derive_eth).mul(&eth_price_usd);
+
             log::info!(
                 "token {} total value locked usd: {}",
                 token_addr,
@@ -1064,8 +1128,8 @@ pub fn store_total_value_locked(
             if pool.token0.as_ref().unwrap().address != token_addr {
                 continue;
             }
-            let value = math::decimal_from_bytes(&native_total_value_locked.new_value);
-            let token_derive_eth =
+            let value: BigDecimal = math::decimal_from_bytes(&native_total_value_locked.new_value);
+            let token_derive_eth: BigDecimal =
                 helper::get_token_eth_price(&eth_prices_store, &token_addr).unwrap();
             let partial_pool_total_value_locked_eth = value.mul(token_derive_eth);
             log::info!(
@@ -1075,6 +1139,9 @@ pub fn store_total_value_locked(
                 partial_pool_total_value_locked_eth,
             );
             let aggregate_key = pool_addr.clone();
+
+            //fixme: @julien: it seems we never actually enter here... as it would only be valid if we have
+            // twice a valid event on the same pool
             if let Some(pool_agg) = pool_aggregator.get(&aggregate_key) {
                 let count = &pool_agg.0;
                 let rolling_sum = &pool_agg.1;
@@ -1090,6 +1157,12 @@ pub fn store_total_value_locked(
                         format!("this is unexpected should only see 2 pool keys")
                     )
                 }
+
+                log::info!(
+                    "partial_pool_total_value_locked_eth: {} and rolling_sum: {}",
+                    partial_pool_total_value_locked_eth,
+                    rolling_sum,
+                );
                 let pool_total_value_locked_eth =
                     partial_pool_total_value_locked_eth.add(rolling_sum);
                 let pool_total_value_locked_usd =
@@ -1277,7 +1350,7 @@ pub fn map_factory_entities(
     pool_count_deltas: store::Deltas,
     tx_count_deltas: store::Deltas,
     swaps_volume_deltas: store::Deltas,
-    total_value_locked_deltas: store::Deltas,
+    totals_deltas: store::Deltas,
 ) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
         ..Default::default()
@@ -1305,7 +1378,7 @@ pub fn map_factory_entities(
         }
     }
 
-    for delta in total_value_locked_deltas {
+    for delta in totals_deltas {
         if let Some(change) = db::total_value_locked_factory_entity_change(delta) {
             out.entity_changes.push(change);
         }

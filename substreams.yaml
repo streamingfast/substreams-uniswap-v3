@@ -114,6 +114,16 @@ modules:
     output:
       type: proto:uniswap.types.v1.EventAmounts
 
+  - name: store_totals
+    kind: store
+    initialBlock: 12369621
+    updatePolicy: add
+    valueType: bigfloat
+    inputs:
+      - store: store_eth_prices
+      - store: store_total_value_locked
+        mode: deltas
+
   - name: store_total_tx_counts
     kind: store
     updatePolicy: add
@@ -227,7 +237,7 @@ modules:
         mode: deltas
       - store: store_swaps_volume
         mode: deltas
-      - store: store_total_value_locked
+      - store: store_totals
         mode: deltas
     output:
       type: proto:uniswap.types.v1.EntitiesChanges

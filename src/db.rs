@@ -1,16 +1,14 @@
-use crate::pb::tokens::Token;
 use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::Field;
 use crate::{
     big_decimal_string_field_value, big_decimal_vec_field_value, big_int_field_value, new_field,
-    string_field_value, update_field, utils, EntityChange, Erc20Token, Factory, Pool,
-    PoolSqrtPrice,
+    string_field_value, update_field, utils, EntityChange, Erc20Token, Pool, PoolSqrtPrice,
 };
 use num_bigint::BigInt;
 use std::str::FromStr;
 use substreams::pb::substreams::store_delta::Operation;
 use substreams::pb::substreams::StoreDelta;
-use substreams::{log, proto, Hex};
+use substreams::{proto, Hex};
 
 // -------------------
 //  Map Factory Entities
@@ -179,11 +177,10 @@ pub fn swap_volume_factory_entity_change(swap_volume_delta: StoreDelta) -> Optio
     Some(change)
 }
 
-// todo: set correct values
 pub fn total_value_locked_factory_entity_change(
     total_value_locked_delta: StoreDelta,
 ) -> Option<EntityChange> {
-    if !total_value_locked_delta.key.starts_with("pool:") {
+    if !total_value_locked_delta.key.starts_with("factory:") {
         return None;
     }
 
@@ -202,13 +199,13 @@ pub fn total_value_locked_factory_entity_change(
         .last()
         .unwrap()
     {
-        "usd" => change.fields.push(update_field!(
+        "totalValueLockedUSD" => change.fields.push(update_field!(
             "totalValueLockedUSD",
             FieldType::Bigdecimal,
             big_decimal_vec_field_value!(total_value_locked_delta.old_value),
             big_decimal_vec_field_value!(total_value_locked_delta.new_value)
         )),
-        "eth" => change.fields.push(update_field!(
+        "totalValueLockedETH" => change.fields.push(update_field!(
             "totalValueLockedETH",
             FieldType::Bigdecimal,
             big_decimal_vec_field_value!(total_value_locked_delta.old_value),

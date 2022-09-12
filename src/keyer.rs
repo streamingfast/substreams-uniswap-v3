@@ -74,6 +74,17 @@ pub fn prices_token_pair(
 }
 
 // ------------------------------------------------
+//      store_totals
+// ------------------------------------------------
+pub fn factory_total_value_locked_eth() -> String {
+    format!("factory:totalValueLockedETH")
+}
+
+pub fn factory_total_value_locked_usd() -> String {
+    format!("factory:totalValueLockedUSD")
+}
+
+// ------------------------------------------------
 //      store_pool_fee_growth_global_x128
 // ------------------------------------------------
 pub fn pool_fee_growth_global_x128(pool_address: &String, token: String) -> String {
