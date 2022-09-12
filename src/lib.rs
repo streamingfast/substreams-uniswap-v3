@@ -1345,6 +1345,29 @@ pub fn store_ticks(events: Events, output_set: StoreSet) {
 // }
 
 #[substreams::handlers::map]
+pub fn map_bundle_entities(
+    block: Block,
+    derived_eth_prices_deltas: store::Deltas,
+) -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges {
+        ..Default::default()
+    };
+
+    if block.number == 12369621 {
+        out.entity_changes
+            .push(db::bundle_created_bundle_entity_change())
+    }
+
+    for delta in derived_eth_prices_deltas {
+        if let Some(change) = db::bundle_store_eth_price_usd_bundle_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
+    }
+
+    Ok(out)
+}
+
+#[substreams::handlers::map]
 pub fn map_factory_entities(
     block: Block,
     pool_count_deltas: store::Deltas,

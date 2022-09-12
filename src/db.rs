@@ -11,6 +11,47 @@ use substreams::pb::substreams::StoreDelta;
 use substreams::{proto, Hex};
 
 // -------------------
+//  Map Bundle Entities
+// -------------------
+pub fn bundle_created_bundle_entity_change() -> EntityChange {
+    return EntityChange {
+        entity: "Bundle".to_string(),
+        id: string_field_value!("1"),
+        ordinal: 1,
+        operation: Operation::Create as i32,
+        fields: vec![
+            new_field!("id", FieldType::String, string_field_value!("1")),
+            new_field!(
+                "ethPriceUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+        ],
+    };
+}
+
+pub fn bundle_store_eth_price_usd_bundle_entity_change(
+    derived_eth_prices_delta: StoreDelta,
+) -> Option<EntityChange> {
+    if !derived_eth_prices_delta.key.starts_with("bundle") {
+        return None;
+    }
+
+    Some(EntityChange {
+        entity: "Bundle".to_string(),
+        id: string_field_value!("1"),
+        ordinal: derived_eth_prices_delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![update_field!(
+            "ethPriceUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(derived_eth_prices_delta.old_value),
+            big_decimal_vec_field_value!(derived_eth_prices_delta.new_value)
+        )],
+    })
+}
+
+// -------------------
 //  Map Factory Entities
 // -------------------
 pub fn factory_created_factory_entity_change() -> EntityChange {

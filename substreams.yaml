@@ -226,6 +226,16 @@ modules:
     output:
       type: proto:uniswap.types.v1.Flashes
 
+  - name: map_bundle_entities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_eth_prices
+        mode: deltas
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges
+
   - name: map_factory_entities
     kind: map
     initialBlock: 12369621
