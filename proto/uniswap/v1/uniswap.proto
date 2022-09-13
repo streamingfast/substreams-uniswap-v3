@@ -37,28 +37,6 @@ message Pool {
   uint64 log_ordinal = 31;
   string transaction_id = 32;
   bool ignore_pool = 33;
-//      feeGrowthGlobal0X128: BigInt!
-//      feeGrowthGlobal1X128: BigInt!
-//      token0Price: BigDecimal!
-//      token1Price: BigDecimal!
-//      observationIndex: BigInt!
-//    volumeToken0: BigDecimal!
-//    volumeToken1: BigDecimal!
-//    volumeUSD: BigDecimal!
-//      untrackedVolumeUSD: BigDecimal!
-//      feesUSD: BigDecimal!
-//      txCount: BigInt!
-//      collectedFeesToken0: BigDecimal!
-//      collectedFeesToken1: BigDecimal!
-//    collectedFeesUSD: BigDecimal!
-//      totalValueLockedToken0: BigDecimal!
-//      totalValueLockedToken1: BigDecimal!
-//      totalValueLockedETH: BigDecimal!
-//    totalValueLockedUSD: BigDecimal!
-//      totalValueLockedUSDUntracked: BigDecimal!
-//    liquidityProviderCount: BigInt! # used to detect new exchanges
-//      poolHourData: [PoolHourData!]! @derivedFrom(field: "pool")
-//      poolDayData: [PoolDayData!]! @derivedFrom(field: "pool")
 }
 
 message PoolSqrtPrices {
@@ -90,6 +68,7 @@ message Event {
   string fee = 105;
   string transaction_id = 106;
   uint64 timestamp = 107;
+  uint64 created_at_block_number = 108;
 }
 
 message Swap {
@@ -156,10 +135,31 @@ message Ticks {
 }
 
 message Tick {
-  string pool_address = 1;
-  string idx = 2; //BigInteger
-  string price0 = 3; //BigDecimal
-  string price1 = 4; //BigDecimal
+  string id = 1;
+  string pool_address = 2;
+  string idx = 3; //BigInt
+  string price0 = 4; //BigDecimal
+  string price1 = 5; //BigDecimal
+  uint64 created_at_timestamp = 6;
+  uint64 created_at_block_number = 7;
+  string fee_growth_outside_0X_128 = 8; //BigInt
+  string fee_growth_outside_1X_128 = 9; //BigInt
+
+  // internals
+  uint64 log_ordinal = 10;
+  string amount = 11; //BigInt
+  enum Type {
+    TYPE_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
+    LOWER = 1;
+    UPPER = 2;
+  };
+  enum Origin {
+    ORIGIN_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
+    MINT = 1;
+    BURN = 2;
+  };
+  Origin origin = 12;
+  Type type = 13;
 }
 
 message Fees {

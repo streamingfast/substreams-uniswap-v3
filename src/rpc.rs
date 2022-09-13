@@ -1,6 +1,8 @@
+use crate::abi::pool::functions::Ticks;
 use crate::{eth, utils, Erc20Token};
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
+use std::str::FromStr;
 use substreams::log;
 use substreams_ethereum::pb::eth as ethpb;
 
@@ -26,13 +28,24 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDec
     log::info!("bytes response.0: {:?}", responses[0].raw);
     log::info!("bytes response.1: {:?}", responses[1].raw);
 
-    // todo: need to convert the data from bytes to bigdecimal
     let fee_growth_global_0_x128: BigDecimal =
         BigDecimal::from(BigInt::from_signed_bytes_be(responses[0].raw.as_ref()));
     let fee_growth_global_1_x128: BigDecimal =
         BigDecimal::from(BigInt::from_signed_bytes_be(responses[1].raw.as_ref()));
 
     return (fee_growth_global_0_x128, fee_growth_global_1_x128);
+}
+
+pub fn fee_growth_outside_x128_call(pool_address: &String, tick_idx: &String) -> (BigInt, BigInt) {
+    let tick: BigInt = BigInt::from_str(tick_idx.as_str()).unwrap();
+    let tick = Ticks { tick };
+    let (_, _, fee_growth_outside_0x_128, fee_growth_outside_1x_128, _, _, _, _) =
+        tick.call(hex::decode(pool_address).unwrap()).unwrap();
+
+    return (
+        BigInt::from_str(fee_growth_outside_0x_128.to_string().as_str()).unwrap(),
+        BigInt::from_str(fee_growth_outside_1x_128.to_string().as_str()).unwrap(),
+    );
 }
 
 pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {

@@ -134,7 +134,7 @@ modules:
   - name: store_swaps_volume
     kind: store
     updatePolicy: add
-    valueType: bigint
+    valueType: bigfloat
     inputs:
       - map: map_swaps_mints_burns
       - store: store_pools
@@ -188,17 +188,32 @@ modules:
       - store: store_pools
       - store: store_eth_prices
 
-  - name: store_swaps
-    kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Swap
+  - name: map_ticks
+    kind: map
+    initialBlock: 12369621
     inputs:
       - map: map_swaps_mints_burns
+    output:
+      type: proto:uniswap.types.v1.Ticks
 
   - name: store_ticks
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Tick
+    inputs:
+      - map: map_ticks
+
+  - name: store_ticks_liquidities
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_ticks
+
+  - name: store_swaps
+    kind: store
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.Swap
     inputs:
       - map: map_swaps_mints_burns
 
@@ -290,6 +305,16 @@ modules:
       - store: store_total_value_locked
         mode: deltas
       - store: store_eth_prices
+        mode: deltas
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges
+
+  - name: map_tick_entities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - map: map_ticks
+      - store: store_ticks_liquidities
         mode: deltas
     output:
       type: proto:uniswap.types.v1.EntitiesChanges

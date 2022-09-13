@@ -2,13 +2,6 @@ use crate::utils;
 use substreams::Hex;
 
 // ------------------------------------------------
-//      store_factory
-// ------------------------------------------------
-pub fn factory_key() -> String {
-    format!("factory:{}", Hex(utils::UNISWAP_V3_FACTORY))
-}
-
-// ------------------------------------------------
 //      store_pools_count
 // ------------------------------------------------
 pub fn factory_pool_count_key() -> String {
@@ -231,6 +224,24 @@ pub fn swap_factory_total_volume_eth() -> String {
 
 pub fn swap_factory_total_fees_eth() -> String {
     format!("factory:totalFeesETH")
+}
+
+// ------------------------------------------------
+//      store_ticks
+// ------------------------------------------------
+pub fn ticks(key: &String) -> String {
+    format!("tick:{}", key) // tick:{pool_addr}#tick_lower/tick_upper
+}
+
+// ------------------------------------------------
+//      store_ticks_liquidities
+// ------------------------------------------------
+pub fn tick_liquidities_net(key: &String) -> String {
+    format!("tick:{}:liquidityNet", key)
+}
+
+pub fn tick_liquidities_gross(key: &String) -> String {
+    format!("tick:{}:liquidityGross", key)
 }
 
 #[cfg(test)]

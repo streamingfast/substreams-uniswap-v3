@@ -1,5 +1,5 @@
 use crate::{helper, math, Erc20Token};
-use bigdecimal::{BigDecimal, One, ParseBigDecimalError, Zero};
+use bigdecimal::{BigDecimal, One, Zero};
 use num_bigint::BigInt;
 use std::ops::{Div, Mul};
 use std::str;

@@ -2,7 +2,7 @@ use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::Field;
 use crate::{
     big_decimal_string_field_value, big_decimal_vec_field_value, big_int_field_value, new_field,
-    string_field_value, update_field, utils, EntityChange, Erc20Token, Pool, PoolSqrtPrice,
+    string_field_value, update_field, utils, EntityChange, Erc20Token, Pool, PoolSqrtPrice, Tick,
 };
 use num_bigint::BigInt;
 use std::str::FromStr;
@@ -1094,6 +1094,180 @@ pub fn derived_eth_prices_token_entity_change(
             big_decimal_vec_field_value!(derived_eth_prices_delta.old_value),
             big_decimal_vec_field_value!(derived_eth_prices_delta.new_value)
         )),
+        _ => return None,
+    }
+
+    Some(change)
+}
+
+// --------------------
+//  Map Tick Entities
+// --------------------
+pub fn ticks_created_tick_entity_change(tick: Tick) -> EntityChange {
+    return EntityChange {
+        entity: "Tick".to_string(),
+        id: string_field_value!(tick.id),
+        ordinal: tick.log_ordinal,
+        operation: Operation::Create as i32,
+        fields: vec![
+            new_field!("id", FieldType::String, string_field_value!(tick.id)),
+            new_field!(
+                "poolAddress",
+                FieldType::String,
+                string_field_value!(tick.pool_address)
+            ),
+            new_field!("tickIdx", FieldType::Bigint, big_int_field_value!(tick.idx)),
+            new_field!(
+                "pool",
+                FieldType::String,
+                string_field_value!(tick.pool_address)
+            ),
+            new_field!(
+                "liquidityGross",
+                FieldType::Bigint,
+                big_int_field_value!(BigInt::from(0 as i32).to_string())
+            ),
+            new_field!(
+                "liquidityNet",
+                FieldType::Bigint,
+                big_int_field_value!(BigInt::from(0 as i32).to_string())
+            ),
+            new_field!(
+                "price0",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!(tick.price0)
+            ),
+            new_field!(
+                "price1",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!(tick.price1)
+            ),
+            new_field!(
+                "volumeToken0",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "volumeToken1",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "volumeUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "untrackedVolumeUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "feesUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "collectedFeesToken0",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "collectedFeesToken1",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "collectedFeesUSD",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            new_field!(
+                "createdAtTimestamp",
+                FieldType::Bigint,
+                big_int_field_value!(tick.created_at_timestamp.to_string())
+            ),
+            new_field!(
+                "createdAtBlockNumber",
+                FieldType::Bigint,
+                big_int_field_value!(tick.created_at_block_number.to_string())
+            ),
+            new_field!(
+                "liquidityProviderCount",
+                FieldType::Bigint,
+                big_int_field_value!(BigInt::from(0 as i32).to_string())
+            ),
+            new_field!(
+                "feeGrowthOutside0X128",
+                FieldType::Bigint,
+                big_int_field_value!(tick.fee_growth_outside_0x_128)
+            ),
+            new_field!(
+                "feeGrowthOutside1X128",
+                FieldType::Bigint,
+                big_int_field_value!(tick.fee_growth_outside_1x_128)
+            ),
+        ],
+    };
+}
+
+pub fn ticks_updated_tick_entity_change(old_tick: Tick, new_tick: Tick) -> EntityChange {
+    return EntityChange {
+        entity: "Tick".to_string(),
+        id: string_field_value!(new_tick.id),
+        ordinal: new_tick.log_ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![
+            update_field!(
+                "feeGrowthOutside0X128",
+                FieldType::Bigint,
+                big_int_field_value!(old_tick.fee_growth_outside_0x_128),
+                big_int_field_value!(new_tick.fee_growth_outside_0x_128)
+            ),
+            update_field!(
+                "feeGrowthOutside1X128",
+                FieldType::Bigint,
+                big_int_field_value!(old_tick.fee_growth_outside_1x_128),
+                big_int_field_value!(new_tick.fee_growth_outside_1x_128)
+            ),
+        ],
+    };
+}
+
+pub fn ticks_liquidities_tick_entity_change(delta: StoreDelta) -> Option<EntityChange> {
+    let mut change: EntityChange = EntityChange {
+        entity: "Tick".to_string(),
+        id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+        ordinal: delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![],
+    };
+
+    match delta.key.as_str().split(":").last().unwrap() {
+        "liquidityNet" => {
+            change.fields.push(update_field!(
+                "liquidityNet",
+                FieldType::Bigint,
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.old_value.as_ref()).to_string()
+                ),
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.new_value.as_ref()).to_string()
+                )
+            ))
+        }
+        "liquidityGross" => {
+            change.fields.push(update_field!(
+                "liquidityGross",
+                FieldType::Bigint,
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.old_value.as_ref()).to_string()
+                ),
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.new_value.as_ref()).to_string()
+                )
+            ))
+        }
         _ => return None,
     }
 
