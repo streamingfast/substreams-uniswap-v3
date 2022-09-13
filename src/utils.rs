@@ -1,3 +1,5 @@
+use crate::ethpb::v2::TransactionTrace;
+use crate::uniswap::Transaction;
 use crate::{math, Erc20Token, Pool, PoolLiquidity, StorageChange, WHITELIST_TOKENS};
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
@@ -5,6 +7,7 @@ use std::ops::{Add, Mul};
 use std::str;
 use std::str::FromStr;
 use substreams::{hex, log, Hex};
+use substreams_ethereum::pb::eth::v2::Block;
 
 // const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 // const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -12,6 +15,8 @@ use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
 pub const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
+pub const NON_FUNGIBLE_POSITION_MANAGER: [u8; 20] =
+    hex!("c36442b4a4522e871399cd717abdd847ab11fe88");
 
 pub const _STABLE_COINS: [&str; 6] = [
     "6b175474e89094c44da98b954eedeac495271d0f",
@@ -188,4 +193,21 @@ pub fn get_tracked_amount_usd(
 
     // neither token is on white list, tracked amount is 0
     return BigDecimal::from(0 as i32);
+}
+
+pub fn load_transaction(
+    block_number: u64,
+    timestamp: u64,
+    transaction: &TransactionTrace,
+) -> Transaction {
+    return Transaction {
+        id: Hex(&transaction.hash).to_string(),
+        block_number,
+        timestamp,
+        gas_used: transaction.gas_used,
+        gas_price: BigInt::from_signed_bytes_be(
+            transaction.clone().gas_price.unwrap().bytes.as_slice(),
+        )
+        .to_string(),
+    };
 }

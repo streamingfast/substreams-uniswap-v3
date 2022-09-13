@@ -26,7 +26,8 @@ use crate::pb::uniswap::{
     Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
 };
 use crate::price::WHITELIST_TOKENS;
-use crate::utils::UNISWAP_V3_FACTORY;
+use crate::uniswap::{Transaction, Transactions};
+use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY};
 use bigdecimal::ToPrimitive;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use num_bigint::BigInt;
@@ -650,13 +651,96 @@ pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error>
     Ok(pb::uniswap::EventAmounts { event_amounts })
 }
 
-//todo: need to find a way to compute totalValueLockedETH for the factory
-// -> factory.totalValueLockedETH = factory.totalValueLockedETH.minus(pool.totalValueLockedETH)
-//    on each mint, burn and swap, we have to minus the totalValueLockedETH with the previous
-//    totalValueLockedETH from the pool and then add the newly computed pool.totalValueLockedETH
-//    to factory.totalValueLockedETH
-// Does the mean we need a substreams to read and write in the same store? Or think of a way to
-// keep the last value of pool.totalValueLockedETH and then "set" it?
+#[substreams::handlers::map]
+pub fn map_transactions(block: Block, pools_store: StoreGet) -> Result<Transactions, Error> {
+    let mut transactions: Transactions = Transactions {
+        transactions: vec![],
+    };
+
+    let mut add_transaction = false;
+
+    for log in block.logs() {
+        let pool_key = &format!("pool:{}", Hex(&log.address()).to_string());
+
+        if let Some(_) = abi::pool::events::Burn::match_and_decode(log) {
+            match pools_store.get_last(pool_key) {
+                None => {
+                    log::info!(
+                        "invalid burn. pool does not exist. pool address {} transaction {}",
+                        Hex(&log.address()).to_string(),
+                        Hex(&log.receipt.transaction.hash).to_string()
+                    );
+                    continue;
+                }
+                Some(_) => add_transaction = true,
+            }
+        } else if let Some(_) = abi::pool::events::Mint::match_and_decode(log) {
+            match pools_store.get_last(pool_key) {
+                None => {
+                    log::info!(
+                        "invalid mint. pool does not exist. pool address {} transaction {}",
+                        Hex(&log.address()).to_string(),
+                        Hex(&log.receipt.transaction.hash).to_string()
+                    );
+                    continue;
+                }
+                Some(_) => add_transaction = true,
+            }
+        } else if let Some(_) = abi::pool::events::Swap::match_and_decode(log) {
+            match pools_store.get_last(pool_key) {
+                None => {
+                    log::info!(
+                        "invalid swap. pool does not exist. pool address {} transaction {}",
+                        Hex(&log.address()).to_string(),
+                        Hex(&log.receipt.transaction.hash).to_string()
+                    );
+                    continue;
+                }
+                Some(_) => add_transaction = true,
+            }
+        } else if let Some(_) =
+            abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log)
+        {
+            if log.address() == NON_FUNGIBLE_POSITION_MANAGER {
+                add_transaction = true;
+            }
+        } else if let Some(_) = abi::positionmanager::events::Collect::match_and_decode(log) {
+            if log.address() == NON_FUNGIBLE_POSITION_MANAGER {
+                add_transaction = true;
+            }
+        } else if let Some(_) =
+            abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log)
+        {
+            if log.address() == NON_FUNGIBLE_POSITION_MANAGER {
+                add_transaction = true;
+            }
+        } else if let Some(_) = abi::positionmanager::events::Transfer::match_and_decode(log) {
+            if log.address() == NON_FUNGIBLE_POSITION_MANAGER {
+                add_transaction = true;
+            }
+        }
+
+        if add_transaction {
+            transactions.transactions.push(utils::load_transaction(
+                block.number,
+                block
+                    .header
+                    .as_ref()
+                    .unwrap()
+                    .timestamp
+                    .as_ref()
+                    .unwrap()
+                    .seconds as u64,
+                log.receipt.transaction,
+            ));
+
+            add_transaction = false;
+        }
+    }
+
+    Ok(transactions)
+}
+
 #[substreams::handlers::store]
 pub fn store_totals(
     store_eth_prices: StoreGet,
@@ -1724,6 +1808,19 @@ pub fn map_tick_entities(
             out.entity_changes.push(change);
         }
     }
+
+    Ok(out)
+}
+
+#[substreams::handlers::map]
+pub fn map_transaction_entities(transactions: Transactions) -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges {
+        block_id: vec![],
+        block_number: 0,
+        prev_block_id: vec![],
+        prev_block_number: 0,
+        entity_changes: vec![],
+    };
 
     Ok(out)
 }

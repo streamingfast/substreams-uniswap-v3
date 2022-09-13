@@ -225,3 +225,15 @@ message Field {
   bytes old_value = 5;
   bool old_value_null = 6;
 }
+
+message Transactions {
+  repeated Transaction transactions = 1;
+}
+
+message Transaction {
+  string id = 1;
+  uint64 block_number = 2; //BigInt
+  uint64 timestamp = 3; //BigInt
+  uint64 gas_used = 4; // BigInt
+  string gas_price = 5; //BigInt
+}

@@ -8,6 +8,9 @@ fn main() -> Result<(), anyhow::Error> {
     Abigen::new("factory", "abis/factory.json")?
         .generate()?
         .write_to_file("src/abi/factory.rs")?;
+    Abigen::new("positionmanager", "abis/NonfungiblePositionManager.json")?
+        .generate()?
+        .write_to_file("src/abi/positionmanager.rs")?;
 
     Ok(())
 }
