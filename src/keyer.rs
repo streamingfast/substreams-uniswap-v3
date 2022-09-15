@@ -249,8 +249,30 @@ pub fn tick_liquidities_gross(key: &String) -> String {
     format!("tick:{}:liquidityGross", key)
 }
 
-pub fn position(id: &String) -> String {
-    format!("{}", id)
+// ------------------------------------------------
+//      store_all_positions and store_positions
+// ------------------------------------------------
+pub fn position(id: &String, event_type: &String) -> String {
+    format!("position:{}:{}", id, event_type)
+}
+
+// ------------------------------------------------
+//      store_positions_misc
+// ------------------------------------------------
+pub fn position_liquidity(id: &String) -> String {
+    format!("position:{}:liquidity", id)
+}
+
+pub fn position_deposited_token(id: &String, token: &str) -> String {
+    format!("position:{}:deposited{}", id, token)
+}
+
+pub fn position_withdrawn_token(id: &String, token: &str) -> String {
+    format!("position:{}:withdrawn{}", id, token)
+}
+
+pub fn position_collected_fees_token(id: &String, token: &str) -> String {
+    format!("position:{}:collectedFees{}", id, token)
 }
 
 #[cfg(test)]

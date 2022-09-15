@@ -256,6 +256,9 @@ message Position {
   string transaction = 8;
   string feeGrowthInside0LastX128 = 9;
   string feeGrowthInside1LastX128 = 10;
+  string liquidity = 11;
+  string amount0 = 12;
+  string amount1 = 13;
 
   // internals
   enum PositionType {
@@ -265,6 +268,6 @@ message Position {
     DECREASE_LIQUIDITY = 3;
     TRANSFER = 4;
   }
-  PositionType positionType = 11;
-  uint64 log_ordinal = 12;
+  PositionType positionType = 14;
+  uint64 log_ordinal = 15;
 }

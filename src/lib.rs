@@ -15,7 +15,7 @@ mod utils;
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
 use crate::keyer::native_pool_from_key;
-use crate::pb::uniswap;
+use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::field::Type as FieldType;
@@ -25,7 +25,9 @@ use crate::pb::uniswap::{
     EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Events, Field,
     Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
 };
+use crate::pb::{uniswap, PositionEvent};
 use crate::price::WHITELIST_TOKENS;
+use crate::uniswap::position::PositionType;
 use crate::uniswap::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
@@ -33,6 +35,7 @@ use crate::uniswap::{Position, Positions, Transaction, Transactions};
 use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY, ZERO_ADDRESS};
 use bigdecimal::ToPrimitive;
 use bigdecimal::{BigDecimal, FromPrimitive};
+use ethabi::Token::Uint;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -467,7 +470,7 @@ pub fn map_swaps_mints_burns(block: Block, pools_store: StoreGet) -> Result<Even
                             .unwrap()
                             .seconds as u64,
                         created_at_block_number: block.number,
-                        r#type: Some(SwapEvent(pb::uniswap::Swap {
+                        r#type: Some(SwapEvent(uniswap::Swap {
                             sender: Hex(&swap.sender).to_string(),
                             recipient: Hex(&swap.recipient).to_string(),
                             origin: Hex(&log.receipt.transaction.from).to_string(),
@@ -1505,10 +1508,12 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
             if let Some(position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
-                event.token_id,
                 &log.receipt.transaction.hash,
                 IncreaseLiquidity,
                 log.ordinal(),
+                PositionEvent {
+                    event: PositionEventType::IncreaseLiquidity(event),
+                },
             ) {
                 positions.positions.push(position);
             }
@@ -1516,10 +1521,12 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
             if let Some(position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
-                event.token_id,
                 &log.receipt.transaction.hash,
                 Collect,
                 log.ordinal(),
+                PositionEvent {
+                    event: PositionEventType::Collect(event),
+                },
             ) {
                 positions.positions.push(position);
             }
@@ -1529,10 +1536,12 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
             if let Some(position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
-                event.token_id,
                 &log.receipt.transaction.hash,
                 DecreaseLiquidity,
                 log.ordinal(),
+                PositionEvent {
+                    event: PositionEventType::DecreaseLiquidity(event),
+                },
             ) {
                 positions.positions.push(position);
             }
@@ -1540,10 +1549,12 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
             if let Some(mut position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
-                event.token_id,
                 &log.receipt.transaction.hash,
                 Transfer,
                 log.ordinal(),
+                PositionEvent {
+                    event: PositionEventType::Transfer(event.clone()),
+                },
             ) {
                 position.owner = Hex(event.to.as_slice()).to_string();
                 positions.positions.push(position);
@@ -1559,7 +1570,10 @@ pub fn store_all_positions(positions: Positions, output: StoreSet) {
     for position in positions.positions {
         output.set(
             position.log_ordinal,
-            keyer::position(&position.id),
+            keyer::position(
+                &position.id,
+                &PositionType::get_position_type(position.position_type).to_string(),
+            ),
             &proto::encode(&position).unwrap(),
         )
     }
@@ -1576,7 +1590,10 @@ pub fn map_positions(block: Block, all_positions_store: StoreGet) -> Result<Posi
 
         if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log)
         {
-            match all_positions_store.get_last(keyer::position(&event.token_id.to_string())) {
+            match all_positions_store.get_last(keyer::position(
+                &event.token_id.to_string(),
+                &IncreaseLiquidity.to_string(),
+            )) {
                 None => {
                     log::info!("increase liquidity for id {} doesn't exist", event.token_id)
                 }
@@ -1586,7 +1603,10 @@ pub fn map_positions(block: Block, all_positions_store: StoreGet) -> Result<Posi
                 }
             }
         } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
-            match all_positions_store.get_last(keyer::position(&event.token_id.to_string())) {
+            match all_positions_store.get_last(keyer::position(
+                &event.token_id.to_string(),
+                &Collect.to_string(),
+            )) {
                 None => {
                     log::info!("increase liquidity for id {} doesn't exist", event.token_id)
                 }
@@ -1604,7 +1624,10 @@ pub fn map_positions(block: Block, all_positions_store: StoreGet) -> Result<Posi
         } else if let Some(event) =
             abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log)
         {
-            match all_positions_store.get_last(keyer::position(&event.token_id.to_string())) {
+            match all_positions_store.get_last(keyer::position(
+                &event.token_id.to_string(),
+                &DecreaseLiquidity.to_string(),
+            )) {
                 None => {
                     log::info!("increase liquidity for id {} doesn't exist", event.token_id)
                 }
@@ -1614,7 +1637,10 @@ pub fn map_positions(block: Block, all_positions_store: StoreGet) -> Result<Posi
                 }
             }
         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-            match all_positions_store.get_last(keyer::position(&event.token_id.to_string())) {
+            match all_positions_store.get_last(keyer::position(
+                &event.token_id.to_string(),
+                &Transfer.to_string(),
+            )) {
                 None => {
                     log::info!("increase liquidity for id {} doesn't exist", event.token_id)
                 }
@@ -1635,9 +1661,66 @@ pub fn store_positions(positions: Positions, output: StoreSet) {
     for position in positions.positions {
         output.set(
             position.log_ordinal,
-            keyer::position(&position.id),
+            keyer::position(&position.id, &position.position_type.to_string()),
             &proto::encode(&position).unwrap(),
         )
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_positions_changes(positions: Positions, output: StoreAddBigFloat) {
+    for position in positions.positions {
+        match position.position_type {
+            x if x == IncreaseLiquidity as i32 => {
+                output.add(
+                    position.log_ordinal,
+                    keyer::position_liquidity(&position.id),
+                    &BigDecimal::from_str(position.liquidity.as_str()).unwrap(),
+                );
+                output.add(
+                    position.log_ordinal,
+                    keyer::position_deposited_token(&position.id, "Token0"),
+                    &BigDecimal::from_str(position.amount0.as_str()).unwrap(),
+                );
+                output.add(
+                    position.log_ordinal,
+                    keyer::position_deposited_token(&position.id, "Token1"),
+                    &BigDecimal::from_str(position.amount1.as_str()).unwrap(),
+                );
+            }
+            x if x == DecreaseLiquidity as i32 => {
+                output.add(
+                    position.log_ordinal,
+                    keyer::position_liquidity(&position.id),
+                    &BigDecimal::from_str(position.liquidity.as_str())
+                        .unwrap()
+                        .neg(),
+                );
+                output.add(
+                    position.log_ordinal,
+                    keyer::position_withdrawn_token(&position.id, "Token0"),
+                    &BigDecimal::from_str(position.amount0.as_str()).unwrap(),
+                );
+                output.add(
+                    position.log_ordinal,
+                    keyer::position_withdrawn_token(&position.id, "Token1"),
+                    &BigDecimal::from_str(position.amount1.as_str()).unwrap(),
+                );
+            }
+            x if x == Collect as i32 => {
+                output.add(
+                    position.log_ordinal,
+                    keyer::position_collected_fees_token(&position.id, "Token0"),
+                    &BigDecimal::from_str(position.amount0.as_str()).unwrap(),
+                );
+                output.add(
+                    position.log_ordinal,
+                    keyer::position_collected_fees_token(&position.id, "Token1"),
+                    &BigDecimal::from_str(position.amount1.as_str()).unwrap(),
+                );
+            }
+            _ => {}
+        }
     }
 }
 

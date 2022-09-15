@@ -1,4 +1,5 @@
 use crate::ethpb::v2::TransactionTrace;
+use crate::pb::PositionEvent;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::Transaction;
 use crate::{
@@ -224,12 +225,12 @@ pub fn load_transaction(
 pub fn get_position(
     store_pool: &StoreGet,
     log_address: &String,
-    token_id: Uint,
     transaction_hash: &Vec<u8>,
     position_type: PositionType,
     log_ordinal: u64,
+    event: PositionEvent,
 ) -> Option<Position> {
-    if let Some(positions_call_result) = rpc::positions_call(log_address, token_id) {
+    if let Some(positions_call_result) = rpc::positions_call(log_address, event.get_token_id()) {
         let token0_bytes = positions_call_result.0;
         let token1_bytes = positions_call_result.1;
         let fee = positions_call_result.2;
@@ -260,8 +261,11 @@ pub fn get_position(
             Some(pool_bytes) => pool = proto::decode(&pool_bytes).unwrap(),
         }
 
+        let amount0 = convert_token_to_decimal(&event.get_amount0(), pool.token0.unwrap().decimals);
+        let amount1 = convert_token_to_decimal(&event.get_amount1(), pool.token1.unwrap().decimals);
+
         return Some(Position {
-            id: token_id.to_string(),
+            id: event.get_token_id().to_string(),
             owner: Hex(ZERO_ADDRESS).to_string(),
             pool: pool.address.clone(),
             token0,
@@ -271,6 +275,9 @@ pub fn get_position(
             transaction: Hex(&transaction_hash).to_string(),
             fee_growth_inside0_last_x128: fee_growth_inside0last_x128.to_string(),
             fee_growth_inside1_last_x128: fee_growth_inside1last_x128.to_string(),
+            liquidity: event.get_liquidity(),
+            amount0: amount0.to_string(),
+            amount1: amount1.to_string(),
             position_type: position_type as i32,
             log_ordinal,
         });
