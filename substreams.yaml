@@ -219,6 +219,40 @@ modules:
     inputs:
       - map: map_ticks
 
+  - name: map_all_positions
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pools
+    output:
+      type: proto:uniswap.types.v1.Positions
+
+  - name: store_all_positions
+    kind: store
+    updatePolicy: set
+    initialBlock: 12369621
+    valueType: proto:uniswap.types.v1.Position
+    inputs:
+      - map: map_all_positions
+
+  - name: map_positions
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_all_positions
+    output:
+      type: proto:uniswap.types.v1.Positions
+
+  - name: store_positions
+    kind: store
+    updatePolicy: set
+    initialBlock: 12369621
+    valueType: proto:uniswap.types.v1.Position
+    inputs:
+      - map: map_positions
+
   - name: store_swaps
     kind: store
     updatePolicy: set
@@ -325,6 +359,14 @@ modules:
       - map: map_ticks
       - store: store_ticks_liquidities
         mode: deltas
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges
+
+  - name: map_positions_entities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - map: map_positions
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
 

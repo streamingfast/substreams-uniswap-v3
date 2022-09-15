@@ -15,10 +15,15 @@ pub fn pool_key(pool_address: &String) -> String {
     format!("pool:{}", pool_address)
 }
 
-pub fn pool_token_index_key(token0_address: &String, token1_address: &String) -> String {
+pub fn pool_token_index_key(
+    token0_address: &String,
+    token1_address: &String,
+    fee: &String,
+) -> String {
     format!(
-        "index:{}",
-        generate_tokens_key(token0_address.as_str(), token1_address.as_str())
+        "index:{}:{}",
+        generate_tokens_key(token0_address.as_str(), token1_address.as_str()),
+        fee
     )
 }
 
@@ -242,6 +247,10 @@ pub fn tick_liquidities_net(key: &String) -> String {
 
 pub fn tick_liquidities_gross(key: &String) -> String {
     format!("tick:{}:liquidityGross", key)
+}
+
+pub fn position(id: &String) -> String {
+    format!("{}", id)
 }
 
 #[cfg(test)]

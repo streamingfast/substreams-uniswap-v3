@@ -1,9 +1,9 @@
-use crate::abi::pool::functions::Ticks;
-use crate::{eth, utils, Erc20Token};
+use crate::{abi, eth, utils, Erc20Token};
 use bigdecimal::BigDecimal;
+use ethabi::Uint;
 use num_bigint::BigInt;
 use std::str::FromStr;
-use substreams::log;
+use substreams::{log, Hex};
 use substreams_ethereum::pb::eth as ethpb;
 
 pub fn token_total_supply_call(token_address: &String) -> BigInt {
@@ -38,7 +38,7 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDec
 
 pub fn fee_growth_outside_x128_call(pool_address: &String, tick_idx: &String) -> (BigInt, BigInt) {
     let tick: BigInt = BigInt::from_str(tick_idx.as_str()).unwrap();
-    let tick = Ticks { tick };
+    let tick = abi::pool::functions::Ticks { tick };
     let (_, _, fee_growth_outside_0x_128, fee_growth_outside_1x_128, _, _, _, _) =
         tick.call(hex::decode(pool_address).unwrap()).unwrap();
 
@@ -46,6 +46,26 @@ pub fn fee_growth_outside_x128_call(pool_address: &String, tick_idx: &String) ->
         BigInt::from_str(fee_growth_outside_0x_128.to_string().as_str()).unwrap(),
         BigInt::from_str(fee_growth_outside_1x_128.to_string().as_str()).unwrap(),
     );
+}
+
+pub fn positions_call(
+    pool_address: &String,
+    token_id: Uint,
+) -> Option<(Vec<u8>, Vec<u8>, BigInt, BigInt, BigInt, BigInt, BigInt)> {
+    let positions = abi::positionmanager::functions::Positions { token_id };
+    if let Some(positions_result) = positions.call(hex::decode(pool_address).unwrap()) {
+        return Some((
+            positions_result.2,
+            positions_result.3,
+            BigInt::from_str(positions_result.4.to_string().as_str()).unwrap(),
+            positions_result.5,
+            positions_result.6,
+            BigInt::from_str(positions_result.8.to_string().as_str()).unwrap(),
+            BigInt::from_str(positions_result.9.to_string().as_str()).unwrap(),
+        ));
+    };
+
+    return None;
 }
 
 pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {

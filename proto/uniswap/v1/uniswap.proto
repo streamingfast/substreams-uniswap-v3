@@ -236,4 +236,35 @@ message Transaction {
   uint64 timestamp = 3; //BigInt
   uint64 gas_used = 4; // BigInt
   string gas_price = 5; //BigInt
+
+  // internals
+  uint64 log_ordinal = 6;
+}
+
+message Positions {
+  repeated Position positions = 1;
+}
+
+message Position {
+  string id = 1;
+  string owner = 2;
+  string pool = 3;
+  string token0 = 4;
+  string token1 = 5;
+  string tick_lower = 6;
+  string tick_upper = 7;
+  string transaction = 8;
+  string feeGrowthInside0LastX128 = 9;
+  string feeGrowthInside1LastX128 = 10;
+
+  // internals
+  enum PositionType {
+    UNSET = 0;
+    INCREASE_LIQUIDITY = 1;
+    COLLECT = 2;
+    DECREASE_LIQUIDITY = 3;
+    TRANSFER = 4;
+  }
+  PositionType positionType = 11;
+  uint64 log_ordinal = 12;
 }
