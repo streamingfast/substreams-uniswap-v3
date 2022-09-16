@@ -375,6 +375,8 @@ modules:
     initialBlock: 12369621
     inputs:
       - map: map_positions
+      - store: store_positions_changes
+        mode: deltas
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
 

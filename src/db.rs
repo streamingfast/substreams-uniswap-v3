@@ -1338,6 +1338,50 @@ pub fn position_create_entity_change(position: Position) -> EntityChange {
     };
 }
 
+pub fn positions_changes_entity_change(delta: StoreDelta) -> Option<EntityChange> {
+    let mut change: EntityChange = EntityChange {
+        entity: "Position".to_string(),
+        id: string_field_value!(delta.key.as_str().split(":").nth(1).unwrap()),
+        ordinal: delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![],
+    };
+
+    let mut name: &str = "";
+
+    match delta.key.as_str().split(":").last().unwrap() {
+        "liquidity" => {
+            change.fields.push(update_field!(
+                "liquidity",
+                FieldType::Bigint,
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.old_value.as_ref()).to_string()
+                ),
+                big_int_field_value!(
+                    BigInt::from_signed_bytes_be(delta.new_value.as_ref()).to_string()
+                )
+            ));
+            return Some(change);
+        }
+        "depositedToken0" => name = "depositedToken0",
+        "depositedToken1" => name = "depositedToken1",
+        "withdrawnToken0" => name = "withdrawnToken0",
+        "withdrawnToken1" => name = "withdrawnToken1",
+        "collectedFeesToken0" => name = "collectedFeesToken0",
+        "collectedFeesToken1" => name = "collectedFeesToken1",
+        _ => return None,
+    }
+
+    change.fields.push(update_field!(
+        name,
+        FieldType::Bigdecimal,
+        big_decimal_vec_field_value!(delta.old_value),
+        big_decimal_vec_field_value!(delta.new_value)
+    ));
+
+    return Some(change);
+}
+
 // --------------------
 //  Map Transaction Entities
 // --------------------

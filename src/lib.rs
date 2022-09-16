@@ -41,6 +41,7 @@ use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::str::FromStr;
 use substreams::errors::Error;
+use substreams::pb::substreams::StoreDeltas;
 use substreams::store;
 use substreams::store::{StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet};
 use substreams::{log, proto, Hex};
@@ -2097,7 +2098,10 @@ pub fn map_tick_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_positions_entities(positions: Positions) -> Result<EntitiesChanges, Error> {
+pub fn map_positions_entities(
+    positions: Positions,
+    positions_changes_deltas: store::Deltas,
+) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
         block_id: vec![],
         block_number: 0,
@@ -2109,6 +2113,12 @@ pub fn map_positions_entities(positions: Positions) -> Result<EntitiesChanges, E
     for position in positions.positions {
         out.entity_changes
             .push(db::position_create_entity_change(position));
+    }
+
+    for delta in positions_changes_deltas {
+        if let Some(change) = db::positions_changes_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
     }
 
     Ok(out)
