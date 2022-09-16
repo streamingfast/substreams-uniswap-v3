@@ -252,8 +252,12 @@ pub fn tick_liquidities_gross(key: &String) -> String {
 // ------------------------------------------------
 //      store_all_positions and store_positions
 // ------------------------------------------------
-pub fn position(id: &String, event_type: &String) -> String {
+pub fn all_position(id: &String, event_type: &String) -> String {
     format!("position:{}:{}", id, event_type)
+}
+
+pub fn position(id: &String) -> String {
+    format!("position:{}", id)
 }
 
 // ------------------------------------------------

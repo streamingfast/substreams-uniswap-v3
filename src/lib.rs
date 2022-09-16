@@ -850,7 +850,7 @@ pub fn store_swaps_volume(
             None => {}
             Some(_) => match event.r#type.unwrap() {
                 SwapEvent(swap) => {
-                    let mut eth_price_in_usd = helper::get_eth_price(&store_eth_prices).unwrap();
+                    let eth_price_in_usd = helper::get_eth_price(&store_eth_prices).unwrap();
 
                     let mut token0_derived_eth_price: BigDecimal = BigDecimal::from(0 as i32);
                     match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
@@ -1546,7 +1546,7 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
                 positions.positions.push(position);
             }
         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-            if let Some(mut position) = utils::get_position(
+            if let Some(position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
                 &log.receipt.transaction.hash,
@@ -1556,7 +1556,6 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
                     event: PositionEventType::Transfer(event.clone()),
                 },
             ) {
-                position.owner = Hex(event.to.as_slice()).to_string();
                 positions.positions.push(position);
             }
         }
@@ -1570,7 +1569,7 @@ pub fn store_all_positions(positions: Positions, output: StoreSet) {
     for position in positions.positions {
         output.set(
             position.log_ordinal,
-            keyer::position(
+            keyer::all_position(
                 &position.id,
                 &PositionType::get_position_type(position.position_type).to_string(),
             ),
@@ -1582,73 +1581,120 @@ pub fn store_all_positions(positions: Positions, output: StoreSet) {
 #[substreams::handlers::map]
 pub fn map_positions(block: Block, all_positions_store: StoreGet) -> Result<Positions, Error> {
     let mut positions: Positions = Positions { positions: vec![] };
+    let mut ordered_positions: Vec<String> = vec![];
+    let mut enriched_positions: HashMap<String, Position> = HashMap::new();
 
     for log in block.logs() {
+        let mut position: Position = Position {
+            ..Default::default()
+        };
         if log.address() != NON_FUNGIBLE_POSITION_MANAGER {
             continue;
         }
 
         if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log)
         {
-            match all_positions_store.get_last(keyer::position(
-                &event.token_id.to_string(),
-                &IncreaseLiquidity.to_string(),
-            )) {
-                None => {
-                    log::info!("increase liquidity for id {} doesn't exist", event.token_id)
-                }
-                Some(bytes) => {
-                    let position: Position = proto::decode(&bytes).unwrap();
-                    positions.positions.push(position);
+            let token_id: String = event.token_id.to_string();
+            if !enriched_positions.contains_key(&token_id) {
+                match all_positions_store.get_last(keyer::all_position(
+                    &token_id,
+                    &IncreaseLiquidity.to_string(),
+                )) {
+                    None => {
+                        log::info!("increase liquidity for id {} doesn't exist", token_id);
+                        continue;
+                    }
+                    Some(bytes) => {
+                        position = proto::decode(&bytes).unwrap();
+                        enriched_positions.insert(token_id.clone(), position);
+                        if !ordered_positions.contains(&String::from(token_id.clone())) {
+                            ordered_positions.push(String::from(token_id))
+                        }
+                    }
                 }
             }
         } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
-            match all_positions_store.get_last(keyer::position(
-                &event.token_id.to_string(),
-                &Collect.to_string(),
-            )) {
-                None => {
-                    log::info!("increase liquidity for id {} doesn't exist", event.token_id)
-                }
-                Some(bytes) => {
-                    let mut position: Position = proto::decode(&bytes).unwrap();
-                    if let Some(position_call_result) =
-                        rpc::positions_call(&Hex(log.address()).to_string(), event.token_id)
-                    {
-                        position.fee_growth_inside0_last_x128 = position_call_result.5.to_string();
-                        position.fee_growth_inside1_last_x128 = position_call_result.6.to_string();
-                        positions.positions.push(position);
+            let token_id: String = event.token_id.to_string();
+            if !enriched_positions.contains_key(&token_id) {
+                match all_positions_store
+                    .get_last(keyer::all_position(&token_id, &Collect.to_string()))
+                {
+                    None => {
+                        log::info!("increase liquidity for id {} doesn't exist", token_id);
+                        continue;
                     }
+                    Some(bytes) => {
+                        position = proto::decode(&bytes).unwrap();
+                    }
+                }
+            } else {
+                position = enriched_positions
+                    .remove(&event.token_id.to_string())
+                    .unwrap()
+            }
+
+            if let Some(position_call_result) =
+                rpc::positions_call(&Hex(log.address()).to_string(), event.token_id)
+            {
+                position.fee_growth_inside0_last_x128 = position_call_result.5.to_string();
+                position.fee_growth_inside1_last_x128 = position_call_result.6.to_string();
+                enriched_positions.insert(token_id.clone(), position);
+                if !ordered_positions.contains(&String::from(token_id.clone())) {
+                    ordered_positions.push(String::from(token_id))
                 }
             }
         } else if let Some(event) =
             abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log)
         {
-            match all_positions_store.get_last(keyer::position(
-                &event.token_id.to_string(),
-                &DecreaseLiquidity.to_string(),
-            )) {
-                None => {
-                    log::info!("increase liquidity for id {} doesn't exist", event.token_id)
-                }
-                Some(bytes) => {
-                    let position: Position = proto::decode(&bytes).unwrap();
-                    positions.positions.push(position);
+            let token_id: String = event.token_id.to_string();
+            if !enriched_positions.contains_key(&token_id) {
+                match all_positions_store.get_last(keyer::all_position(
+                    &event.token_id.to_string(),
+                    &DecreaseLiquidity.to_string(),
+                )) {
+                    None => {
+                        log::info!("increase liquidity for id {} doesn't exist", token_id);
+                        continue;
+                    }
+                    Some(bytes) => {
+                        position = proto::decode(&bytes).unwrap();
+                        enriched_positions.insert(token_id.clone(), position);
+                        if !ordered_positions.contains(&String::from(token_id.clone())) {
+                            ordered_positions.push(String::from(token_id))
+                        }
+                    }
                 }
             }
         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-            match all_positions_store.get_last(keyer::position(
-                &event.token_id.to_string(),
-                &Transfer.to_string(),
-            )) {
-                None => {
-                    log::info!("increase liquidity for id {} doesn't exist", event.token_id)
+            let token_id: String = event.token_id.to_string();
+            if !enriched_positions.contains_key(&token_id) {
+                match all_positions_store
+                    .get_last(keyer::all_position(&token_id, &Transfer.to_string()))
+                {
+                    None => {
+                        log::info!("increase liquidity for id {} doesn't exist", token_id);
+                        continue;
+                    }
+                    Some(bytes) => {
+                        position = proto::decode(&bytes).unwrap();
+                    }
                 }
-                Some(bytes) => {
-                    let position: Position = proto::decode(&bytes).unwrap();
-                    positions.positions.push(position);
-                }
+            } else {
+                position = enriched_positions.remove(&token_id).unwrap();
             }
+            position.owner = Hex(event.to.as_slice()).to_string();
+            enriched_positions.insert(token_id.clone(), position);
+            if !ordered_positions.contains(&String::from(token_id.clone())) {
+                ordered_positions.push(String::from(token_id))
+            }
+        }
+    }
+
+    log::info!("len of map: {}", enriched_positions.len());
+    for element in ordered_positions.iter() {
+        let pos = enriched_positions.remove(element);
+        if pos.is_some() {
+            positions.positions.push(pos.unwrap());
         }
     }
 
@@ -1661,15 +1707,15 @@ pub fn store_positions(positions: Positions, output: StoreSet) {
     for position in positions.positions {
         output.set(
             position.log_ordinal,
-            keyer::position(&position.id, &position.position_type.to_string()),
+            keyer::position(&position.id),
             &proto::encode(&position).unwrap(),
         )
     }
 }
 
 #[substreams::handlers::store]
-pub fn store_positions_changes(positions: Positions, output: StoreAddBigFloat) {
-    for position in positions.positions {
+pub fn store_positions_changes(all_positions: Positions, output: StoreAddBigFloat) {
+    for position in all_positions.positions {
         match position.position_type {
             x if x == IncreaseLiquidity as i32 => {
                 output.add(

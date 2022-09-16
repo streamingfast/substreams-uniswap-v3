@@ -259,7 +259,7 @@ modules:
     updatePolicy: add
     valueType: bigfloat
     inputs:
-      - map: map_positions
+      - map: map_all_positions
 
   - name: store_swaps
     kind: store
