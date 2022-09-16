@@ -228,6 +228,8 @@ pub fn get_position(
     transaction_hash: &Vec<u8>,
     position_type: PositionType,
     log_ordinal: u64,
+    timestamp: u64,
+    block_number: u64,
     event: PositionEvent,
 ) -> Option<Position> {
     if let Some(positions_call_result) = rpc::positions_call(log_address, event.get_token_id()) {
@@ -236,8 +238,8 @@ pub fn get_position(
         let fee = positions_call_result.2;
         let tick_lower = positions_call_result.3;
         let tick_upper = positions_call_result.4;
-        let fee_growth_inside0last_x128 = positions_call_result.5;
-        let fee_growth_inside1last_x128 = positions_call_result.6;
+        let fee_growth_inside_0_last_x128 = positions_call_result.5;
+        let fee_growth_inside_1_last_x128 = positions_call_result.6;
 
         let token0: String = Hex(&token0_bytes.as_slice()).to_string();
         let token1: String = Hex(&token1_bytes.as_slice()).to_string();
@@ -273,13 +275,15 @@ pub fn get_position(
             tick_lower: format!("{}#{}", pool.address, tick_lower.to_i32().unwrap()),
             tick_upper: format!("{}#{}", pool.address, tick_upper.to_i32().unwrap()),
             transaction: Hex(&transaction_hash).to_string(),
-            fee_growth_inside0_last_x128: fee_growth_inside0last_x128.to_string(),
-            fee_growth_inside1_last_x128: fee_growth_inside1last_x128.to_string(),
+            fee_growth_inside_0_last_x_128: fee_growth_inside_0_last_x128.to_string(),
+            fee_growth_inside_1_last_x_128: fee_growth_inside_1_last_x128.to_string(),
             liquidity: event.get_liquidity(),
             amount0: amount0.to_string(),
             amount1: amount1.to_string(),
             position_type: position_type as i32,
             log_ordinal,
+            timestamp,
+            block_number,
         });
     }
     return None;

@@ -14,7 +14,7 @@ mod utils;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
-use crate::keyer::native_pool_from_key;
+use crate::keyer::{native_pool_from_key, position};
 use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
@@ -31,7 +31,9 @@ use crate::uniswap::position::PositionType;
 use crate::uniswap::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
-use crate::uniswap::{Position, Positions, Transaction, Transactions};
+use crate::uniswap::{
+    Position, Positions, SnapshotPosition, SnapshotPositions, Transaction, Transactions,
+};
 use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY, ZERO_ADDRESS};
 use bigdecimal::ToPrimitive;
 use bigdecimal::{BigDecimal, FromPrimitive};
@@ -1512,6 +1514,15 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
                 &log.receipt.transaction.hash,
                 IncreaseLiquidity,
                 log.ordinal(),
+                block
+                    .header
+                    .as_ref()
+                    .unwrap()
+                    .timestamp
+                    .as_ref()
+                    .unwrap()
+                    .seconds as u64,
+                block.number,
                 PositionEvent {
                     event: PositionEventType::IncreaseLiquidity(event),
                 },
@@ -1525,6 +1536,15 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
                 &log.receipt.transaction.hash,
                 Collect,
                 log.ordinal(),
+                block
+                    .header
+                    .as_ref()
+                    .unwrap()
+                    .timestamp
+                    .as_ref()
+                    .unwrap()
+                    .seconds as u64,
+                block.number,
                 PositionEvent {
                     event: PositionEventType::Collect(event),
                 },
@@ -1540,6 +1560,15 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
                 &log.receipt.transaction.hash,
                 DecreaseLiquidity,
                 log.ordinal(),
+                block
+                    .header
+                    .as_ref()
+                    .unwrap()
+                    .timestamp
+                    .as_ref()
+                    .unwrap()
+                    .seconds as u64,
+                block.number,
                 PositionEvent {
                     event: PositionEventType::DecreaseLiquidity(event),
                 },
@@ -1553,6 +1582,15 @@ pub fn map_all_positions(block: Block, store_pool: StoreGet) -> Result<Positions
                 &log.receipt.transaction.hash,
                 Transfer,
                 log.ordinal(),
+                block
+                    .header
+                    .as_ref()
+                    .unwrap()
+                    .timestamp
+                    .as_ref()
+                    .unwrap()
+                    .seconds as u64,
+                block.number,
                 PositionEvent {
                     event: PositionEventType::Transfer(event.clone()),
                 },
@@ -1637,8 +1675,8 @@ pub fn map_positions(block: Block, all_positions_store: StoreGet) -> Result<Posi
             if let Some(position_call_result) =
                 rpc::positions_call(&Hex(log.address()).to_string(), event.token_id)
             {
-                position.fee_growth_inside0_last_x128 = position_call_result.5.to_string();
-                position.fee_growth_inside1_last_x128 = position_call_result.6.to_string();
+                position.fee_growth_inside_0_last_x_128 = position_call_result.5.to_string();
+                position.fee_growth_inside_1_last_x_128 = position_call_result.6.to_string();
                 enriched_positions.insert(token_id.clone(), position);
                 if !ordered_positions.contains(&String::from(token_id.clone())) {
                     ordered_positions.push(String::from(token_id))
@@ -1715,7 +1753,7 @@ pub fn store_positions(positions: Positions, output: StoreSet) {
 }
 
 #[substreams::handlers::store]
-pub fn store_positions_changes(all_positions: Positions, output: StoreAddBigFloat) {
+pub fn store_position_changes(all_positions: Positions, output: StoreAddBigFloat) {
     for position in all_positions.positions {
         match position.position_type {
             x if x == IncreaseLiquidity as i32 => {
@@ -1769,6 +1807,110 @@ pub fn store_positions_changes(all_positions: Positions, output: StoreAddBigFloa
             _ => {}
         }
     }
+}
+
+#[substreams::handlers::map]
+pub fn map_snapshot_positions(
+    positions: Positions,
+    position_changes_store: StoreGet,
+) -> Result<SnapshotPositions, Error> {
+    let mut snapshot_positions: SnapshotPositions = SnapshotPositions {
+        snapshot_positions: vec![],
+    };
+
+    for position in positions.positions {
+        let mut snapshot_position: SnapshotPosition = SnapshotPosition {
+            id: format!("{}#{}", position.id, position.block_number),
+            owner: position.owner,
+            pool: position.pool,
+            position: position.id.clone(),
+            block_number: position.block_number,
+            timestamp: position.timestamp,
+            transaction: position.transaction,
+            liquidity: "".to_string(),
+            deposited_token0: "".to_string(),
+            deposited_token1: "".to_string(),
+            withdrawn_token0: "".to_string(),
+            withdrawn_token1: "".to_string(),
+            collected_fees_token0: "".to_string(),
+            collected_fees_token1: "".to_string(),
+            fee_growth_inside_0_last_x_128: position.fee_growth_inside_0_last_x_128,
+            fee_growth_inside_1_last_x_128: position.fee_growth_inside_1_last_x_128,
+        };
+
+        match position_changes_store.get_last(keyer::position_liquidity(&position.id)) {
+            Some(bytes) => {
+                snapshot_position.liquidity = utils::decode_bytes_to_big_decimal(bytes).to_string();
+            }
+            _ => {}
+        }
+
+        match position_changes_store
+            .get_last(keyer::position_deposited_token(&position.id, "Token0"))
+        {
+            Some(bytes) => {
+                snapshot_position.deposited_token0 =
+                    utils::decode_bytes_to_big_decimal(bytes).to_string();
+            }
+            _ => {}
+        }
+
+        match position_changes_store
+            .get_last(keyer::position_deposited_token(&position.id, "Token1"))
+        {
+            Some(bytes) => {
+                snapshot_position.deposited_token1 =
+                    utils::decode_bytes_to_big_decimal(bytes).to_string();
+            }
+            _ => {}
+        }
+
+        match position_changes_store
+            .get_last(keyer::position_withdrawn_token(&position.id, "Token0"))
+        {
+            Some(bytes) => {
+                snapshot_position.withdrawn_token0 =
+                    utils::decode_bytes_to_big_decimal(bytes).to_string();
+            }
+            _ => {}
+        }
+
+        match position_changes_store
+            .get_last(keyer::position_withdrawn_token(&position.id, "Token1"))
+        {
+            Some(bytes) => {
+                snapshot_position.withdrawn_token1 =
+                    utils::decode_bytes_to_big_decimal(bytes).to_string();
+            }
+            _ => {}
+        }
+
+        match position_changes_store
+            .get_last(keyer::position_collected_fees_token(&position.id, "Token0"))
+        {
+            Some(bytes) => {
+                snapshot_position.collected_fees_token0 =
+                    utils::decode_bytes_to_big_decimal(bytes).to_string();
+            }
+            _ => {}
+        }
+
+        match position_changes_store
+            .get_last(keyer::position_collected_fees_token(&position.id, "Token1"))
+        {
+            Some(bytes) => {
+                snapshot_position.collected_fees_token1 =
+                    utils::decode_bytes_to_big_decimal(bytes).to_string();
+            }
+            _ => {}
+        }
+
+        snapshot_positions
+            .snapshot_positions
+            .push(snapshot_position);
+    }
+
+    Ok(snapshot_positions)
 }
 
 // #[substreams::handlers::map]
@@ -2119,6 +2261,26 @@ pub fn map_positions_entities(
         if let Some(change) = db::positions_changes_entity_change(delta) {
             out.entity_changes.push(change);
         }
+    }
+
+    Ok(out)
+}
+
+#[substreams::handlers::map]
+pub fn map_snapshot_positions_entities(
+    snapshot_positions: SnapshotPositions,
+) -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges {
+        block_id: vec![],
+        block_number: 0,
+        prev_block_id: vec![],
+        prev_block_number: 0,
+        entity_changes: vec![],
+    };
+
+    for snapshot_position in snapshot_positions.snapshot_positions {
+        out.entity_changes
+            .push(db::snapshot_position_entity_change(snapshot_position));
     }
 
     Ok(out)

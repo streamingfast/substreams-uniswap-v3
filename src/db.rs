@@ -3,16 +3,16 @@ use crate::pb::uniswap::Field;
 use crate::{
     big_decimal_string_field_value, big_decimal_vec_field_value, big_int_field_value,
     int_field_value, keyer, new_field, string_field_value, update_field, utils, BurnEvent,
-    EntityChange, Erc20Token, Event, MintEvent, Pool, PoolSqrtPrice, Position, SwapEvent, Tick,
-    Transaction,
+    EntityChange, Erc20Token, Event, MintEvent, Pool, PoolSqrtPrice, Position, SnapshotPosition,
+    SnapshotPositions, SwapEvent, Tick, Transaction,
 };
 use bigdecimal::BigDecimal;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, ToBigInt};
 use std::str::FromStr;
 use substreams::pb::substreams::store_delta::Operation;
 use substreams::pb::substreams::StoreDelta;
 use substreams::store::StoreGet;
-use substreams::{proto, Hex};
+use substreams::{log, proto, Hex};
 
 // -------------------
 //  Map Bundle Entities
@@ -1327,12 +1327,12 @@ pub fn position_create_entity_change(position: Position) -> EntityChange {
             new_field!(
                 "feeGrowthInside0LastX128",
                 FieldType::Bigint,
-                big_int_field_value!(position.fee_growth_inside0_last_x128)
+                big_int_field_value!(position.fee_growth_inside_0_last_x_128)
             ),
             new_field!(
                 "feeGrowthInside1LastX128",
                 FieldType::Bigint,
-                big_int_field_value!(position.fee_growth_inside1_last_x128)
+                big_int_field_value!(position.fee_growth_inside_1_last_x_128)
             ),
         ],
     };
@@ -1380,6 +1380,104 @@ pub fn positions_changes_entity_change(delta: StoreDelta) -> Option<EntityChange
     ));
 
     return Some(change);
+}
+
+// --------------------
+//  Map Snapshot Position Entities
+// --------------------
+pub fn snapshot_position_entity_change(snapshot_position: SnapshotPosition) -> EntityChange {
+    return EntityChange {
+        entity: "".to_string(),
+        id: vec![],
+        ordinal: 0,
+        operation: 0,
+        fields: vec![
+            new_field!(
+                "id",
+                FieldType::String,
+                string_field_value!(snapshot_position.id)
+            ),
+            new_field!(
+                "owner",
+                FieldType::String,
+                string_field_value!(snapshot_position.owner)
+            ),
+            new_field!(
+                "pool",
+                FieldType::String,
+                string_field_value!(snapshot_position.pool)
+            ),
+            new_field!(
+                "position",
+                FieldType::String,
+                string_field_value!(snapshot_position.position)
+            ),
+            new_field!(
+                "blockNumber",
+                FieldType::Bigint,
+                big_int_field_value!(snapshot_position.block_number.to_string())
+            ),
+            new_field!(
+                "timestamp",
+                FieldType::Bigint,
+                big_int_field_value!(snapshot_position.timestamp.to_string())
+            ),
+            new_field!(
+                "liquidity",
+                FieldType::Bigint,
+                big_int_field_value!(BigDecimal::from_str(snapshot_position.liquidity.as_str())
+                    .unwrap()
+                    .to_bigint()
+                    .unwrap()
+                    .to_string())
+            ),
+            new_field!(
+                "depositedToken0",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!(snapshot_position.deposited_token0)
+            ),
+            new_field!(
+                "depositedToken1",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!(snapshot_position.deposited_token1)
+            ),
+            new_field!(
+                "withdrawnToken0",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!(snapshot_position.withdrawn_token0)
+            ),
+            new_field!(
+                "withdrawnToken1",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!(snapshot_position.withdrawn_token1)
+            ),
+            new_field!(
+                "collectedFeesToken0",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!(snapshot_position.collected_fees_token0)
+            ),
+            new_field!(
+                "collectedFeesToken1",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!(snapshot_position.collected_fees_token1)
+            ),
+            new_field!(
+                "transaction",
+                FieldType::String,
+                string_field_value!(snapshot_position.transaction)
+            ),
+            new_field!(
+                "feeGrowthInside0LastX128",
+                FieldType::Bigint,
+                big_int_field_value!(snapshot_position.fee_growth_inside_0_last_x_128)
+            ),
+            new_field!(
+                "feeGrowthInside1LastX128",
+                FieldType::Bigint,
+                big_int_field_value!(snapshot_position.fee_growth_inside_1_last_x_128)
+            ),
+        ],
+    };
 }
 
 // --------------------

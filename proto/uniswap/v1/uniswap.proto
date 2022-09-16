@@ -254,8 +254,8 @@ message Position {
   string tick_lower = 6;
   string tick_upper = 7;
   string transaction = 8;
-  string feeGrowthInside0LastX128 = 9;
-  string feeGrowthInside1LastX128 = 10;
+  string fee_growth_inside_0_last_X_128 = 9;
+  string fee_growth_inside_1_last_X_128 = 10;
   string liquidity = 11;
   string amount0 = 12;
   string amount1 = 13;
@@ -268,6 +268,31 @@ message Position {
     DECREASE_LIQUIDITY = 3;
     TRANSFER = 4;
   }
-  PositionType positionType = 14;
+  PositionType position_type = 14;
   uint64 log_ordinal = 15;
+  uint64 timestamp = 16;
+  uint64 block_number = 17;
+}
+
+message SnapshotPositions {
+  repeated SnapshotPosition snapshot_positions = 1;
+}
+
+message SnapshotPosition {
+  string id = 1;
+  string owner = 2;
+  string pool = 3;
+  string position = 4;
+  uint64 block_number = 5;
+  uint64 timestamp = 6;
+  string liquidity = 7;
+  string deposited_token0 = 8;
+  string deposited_token1 = 9;
+  string withdrawn_token0 = 10;
+  string withdrawn_token1 = 11;
+  string collected_fees_token0 = 12;
+  string collected_fees_token1 = 13;
+  string transaction = 14;
+  string fee_growth_inside_0_last_X_128 = 15;
+  string fee_growth_inside_1_last_X_128 = 16;
 }

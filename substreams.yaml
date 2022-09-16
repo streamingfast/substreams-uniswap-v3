@@ -253,13 +253,22 @@ modules:
     inputs:
       - map: map_positions
 
-  - name: store_positions_changes
+  - name: store_position_changes
     kind: store
     initialBlock: 12369621
     updatePolicy: add
     valueType: bigfloat
     inputs:
       - map: map_all_positions
+  
+  - name: map_snapshot_positions
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - map: map_positions
+      - store: store_position_changes
+    output:
+      type: proto:uniswap.types.v1.SnapshotPositions
 
   - name: store_swaps
     kind: store
@@ -375,8 +384,16 @@ modules:
     initialBlock: 12369621
     inputs:
       - map: map_positions
-      - store: store_positions_changes
+      - store: store_position_changes
         mode: deltas
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges
+
+  - name: map_snapshot_positions_entities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - map: map_snapshot_positions
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
 
