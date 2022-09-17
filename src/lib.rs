@@ -32,7 +32,8 @@ use crate::uniswap::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
 use crate::uniswap::{
-    Position, Positions, SnapshotPosition, SnapshotPositions, Transaction, Transactions,
+    Flash, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transaction,
+    Transactions,
 };
 use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY, ZERO_ADDRESS};
 use bigdecimal::ToPrimitive;
@@ -1913,98 +1914,44 @@ pub fn map_snapshot_positions(
     Ok(snapshot_positions)
 }
 
-// #[substreams::handlers::map]
-// pub fn map_fees(block: ethpb::v2::Block) -> Result<pb::uniswap::Fees, Error> {
-//     let mut out = pb::uniswap::Fees { fees: vec![] };
-//
-//     for trx in block.transaction_traces {
-//         for call in trx.calls.iter() {
-//             if call.state_reverted {
-//                 continue;
-//             }
-//
-//             for log in call.logs.iter() {
-//                 if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
-//                     continue;
-//                 }
-//
-//                 let ev = abi::factory::events::FeeAmountEnabled::decode(&log).unwrap();
-//
-//                 out.fees.push(pb::uniswap::Fee {
-//                     fee: ev.fee.as_u32(),
-//                     tick_spacing: ev.tick_spacing.to_i32().unwrap(),
-//                 });
-//             }
-//         }
-//     }
-//
-//     Ok(out)
-// }
-//
-// #[substreams::handlers::store]
-// pub fn store_fees(block: ethpb::v2::Block, output: store::StoreSet) {
-//     for trx in block.transaction_traces {
-//         for call in trx.calls.iter() {
-//             if call.state_reverted {
-//                 continue;
-//             }
-//             for log in call.logs.iter() {
-//                 if !abi::factory::events::FeeAmountEnabled::match_log(&log) {
-//                     continue;
-//                 }
-//
-//                 let event = abi::factory::events::FeeAmountEnabled::decode(&log).unwrap();
-//
-//                 let fee = pb::uniswap::Fee {
-//                     fee: event.fee.as_u32(),
-//                     tick_spacing: event.tick_spacing.to_i32().unwrap(),
-//                 };
-//
-//                 output.set(
-//                     log.ordinal,
-//                     format!("fee:{}:{}", fee.fee, fee.tick_spacing),
-//                     &proto::encode(&fee).unwrap(),
-//                 );
-//             }
-//         }
-//     }
-// }
-//
-// #[substreams::handlers::map]
-// pub fn map_flashes(block: ethpb::v2::Block) -> Result<pb::uniswap::Flashes, Error> {
-//     let mut out = pb::uniswap::Flashes { flashes: vec![] };
-//
-//     for trx in block.transaction_traces {
-//         for call in trx.calls.iter() {
-//             if call.state_reverted {
-//                 continue;
-//             }
-//             for log in call.logs.iter() {
-//                 if abi::pool::events::Swap::match_log(&log) {
-//                     log::debug!("log ordinal: {}", log.ordinal);
-//                 }
-//                 if !abi::pool::events::Flash::match_log(&log) {
-//                     continue;
-//                 }
-//
-//                 let flash = abi::pool::events::Flash::decode(&log).unwrap();
-//
-//                 out.flashes.push(Flash {
-//                     sender: Hex(&flash.sender).to_string(),
-//                     recipient: Hex(&flash.recipient).to_string(),
-//                     amount_0: flash.amount0.as_u64(),
-//                     amount_1: flash.amount1.as_u64(),
-//                     paid_0: flash.paid0.as_u64(),
-//                     paid_1: flash.paid1.as_u64(),
-//                     transaction_id: Hex(&trx.hash).to_string(),
-//                     log_ordinal: log.ordinal,
-//                 });
-//             }
-//         }
-//     }
-//
-//     Ok(out)
-// }
+#[substreams::handlers::map]
+pub fn map_flashes(block: Block, pool_store: StoreGet) -> Result<Flashes, Error> {
+    let mut out = Flashes { flashes: vec![] };
+
+    for trx in block.transaction_traces {
+        for call in trx.calls.iter() {
+            if call.state_reverted {
+                continue;
+            }
+            for log in call.logs.iter() {
+                log::println(Hex(log.topics.get(0).unwrap()).to_string());
+                if abi::pool::events::Flash::match_log(&log) {
+                    let pool_address: String = Hex(&log.address).to_string();
+
+                    match pool_store.get_last(keyer::pool_key(&pool_address)) {
+                        None => {
+                            panic!("pool {} not found for flash", pool_address)
+                        }
+                        Some(_) => {
+                            log::info!("pool_address: {}", pool_address);
+                            let (fee_growth_global_0x_128, fee_growth_global_1x_128) =
+                                rpc::fee_growth_global_x128_call(&pool_address);
+
+                            out.flashes.push(Flash {
+                                pool_address,
+                                fee_growth_global_0x_128: fee_growth_global_0x_128.to_string(),
+                                fee_growth_global_1x_128: fee_growth_global_1x_128.to_string(),
+                                log_ordinal: log.ordinal,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(out)
+}
 
 #[substreams::handlers::map]
 pub fn map_bundle_entities(
@@ -2326,6 +2273,24 @@ pub fn map_swaps_mints_burns_entities(
         {
             out.entity_changes.push(change);
         }
+    }
+
+    Ok(out)
+}
+
+#[substreams::handlers::map]
+pub fn map_flashes_entities(flashes: Flashes) -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges {
+        block_id: vec![],
+        block_number: 0,
+        prev_block_id: vec![],
+        prev_block_number: 0,
+        entity_changes: vec![],
+    };
+
+    for flash in flashes.flashes {
+        out.entity_changes
+            .push(db::flashes_update_pool_fee_entity_change(flash));
     }
 
     Ok(out)

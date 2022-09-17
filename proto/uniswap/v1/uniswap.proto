@@ -176,15 +176,10 @@ message Flashes {
 }
 
 message Flash {
-  string sender = 1;
-  string recipient = 2;
-  uint64 amount_0 = 3;
-  uint64 amount_1 = 4;
-  uint64 paid_0 = 5;
-  uint64 paid_1 = 6;
-
-  string transaction_id = 7;
-  uint64 log_ordinal = 8;
+  string pool_address = 1;
+  string fee_growth_global_0X_128 = 2;
+  string fee_growth_global_1X_128 = 3;
+  uint64 log_ordinal = 4;
 }
 
 message EntitiesChanges {

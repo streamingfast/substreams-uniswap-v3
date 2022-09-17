@@ -3,8 +3,8 @@ use crate::pb::uniswap::Field;
 use crate::{
     big_decimal_string_field_value, big_decimal_vec_field_value, big_int_field_value,
     int_field_value, keyer, new_field, string_field_value, update_field, utils, BurnEvent,
-    EntityChange, Erc20Token, Event, MintEvent, Pool, PoolSqrtPrice, Position, SnapshotPosition,
-    SnapshotPositions, SwapEvent, Tick, Transaction,
+    EntityChange, Erc20Token, Event, Flash, MintEvent, Pool, PoolSqrtPrice, Position,
+    SnapshotPosition, SnapshotPositions, SwapEvent, Tick, Transaction,
 };
 use bigdecimal::BigDecimal;
 use num_bigint::{BigInt, ToBigInt};
@@ -1848,4 +1848,28 @@ pub fn swaps_mints_burns_created_entity_change(
         };
     }
     return None;
+}
+
+// --------------------
+//  Map Flashes Entities
+// --------------------
+pub fn flashes_update_pool_fee_entity_change(flash: Flash) -> EntityChange {
+    return EntityChange {
+        entity: "Pool".to_string(),
+        id: string_field_value!(flash.pool_address),
+        ordinal: flash.log_ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![
+            new_field!(
+                "feeGrowthGlobal0X128",
+                FieldType::Bigint,
+                big_int_field_value!(flash.fee_growth_global_0x_128)
+            ),
+            new_field!(
+                "feeGrowthGlobal1X128",
+                FieldType::Bigint,
+                big_int_field_value!(flash.fee_growth_global_1x_128)
+            ),
+        ],
+    };
 }
