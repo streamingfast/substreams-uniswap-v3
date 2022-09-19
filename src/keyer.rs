@@ -82,6 +82,10 @@ pub fn factory_total_value_locked_usd() -> String {
     format!("factory:totalValueLockedUSD")
 }
 
+pub fn uniswap_total_value_locked_usd(day_id: String) -> String {
+    format!("uniswap_day_data:{}:totalValueLockedUSD", day_id)
+}
+
 // ------------------------------------------------
 //      store_pool_fee_growth_global_x128
 // ------------------------------------------------
@@ -184,6 +188,10 @@ pub fn factory_total_tx_count() -> String {
     format!("factory:{}", Hex(utils::UNISWAP_V3_FACTORY))
 }
 
+pub fn uniswap_data_data_tx_count(day_id: String) -> String {
+    format!("uniswap_day_data:{}", day_id)
+}
+
 // ------------------------------------------------
 //      store_swaps
 // ------------------------------------------------
@@ -229,6 +237,18 @@ pub fn swap_factory_total_volume_eth() -> String {
 
 pub fn swap_factory_total_fees_eth() -> String {
     format!("factory:totalFeesETH")
+}
+
+pub fn swap_uniswap_day_data_volume_eth(day_id: String) -> String {
+    format!("uniswap_day_data:{}:volumeETH", day_id)
+}
+
+pub fn swap_uniswap_day_data_volume_usd(day_id: String) -> String {
+    format!("uniswap_day_data:{}:volumeUSD", day_id)
+}
+
+pub fn swap_uniswap_day_data_fees_usd(day_id: String) -> String {
+    format!("uniswap_day_data:{}:feesUSD", day_id)
 }
 
 // ------------------------------------------------

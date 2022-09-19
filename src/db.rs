@@ -1873,3 +1873,122 @@ pub fn flashes_update_pool_fee_entity_change(flash: Flash) -> EntityChange {
         ],
     };
 }
+
+// --------------------
+//  Map Uniswap Day Data Entities
+// --------------------
+pub fn uniswap_day_data_tx_count_entity_change(delta: StoreDelta) -> Option<EntityChange> {
+    if !delta.key.starts_with("uniswap_day_data") {
+        return None;
+    }
+
+    let day_id: i64 = delta
+        .key
+        .as_str()
+        .split(":")
+        .last()
+        .unwrap()
+        .parse::<i64>()
+        .unwrap();
+    let day_start_timestamp = day_id * 86400;
+
+    return Some(EntityChange {
+        entity: "UniswapDayData".to_string(),
+        id: string_field_value!(day_id.to_string()),
+        ordinal: delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![
+            new_field!(
+                "id",
+                FieldType::String,
+                string_field_value!(day_id.to_string())
+            ),
+            new_field!(
+                "date",
+                FieldType::Int,
+                int_field_value!(day_start_timestamp)
+            ),
+            new_field!(
+                "volumeUSDUntracked",
+                FieldType::Bigdecimal,
+                big_decimal_string_field_value!("0".to_string())
+            ),
+            update_field!("txCount", FieldType::Int, delta.old_value, delta.new_value),
+        ],
+    });
+}
+
+pub fn uniswap_day_data_totals_entity_change(delta: StoreDelta) -> Option<EntityChange> {
+    if !delta.key.starts_with("uniswap_day_data") {
+        return None;
+    }
+
+    let day_id: i64 = delta
+        .key
+        .as_str()
+        .split(":")
+        .last()
+        .unwrap()
+        .parse::<i64>()
+        .unwrap();
+
+    return Some(EntityChange {
+        entity: "UniswapDayData".to_string(),
+        id: string_field_value!(day_id.to_string()),
+        ordinal: delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![update_field!(
+            "tvlUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(delta.old_value),
+            big_decimal_vec_field_value!(delta.new_value)
+        )],
+    });
+}
+
+pub fn uniswap_day_data_volumes_entity_change(delta: StoreDelta) -> Option<EntityChange> {
+    if !delta.key.starts_with("uniswap_day_data") {
+        return None;
+    }
+
+    let day_id: i64 = delta
+        .key
+        .as_str()
+        .split(":")
+        .nth(1)
+        .unwrap()
+        .parse::<i64>()
+        .unwrap();
+
+    let mut change = EntityChange {
+        entity: "UniswapDayData".to_string(),
+        id: string_field_value!(day_id.to_string()),
+        ordinal: delta.ordinal,
+        operation: Operation::Update as i32,
+        fields: vec![],
+    };
+
+    match delta.key.as_str().split(":").last().unwrap() {
+        "volumeETH" => change.fields.push(update_field!(
+            "volumeETH",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(delta.old_value),
+            big_decimal_vec_field_value!(delta.new_value)
+        )),
+        "volumeUSD" => change.fields.push(update_field!(
+            "volumeUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(delta.old_value),
+            big_decimal_vec_field_value!(delta.new_value)
+        )),
+        "feesUSD" => change.fields.push(update_field!(
+            "feesUSD",
+            FieldType::Bigdecimal,
+            big_decimal_vec_field_value!(delta.old_value),
+            big_decimal_vec_field_value!(delta.new_value)
+        )),
+        _ => return None,
+    }
+
+    Some(change)
+}

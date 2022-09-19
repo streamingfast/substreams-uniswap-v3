@@ -129,6 +129,7 @@ modules:
     updatePolicy: add
     valueType: bigfloat
     inputs:
+      - source: sf.substreams.v1.Clock
       - store: store_eth_prices
       - store: store_total_value_locked
         mode: deltas
@@ -138,6 +139,7 @@ modules:
     updatePolicy: add
     valueType: int64
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_swaps_mints_burns
 
   - name: store_swaps_volume
@@ -145,6 +147,7 @@ modules:
     updatePolicy: add
     valueType: bigfloat
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_swaps_mints_burns
       - store: store_pools
       - store: store_total_tx_counts
@@ -421,6 +424,19 @@ modules:
     initialBlock: 12369621
     inputs:
       - map: map_flashes
+    output:
+      type: proto:uniswap.types.v1.EntitiesChanges
+
+  - name: map_uniswap_day_data_entities
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - store: store_total_tx_counts
+        mode: deltas
+      - store: store_totals
+        mode: deltas
+      - store: store_swaps_volume
+        mode: deltas
     output:
       type: proto:uniswap.types.v1.EntitiesChanges
 

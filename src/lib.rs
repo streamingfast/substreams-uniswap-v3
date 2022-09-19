@@ -44,7 +44,7 @@ use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::str::FromStr;
 use substreams::errors::Error;
-use substreams::pb::substreams::StoreDeltas;
+use substreams::pb::substreams::{Clock, StoreDeltas};
 use substreams::store;
 use substreams::store::{StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet};
 use substreams::{log, proto, Hex};
@@ -755,10 +755,15 @@ pub fn map_transactions(block: Block, pools_store: StoreGet) -> Result<Transacti
 
 #[substreams::handlers::store]
 pub fn store_totals(
+    clock: Clock,
     store_eth_prices: StoreGet,
     total_value_locked_deltas: store::Deltas,
     output: StoreAddBigFloat,
 ) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id: i64 = timestamp_seconds / 86400;
+    output.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
+
     let mut pool_total_value_locked_eth_new_value: BigDecimal = BigDecimal::from(0);
     for delta in total_value_locked_deltas {
         if !delta.key.starts_with("pool:") {
@@ -798,13 +803,20 @@ pub fn store_totals(
                 // the value
                 let total_value_locked_usd_old_value: BigDecimal =
                     math::decimal_from_bytes(&delta.old_value);
-                let diff: BigDecimal = total_value_locked_usd.sub(total_value_locked_usd_old_value);
+                let diff: BigDecimal = total_value_locked_usd
+                    .clone()
+                    .sub(total_value_locked_usd_old_value);
 
                 output.add(
                     delta.ordinal,
                     keyer::factory_total_value_locked_usd(),
                     &diff,
                 );
+                output.add(
+                    delta.ordinal,
+                    keyer::uniswap_total_value_locked_usd(day_id.to_string()),
+                    &total_value_locked_usd,
+                )
             }
             _ => continue,
         }
@@ -812,39 +824,37 @@ pub fn store_totals(
 }
 
 #[substreams::handlers::store]
-pub fn store_total_tx_counts(events: Events, output: StoreAddBigInt) {
+pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigInt) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id: i64 = timestamp_seconds / 86400;
+    output.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
+
     for event in events.events {
-        output.add(
-            event.log_ordinal,
+        let keys: Vec<String> = vec![
             keyer::pool_total_tx_count(&event.pool_address),
-            &BigInt::from(1 as i32),
-        );
-        output.add(
-            event.log_ordinal,
             keyer::token_total_tx_count(&event.token0),
-            &BigInt::from(1 as i32),
-        );
-        output.add(
-            event.log_ordinal,
             keyer::token_total_tx_count(&event.token1),
-            &BigInt::from(1 as i32),
-        );
-        output.add(
-            event.log_ordinal,
             keyer::factory_total_tx_count(),
-            &BigInt::from(1 as i32),
-        );
+            keyer::uniswap_data_data_tx_count(day_id.to_string()),
+        ];
+        output.add_many(event.log_ordinal, &keys, &BigInt::from(1 as i32));
     }
 }
 
+// todo: refactor to use the add_many method from output store
 #[substreams::handlers::store]
 pub fn store_swaps_volume(
+    clock: Clock,
     events: Events,
     store_pool: StoreGet,
     store_total_tx_counts: StoreGet,
     store_eth_prices: StoreGet,
     output: StoreAddBigFloat,
 ) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id: i64 = timestamp_seconds / 86400;
+    output.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
+
     for event in events.events {
         let pool: Pool = match store_pool.get_last(keyer::pool_key(&event.pool_address)) {
             None => continue,
@@ -990,7 +1000,22 @@ pub fn store_swaps_volume(
                         event.log_ordinal,
                         keyer::swap_factory_total_fees_eth(),
                         &fee_eth,
-                    )
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_uniswap_day_data_volume_eth(day_id.to_string()),
+                        &amount_total_eth_tracked,
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_uniswap_day_data_volume_usd(day_id.to_string()),
+                        &amount_total_usd_tracked,
+                    );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_uniswap_day_data_fees_usd(day_id.to_string()),
+                        &fee_usd,
+                    );
                 }
                 _ => {}
             },
@@ -2291,6 +2316,41 @@ pub fn map_flashes_entities(flashes: Flashes) -> Result<EntitiesChanges, Error> 
     for flash in flashes.flashes {
         out.entity_changes
             .push(db::flashes_update_pool_fee_entity_change(flash));
+    }
+
+    Ok(out)
+}
+
+#[substreams::handlers::map]
+pub fn map_uniswap_day_data_entities(
+    tx_count_deltas: store::Deltas,
+    totals_deltas: store::Deltas,
+    volume_deltas: store::Deltas,
+) -> Result<EntitiesChanges, Error> {
+    let mut out = EntitiesChanges {
+        block_id: vec![],
+        block_number: 0,
+        prev_block_id: vec![],
+        prev_block_number: 0,
+        entity_changes: vec![],
+    };
+
+    for delta in tx_count_deltas {
+        if let Some(change) = db::uniswap_day_data_tx_count_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
+    }
+
+    for delta in totals_deltas {
+        if let Some(change) = db::uniswap_day_data_totals_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
+    }
+
+    for delta in volume_deltas {
+        if let Some(change) = db::uniswap_day_data_volumes_entity_change(delta) {
+            out.entity_changes.push(change);
+        }
     }
 
     Ok(out)
