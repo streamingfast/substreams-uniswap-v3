@@ -446,7 +446,7 @@ modules:
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_pool_entities
-      - map: map_tokens_entities
-      - map: map_swaps_mints_burns_entities
+#      - map: map_tokens_entities
+#      - map: map_swaps_mints_burns_entities
     output:
       type: proto:uniswap.types.v1.EntitiesChanges

@@ -16,14 +16,12 @@ use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
 use crate::keyer::{native_pool_from_key, position};
 use crate::pb::position_event::PositionEventType;
-use crate::pb::uniswap::entity_change::Operation;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
-use crate::pb::uniswap::field::Type as FieldType;
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
 use crate::pb::uniswap::tick::Type::{Lower, Upper};
 use crate::pb::uniswap::{
-    EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Events, Field,
-    Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
+    EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Events, Pool,
+    PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
 };
 use crate::pb::{uniswap, PositionEvent};
 use crate::price::WHITELIST_TOKENS;
@@ -35,16 +33,15 @@ use crate::uniswap::{
     Flash, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transaction,
     Transactions,
 };
-use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY, ZERO_ADDRESS};
+use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY};
 use bigdecimal::ToPrimitive;
 use bigdecimal::{BigDecimal, FromPrimitive};
-use ethabi::Token::Uint;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::str::FromStr;
 use substreams::errors::Error;
-use substreams::pb::substreams::{Clock, StoreDeltas};
+use substreams::pb::substreams::Clock;
 use substreams::store;
 use substreams::store::{StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet};
 use substreams::{log, proto, Hex};
@@ -348,7 +345,6 @@ pub fn map_pool_liquidities(block: Block, pools_store: StoreGet) -> Result<PoolL
 #[substreams::handlers::store]
 pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, output: StoreSet) {
     for pool_liquidity in pool_liquidities.pool_liquidities {
-        // fixme: probably need to have a similar key for like we have for a swap
         output.set(
             0,
             keyer::pool_liquidity(&pool_liquidity.pool_address),
@@ -2360,8 +2356,8 @@ pub fn map_uniswap_day_data_entities(
 pub fn graph_out(
     block: Block,
     pool_entities: EntitiesChanges,
-    token_entities: EntitiesChanges,
-    swaps_mints_burns_entities: EntitiesChanges,
+    // token_entities: EntitiesChanges,
+    // swaps_mints_burns_entities: EntitiesChanges,
 ) -> Result<EntitiesChanges, Error> {
     let mut out = EntitiesChanges {
         block_id: block.hash,
@@ -2377,14 +2373,14 @@ pub fn graph_out(
     for change in pool_entities.entity_changes {
         out.entity_changes.push(change);
     }
-
-    for change in token_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in swaps_mints_burns_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
+    //
+    // for change in token_entities.entity_changes {
+    //     out.entity_changes.push(change);
+    // }
+    //
+    // for change in swaps_mints_burns_entities.entity_changes {
+    //     out.entity_changes.push(change);
+    // }
 
     Ok(out)
 }
