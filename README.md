@@ -17,8 +17,56 @@ $ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases
   graph_out \
   -e api.streamingfast.io:443 \
   -t +150
-
 [...]
+{
+  "@module": "graph_out",
+  "@block": 12369811,
+  "@type": "uniswap.types.v1.EntitiesChanges",
+  "@data": {
+    "blockId": "UtxZ8zz58lX7UzRF9mgiGpNhkUpib/7M/A9ioKEYkYE=",
+    "blockNumber": "12369811",
+    "prevBlockId": "2R2W2n9fQzYgarjF+gI43UUp7b9GSneu0mcZYgE9Jic=",
+    "prevBlockNumber": "12369810",
+    "entityChanges": [
+      {
+        "entity": "Pool",
+        "id": "N2JlYTM5ODY3ZTQxNjlkYmUyMzdkNTVjODI0MmE4ZjJmY2RjYzM4Nw==",
+        "ordinal": "4389",
+        "operation": "CREATE",
+        "fields": [
+          {
+            "name": "id",
+            "valueType": "STRING",
+            "newValue": "N2JlYTM5ODY3ZTQxNjlkYmUyMzdkNTVjODI0MmE4ZjJmY2RjYzM4Nw==",
+            "oldValueNull": true
+          },
+          {
+            "name": "createdAtTimestamp",
+            "valueType": "BIGINT",
+            "newValue": "YJGpkQ==",
+            "oldValueNull": true
+          },
+[...]
+      {
+        "entity": "Pool",
+        "id": "N2JlYTM5ODY3ZTQxNjlkYmUyMzdkNTVjODI0MmE4ZjJmY2RjYzM4Nw==",
+        "ordinal": "4397",
+        "operation": "UPDATE",
+        "fields": [
+          {
+            "name": "sqrtPrice",
+            "valueType": "BIGINT",
+            "newValue": "QweXGFEipPui5q3xAQo=",
+            "oldValue": "AA=="
+          },
+          {
+            "name": "tick",
+            "valueType": "BIGINT",
+            "newValue": "AvnI",
+            "oldValue": "AA=="
+          }
+        ]
+      },
 ```
 
 
