@@ -7,23 +7,14 @@ The Subgraph-style output hinges on the latest `graph-node` to implement `substr
 Substreams are consumable directly.
 
 
-### Render protobuf structures and definitions
-```bash
-substreams protogen substreams.yaml
-```
+## Run `map_pools_created` against Substreams cluster
 
-### Build `substreams-uniswap-v3`
-```bash
-cargo build --target wasm32-unknown-unknown --release
-```
+First, [authenticate](https://substreams.streamingfast.io/reference-and-specs/authentication), and run `sftoken` in your shell session.
 
-### Run `map_pools_created` against local firehose
-```bash
-substreams run substreams.yaml map_pools_created -p -e localhost:9000 -t +150
-```
+### Stream intermediate values and events
 
-Output: 
 ```bash
+$ substreams run  -e api-dev.streamingfast.io:443 substreams.yaml map_pools_created -t +150
 [...]
 {
   "@module": "map_pools_created",
@@ -60,13 +51,26 @@ Output:
 [...]
 ```
 
-### Run `map_pools_created` against remote firehose
+### Stream Entity changes
+
 ```bash
-sftoken
-substreams run substreams.yaml map_pools_created -e api-dev.streamingfast.io:443 -t +150
+$ substreams run  -e api-dev.streamingfast.io:443 substreams.yaml graph_out -t +150
+[...]
+try it :)
 ```
 
+
+## Hack on it
+
+### Build `substreams-uniswap-v3`
+
+```bash
+cargo build --target wasm32-unknown-unknown --release
+```
+
+
 ### Pack everything when you are satisfied and want to make a release
+
 ```bash
 substreams pack substreams.yaml
 ```
