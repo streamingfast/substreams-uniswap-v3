@@ -6,24 +6,29 @@ The Subgraph-style output hinges on the latest `graph-node` to implement `substr
 
 Substreams are consumable directly.
 
-## Run uniswap v3 substreams from release package
-```bash
-substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.1.0-beta/uniswap-v3-v0.1.0-beta.spkg \
-  graph_out \
-  -e api.streamingfast.io:443 \
-  -t +150
-```
-
-## Dev
-
-## Run `map_pools_created` against Substreams cluster
+## Stream Entity changes
 
 First, [authenticate](https://substreams.streamingfast.io/reference-and-specs/authentication), and run `sftoken` in your shell session.
 
-### Stream intermediate values and events
+This runs the `graph_out` module against a Substreams cluster:
 
 ```bash
-$ substreams run  -e api-dev.streamingfast.io:443 substreams.yaml map_pools_created -t +150
+$ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.1.0-beta/uniswap-v3-v0.1.0-beta.spkg \
+  graph_out \
+  -e api.streamingfast.io:443 \
+  -t +150
+
+[...]
+```
+
+
+## Stream intermediate values and events
+
+```bash
+$ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.1.0-beta/uniswap-v3-v0.1.0-beta.spkg \
+  map_pools_created \
+  -e api-dev.streamingfast.io:443 \
+  -t +150
 [...]
 {
   "@module": "map_pools_created",
@@ -62,10 +67,6 @@ $ substreams run  -e api-dev.streamingfast.io:443 substreams.yaml map_pools_crea
 
 ### Stream Entity changes
 
-```bash
-$ substreams run  -e api-dev.streamingfast.io:443 substreams.yaml graph_out -t +150
-[...]
-try it :)
 ```
 
 
@@ -74,11 +75,15 @@ try it :)
 ### Build `substreams-uniswap-v3`
 
 ```bash
-cargo build --target wasm32-unknown-unknown --release
+$ cargo build --target wasm32-unknown-unknown --release
+[...]
+$ substreams run  -e api-dev.streamingfast.io:443 substreams.yaml graph_out -t +150
+[...]
+try it :)
 ```
 
 
-### Pack everything when you are satisfied and want to make a release
+### Pack everything to release
 
 ```bash
 substreams pack substreams.yaml
