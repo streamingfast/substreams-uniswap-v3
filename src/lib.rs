@@ -1046,7 +1046,7 @@ pub fn store_pool_fee_growth_global_x128(pools: Pools, output: StoreSet) {
 
 #[substreams::handlers::store]
 pub fn store_native_total_value_locked(
-    event_amounts: pb::uniswap::EventAmounts,
+    event_amounts: uniswap::EventAmounts,
     output: StoreAddBigFloat,
 ) {
     for event_amount in event_amounts.event_amounts {
