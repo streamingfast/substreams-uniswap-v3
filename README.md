@@ -1,5 +1,12 @@
 # substreams-uniswap-v3
 
+[Substreams](https://substreams.streamingfast.io)-based Uniswap-v3 Subgraph and Substreams.
+
+The Subgraph-style output hinges on the latest `graph-node` to implement `substreams` data sources.
+
+Substreams are consumable directly.
+
+
 ### Render protobuf structures and definitions
 ```bash
 substreams protogen substreams.yaml
