@@ -5,12 +5,12 @@
 substreams protogen substreams.yaml
 ```
 
-### Build substreams-uniswap-v3
+### Build `substreams-uniswap-v3`
 ```bash
 cargo build --target wasm32-unknown-unknown --release
 ```
 
-### Run map_pools_created against local firehose
+### Run `map_pools_created` against local firehose
 ```bash
 substreams run substreams.yaml map_pools_created -p -e localhost:9000 -t +150
 ```
@@ -53,13 +53,13 @@ Output:
 [...]
 ```
 
-### Run map_pools_created against remote firehose
+### Run `map_pools_created` against remote firehose
 ```bash
 sftoken
 substreams run substreams.yaml map_pools_created -e api-dev.streamingfast.io:443 -t +150
 ```
 
-### Pack everything when you are satistifed and want to make a release
+### Pack everything when you are satisfied and want to make a release
 ```bash
 substreams pack substreams.yaml
 ```
