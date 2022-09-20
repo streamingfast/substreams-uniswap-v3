@@ -6,6 +6,15 @@ The Subgraph-style output hinges on the latest `graph-node` to implement `substr
 
 Substreams are consumable directly.
 
+## Run uniswap v3 substreams from release package
+```bash
+substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.1.0-beta/uniswap-v3-v0.1.0-beta.spkg \
+  graph_out \
+  -e api.streamingfast.io:443 \
+  -t +150
+```
+
+## Dev
 
 ## Run `map_pools_created` against Substreams cluster
 
