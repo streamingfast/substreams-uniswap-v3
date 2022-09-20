@@ -10,8 +10,13 @@ package:
 protobuf:
   files:
     - uniswap/v1/uniswap.proto
+    - substreams/entity/v1/deltas.proto
   importPaths:
     - ./proto
+
+# imports:
+#   eth: https://.../path/to/ethereum-v0.2.0.spkg
+#   graph: https://.../path/to/graphnode-v0.2.0.spkg
 
 binaries:
   default:
@@ -313,7 +318,7 @@ modules:
       - store: store_eth_prices
         mode: deltas
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_factory_entities
     kind: map
@@ -329,7 +334,7 @@ modules:
       - store: store_totals
         mode: deltas
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_pool_entities
     kind: map
@@ -353,7 +358,7 @@ modules:
       - store: store_swaps_volume
         mode: deltas
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_tokens_entities
     kind: map
@@ -371,7 +376,7 @@ modules:
       - store: store_eth_prices
         mode: deltas
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_tick_entities
     kind: map
@@ -381,7 +386,7 @@ modules:
       - store: store_ticks_liquidities
         mode: deltas
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_positions_entities
     kind: map
@@ -391,7 +396,7 @@ modules:
       - store: store_position_changes
         mode: deltas
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_snapshot_positions_entities
     kind: map
@@ -399,7 +404,7 @@ modules:
     inputs:
       - map: map_snapshot_positions
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_transaction_entities
     kind: map
@@ -407,7 +412,7 @@ modules:
     inputs:
       - map: map_transactions
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_swaps_mints_burns_entities
     kind: map
@@ -417,7 +422,7 @@ modules:
       - store: store_total_tx_counts
       - store: store_eth_prices
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_flashes_entities
     kind: map
@@ -425,7 +430,7 @@ modules:
     inputs:
       - map: map_flashes
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: map_uniswap_day_data_entities
     kind: map
@@ -438,7 +443,7 @@ modules:
       - store: store_swaps_volume
         mode: deltas
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
 
   - name: graph_out
     kind: map
@@ -449,4 +454,4 @@ modules:
 #      - map: map_tokens_entities
 #      - map: map_swaps_mints_burns_entities
     output:
-      type: proto:uniswap.types.v1.EntitiesChanges
+      type: proto:substreams.entity.v1.EntityChanges
