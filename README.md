@@ -21,7 +21,7 @@ $ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases
 {
   "@module": "graph_out",
   "@block": 12369811,
-  "@type": "uniswap.types.v1.EntitiesChanges",
+  "@type": "uniswap.types.v1.EntityChanges",
   "@data": {
     "blockId": "UtxZ8zz58lX7UzRF9mgiGpNhkUpib/7M/A9ioKEYkYE=",
     "blockNumber": "12369811",

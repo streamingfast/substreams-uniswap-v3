@@ -6,7 +6,7 @@ macro_rules! new_field {
             value_type: $value_type as i32,
             new_value: $new_value,
             new_value_null: false,
-            old_value: vec![],
+            old_value: "".to_string(),
             old_value_null: true,
         }
     };
@@ -26,10 +26,20 @@ macro_rules! update_field {
     };
 }
 
+// check the usefulness of the macros here
+// they may not be useful anymore because
+// store strings instead of bytes
 #[macro_export]
 macro_rules! string_field_value {
     ($a:expr) => {
-        $a.as_bytes().to_vec()
+        $a.to_vec()
+    };
+}
+
+#[macro_export]
+macro_rules! bytes_field_value {
+    ($a:expr) => {
+        $a.to_vec()
     };
 }
 

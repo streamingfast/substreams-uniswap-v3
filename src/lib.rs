@@ -15,13 +15,14 @@ mod utils;
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
 use crate::keyer::{native_pool_from_key, position};
+use crate::pb::entity::{EntityChange, EntityChanges};
 use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
 use crate::pb::uniswap::tick::Type::{Lower, Upper};
 use crate::pb::uniswap::{
-    EntitiesChanges, EntityChange, Erc20Token, Erc20Tokens, Event, EventAmount, Events, Pool,
-    PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
+    Erc20Token, Erc20Tokens, Event, EventAmount, Events, Pool, PoolLiquidities, PoolLiquidity,
+    PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
 };
 use crate::pb::{uniswap, PositionEvent};
 use crate::price::WHITELIST_TOKENS;
@@ -1978,8 +1979,8 @@ pub fn map_flashes(block: Block, pool_store: StoreGet) -> Result<Flashes, Error>
 pub fn map_bundle_entities(
     block: Block,
     derived_eth_prices_deltas: store::Deltas,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         ..Default::default()
     };
 
@@ -2004,9 +2005,9 @@ pub fn map_factory_entities(
     tx_count_deltas: store::Deltas,
     swaps_volume_deltas: store::Deltas,
     totals_deltas: store::Deltas,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        ..Default::default()
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
+        entity_changes: vec![],
     };
 
     if block.number == 12369621 {
@@ -2051,8 +2052,8 @@ pub fn map_pool_entities(
     price_deltas: store::Deltas,
     tx_count_deltas: store::Deltas,
     swaps_volume_deltas: store::Deltas,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         ..Default::default()
     };
 
@@ -2119,12 +2120,8 @@ pub fn map_tokens_entities(
     total_value_locked_by_deltas: store::Deltas,
     total_value_locked_deltas: store::Deltas,
     derived_eth_prices_deltas: store::Deltas,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        block_id: vec![],
-        block_number: 0,
-        prev_block_id: vec![],
-        prev_block_number: 0,
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
@@ -2174,8 +2171,8 @@ pub fn map_tokens_entities(
 pub fn map_tick_entities(
     ticks_deltas: store::Deltas,
     ticks_liquidities_deltas: store::Deltas,
-) -> Result<EntitiesChanges, Error> {
-    let mut out: EntitiesChanges = EntitiesChanges {
+) -> Result<EntityChanges, Error> {
+    let mut out: EntityChanges = EntityChanges {
         ..Default::default()
     };
 
@@ -2211,12 +2208,8 @@ pub fn map_tick_entities(
 pub fn map_positions_entities(
     positions: Positions,
     positions_changes_deltas: store::Deltas,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        block_id: vec![],
-        block_number: 0,
-        prev_block_id: vec![],
-        prev_block_number: 0,
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
@@ -2237,12 +2230,8 @@ pub fn map_positions_entities(
 #[substreams::handlers::map]
 pub fn map_snapshot_positions_entities(
     snapshot_positions: SnapshotPositions,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        block_id: vec![],
-        block_number: 0,
-        prev_block_id: vec![],
-        prev_block_number: 0,
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
@@ -2255,12 +2244,8 @@ pub fn map_snapshot_positions_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_transaction_entities(transactions: Transactions) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        block_id: vec![],
-        block_number: 0,
-        prev_block_id: vec![],
-        prev_block_number: 0,
+pub fn map_transaction_entities(transactions: Transactions) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
@@ -2279,12 +2264,8 @@ pub fn map_swaps_mints_burns_entities(
     events: Events,
     tx_count_store: StoreGet,
     store_eth_prices: StoreGet,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        block_id: vec![],
-        block_number: 0,
-        prev_block_id: vec![],
-        prev_block_number: 0,
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
@@ -2300,12 +2281,8 @@ pub fn map_swaps_mints_burns_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_flashes_entities(flashes: Flashes) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        block_id: vec![],
-        block_number: 0,
-        prev_block_id: vec![],
-        prev_block_number: 0,
+pub fn map_flashes_entities(flashes: Flashes) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
@@ -2322,12 +2299,8 @@ pub fn map_uniswap_day_data_entities(
     tx_count_deltas: store::Deltas,
     totals_deltas: store::Deltas,
     volume_deltas: store::Deltas,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        block_id: vec![],
-        block_number: 0,
-        prev_block_id: vec![],
-        prev_block_number: 0,
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
@@ -2355,15 +2328,11 @@ pub fn map_uniswap_day_data_entities(
 #[substreams::handlers::map]
 pub fn graph_out(
     block: Block,
-    pool_entities: EntitiesChanges,
-    // token_entities: EntitiesChanges,
-    // swaps_mints_burns_entities: EntitiesChanges,
-) -> Result<EntitiesChanges, Error> {
-    let mut out = EntitiesChanges {
-        block_id: block.hash,
-        block_number: block.number,
-        prev_block_id: block.header.unwrap().parent_hash,
-        prev_block_number: block.number - 1 as u64,
+    pool_entities: EntityChanges,
+    token_entities: EntityChanges,
+    // swaps_mints_burns_entities: EntityChanges,
+) -> Result<EntityChanges, Error> {
+    let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
@@ -2373,10 +2342,10 @@ pub fn graph_out(
     for change in pool_entities.entity_changes {
         out.entity_changes.push(change);
     }
-    //
-    // for change in token_entities.entity_changes {
-    //     out.entity_changes.push(change);
-    // }
+
+    for change in token_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
     //
     // for change in swaps_mints_burns_entities.entity_changes {
     //     out.entity_changes.push(change);

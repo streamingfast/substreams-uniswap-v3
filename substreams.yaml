@@ -14,10 +14,6 @@ protobuf:
   importPaths:
     - ./proto
 
-# imports:
-#   eth: https://.../path/to/ethereum-v0.2.0.spkg
-#   graph: https://.../path/to/graphnode-v0.2.0.spkg
-
 binaries:
   default:
     type: wasm/rust-v1
@@ -382,7 +378,8 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_ticks
+      - store: store_ticks
+        mode: deltas
       - store: store_ticks_liquidities
         mode: deltas
     output:
@@ -451,7 +448,7 @@ modules:
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_pool_entities
-#      - map: map_tokens_entities
+      - map: map_tokens_entities
 #      - map: map_swaps_mints_burns_entities
     output:
       type: proto:substreams.entity.v1.EntityChanges

@@ -11,6 +11,9 @@ pub mod uniswap;
 #[path = "./sf.ethereum.tokens.v1.rs"]
 pub mod tokens;
 
+#[path = "./substreams.entity.v1.rs"]
+pub mod entity;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PositionEvent {
     pub event: PositionEventType,

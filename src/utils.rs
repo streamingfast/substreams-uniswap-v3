@@ -6,7 +6,7 @@ use crate::{
     keyer, math, rpc, Erc20Token, IncreaseLiquidity, Pool, PoolLiquidity, Position, StorageChange,
     ToPrimitive, WHITELIST_TOKENS,
 };
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, Zero};
 use ethabi::Uint;
 use num_bigint::BigInt;
 use std::ops::{Add, Mul};
@@ -162,8 +162,19 @@ pub fn calculate_amount_usd(
 }
 
 pub fn decode_bytes_to_big_decimal(bytes: Vec<u8>) -> BigDecimal {
+    if bytes.len() == 0 {
+        return BigDecimal::zero();
+    }
     let bytes_as_str = str::from_utf8(bytes.as_slice()).unwrap();
     return BigDecimal::from_str(bytes_as_str).unwrap().with_prec(100);
+}
+
+pub fn decode_bytes_to_big_int(bytes: Vec<u8>) -> BigInt {
+    if bytes.len() == 0 {
+        return BigInt::zero();
+    }
+    let bytes_as_str = str::from_utf8(bytes.as_slice()).unwrap();
+    return BigInt::from_str(bytes_as_str).unwrap();
 }
 
 pub fn get_tracked_amount_usd(
