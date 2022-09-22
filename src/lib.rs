@@ -838,7 +838,6 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
     }
 }
 
-// todo: refactor to use the add_many method from output store
 #[substreams::handlers::store]
 pub fn store_swaps_volume(
     clock: Clock,
@@ -887,12 +886,12 @@ pub fn store_swaps_volume(
                         amount1_abs = amount1_abs.mul(BigDecimal::from(-1 as i64))
                     }
 
-                    log::info!("trx_id: {}", event.transaction_id);
-                    log::info!("bundle.ethPriceUSD: {}", eth_price_in_usd);
-                    log::info!("token0_derived_eth_price: {}", token0_derived_eth_price);
-                    log::info!("token1_derived_eth_price: {}", token1_derived_eth_price);
-                    log::info!("amount0_abs: {}", amount0_abs);
-                    log::info!("amount1_abs: {}", amount1_abs);
+                    log::debug!("trx_id: {}", event.transaction_id);
+                    log::debug!("bundle.ethPriceUSD: {}", eth_price_in_usd);
+                    log::debug!("token0_derived_eth_price: {}", token0_derived_eth_price);
+                    log::debug!("token1_derived_eth_price: {}", token1_derived_eth_price);
+                    log::debug!("amount0_abs: {}", amount0_abs);
+                    log::debug!("amount1_abs: {}", amount1_abs);
 
                     let amount_total_usd_tracked: BigDecimal = utils::get_tracked_amount_usd(
                         &event.token0,
@@ -923,69 +922,52 @@ pub fn store_swaps_volume(
                         .mul(fee_tier)
                         .div(BigDecimal::from(1000000 as u64));
 
-                    output.add(
+                    output.add_many(
                         event.log_ordinal,
-                        keyer::swap_volume_token_0(&event.pool_address),
+                        &vec![
+                            keyer::swap_volume_token_0(&event.pool_address),
+                            keyer::swap_token_volume(&event.token0, "token0".to_string()),
+                        ],
                         &amount0_abs,
                     );
-                    output.add(
+                    output.add_many(
                         event.log_ordinal,
-                        keyer::swap_volume_token_1(&event.pool_address),
+                        &vec![
+                            keyer::swap_volume_token_1(&event.pool_address),
+                            keyer::swap_token_volume(&event.token1, "token1".to_string()),
+                        ],
                         &amount1_abs,
                     );
-                    output.add(
+                    output.add_many(
                         event.log_ordinal,
-                        keyer::swap_volume_usd(&event.pool_address),
+                        &vec![
+                            keyer::swap_volume_usd(&event.pool_address),
+                            keyer::swap_token_volume_usd(&event.token0),
+                            keyer::swap_token_volume_usd(&event.token1),
+                            keyer::swap_factory_total_volume_usd(),
+                            keyer::swap_uniswap_day_data_volume_usd(day_id.to_string()),
+                        ],
                         &amount_total_usd_tracked,
                     );
-                    output.add(
+                    output.add_many(
                         event.log_ordinal,
-                        keyer::swap_untracked_volume_usd(&event.pool_address),
+                        &vec![
+                            keyer::swap_untracked_volume_usd(&event.pool_address),
+                            keyer::swap_token_volume_untracked_volume_usd(&event.token0),
+                            keyer::swap_token_volume_untracked_volume_usd(&event.token1),
+                            keyer::swap_factory_untracked_volume_usd(),
+                        ],
                         &amount_total_usd_untracked,
                     );
-                    output.add(
+                    output.add_many(
                         event.log_ordinal,
-                        keyer::swap_fee_usd(&event.pool_address),
-                        &fee_usd,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_token_volume(&event.token0, "token0".to_string()),
-                        &amount0_abs,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_token_volume(&event.token1, "token1".to_string()),
-                        &amount1_abs,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_token_volume_usd(&event.token0),
-                        &amount_total_usd_tracked,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_token_volume_usd(&event.token1),
-                        &amount_total_usd_tracked,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_token_volume_untracked_volume_usd(&event.token0),
-                        &amount_total_usd_untracked,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_token_volume_untracked_volume_usd(&event.token1),
-                        &amount_total_usd_untracked,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_token_fee_usd(&event.token0),
-                        &fee_usd,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_token_fee_usd(&event.token1),
+                        &vec![
+                            keyer::swap_fee_usd(&event.pool_address),
+                            keyer::swap_token_fee_usd(&event.token0),
+                            keyer::swap_token_fee_usd(&event.token1),
+                            keyer::swap_factory_total_fees_usd(),
+                            keyer::swap_uniswap_day_data_fees_usd(day_id.to_string()),
+                        ],
                         &fee_usd,
                     );
                     output.add(
@@ -1002,16 +984,6 @@ pub fn store_swaps_volume(
                         event.log_ordinal,
                         keyer::swap_uniswap_day_data_volume_eth(day_id.to_string()),
                         &amount_total_eth_tracked,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_uniswap_day_data_volume_usd(day_id.to_string()),
-                        &amount_total_usd_tracked,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_uniswap_day_data_fees_usd(day_id.to_string()),
-                        &fee_usd,
                     );
                 }
                 _ => {}
@@ -1832,8 +1804,10 @@ pub fn store_position_changes(all_positions: Positions, output: StoreAddBigFloat
     }
 }
 
+//todo: maybe exact the some/none part in a macro and use it in the db?
+// as in the string is empty/0 in this use-case it would mean the same thing
 #[substreams::handlers::map]
-pub fn map_snapshot_positions(
+pub fn map_position_snapshots(
     positions: Positions,
     position_changes_store: StoreGet,
 ) -> Result<SnapshotPositions, Error> {
@@ -1859,13 +1833,14 @@ pub fn map_snapshot_positions(
             collected_fees_token1: "".to_string(),
             fee_growth_inside_0_last_x_128: position.fee_growth_inside_0_last_x_128,
             fee_growth_inside_1_last_x_128: position.fee_growth_inside_1_last_x_128,
+            log_ordinal: position.log_ordinal,
         };
 
         match position_changes_store.get_last(keyer::position_liquidity(&position.id)) {
             Some(bytes) => {
-                snapshot_position.liquidity = utils::decode_bytes_to_big_decimal(bytes).to_string();
+                snapshot_position.liquidity = utils::decode_bytes_to_big_int(bytes).to_string();
             }
-            _ => {}
+            _ => snapshot_position.liquidity = "0".to_string(),
         }
 
         match position_changes_store
@@ -1875,7 +1850,7 @@ pub fn map_snapshot_positions(
                 snapshot_position.deposited_token0 =
                     utils::decode_bytes_to_big_decimal(bytes).to_string();
             }
-            _ => {}
+            _ => snapshot_position.deposited_token0 = "0".to_string(),
         }
 
         match position_changes_store
@@ -1885,7 +1860,7 @@ pub fn map_snapshot_positions(
                 snapshot_position.deposited_token1 =
                     utils::decode_bytes_to_big_decimal(bytes).to_string();
             }
-            _ => {}
+            _ => snapshot_position.deposited_token1 = "0".to_string(),
         }
 
         match position_changes_store
@@ -1895,7 +1870,7 @@ pub fn map_snapshot_positions(
                 snapshot_position.withdrawn_token0 =
                     utils::decode_bytes_to_big_decimal(bytes).to_string();
             }
-            _ => {}
+            _ => snapshot_position.withdrawn_token0 = "0".to_string(),
         }
 
         match position_changes_store
@@ -1905,7 +1880,7 @@ pub fn map_snapshot_positions(
                 snapshot_position.withdrawn_token1 =
                     utils::decode_bytes_to_big_decimal(bytes).to_string();
             }
-            _ => {}
+            _ => snapshot_position.withdrawn_token1 = "0".to_string(),
         }
 
         match position_changes_store
@@ -1915,7 +1890,7 @@ pub fn map_snapshot_positions(
                 snapshot_position.collected_fees_token0 =
                     utils::decode_bytes_to_big_decimal(bytes).to_string();
             }
-            _ => {}
+            _ => snapshot_position.collected_fees_token0 = "0".to_string(),
         }
 
         match position_changes_store
@@ -1925,7 +1900,7 @@ pub fn map_snapshot_positions(
                 snapshot_position.collected_fees_token1 =
                     utils::decode_bytes_to_big_decimal(bytes).to_string();
             }
-            _ => {}
+            _ => snapshot_position.collected_fees_token1 = "0".to_string(),
         }
 
         snapshot_positions
@@ -2205,7 +2180,7 @@ pub fn map_tick_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_positions_entities(
+pub fn map_position_entities(
     positions: Positions,
     positions_changes_deltas: store::Deltas,
 ) -> Result<EntityChanges, Error> {
@@ -2228,7 +2203,7 @@ pub fn map_positions_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_snapshot_positions_entities(
+pub fn map_position_snapshot_entities(
     snapshot_positions: SnapshotPositions,
 ) -> Result<EntityChanges, Error> {
     let mut out = EntityChanges {
@@ -2325,19 +2300,35 @@ pub fn map_uniswap_day_data_entities(
     Ok(out)
 }
 
+//todo: check if we want to check the block ordinal here and sort by the ordinal
+// or simply stream out all the entity changes
 #[substreams::handlers::map]
 pub fn graph_out(
-    block: Block,
+    factory_entities: EntityChanges,
+    bundle_entities: EntityChanges,
+    transaction_entities: EntityChanges,
     pool_entities: EntityChanges,
     token_entities: EntityChanges,
+    tick_entities: EntityChanges,
+    position_entities: EntityChanges,
+    position_snapshot_entities: EntityChanges,
     // swaps_mints_burns_entities: EntityChanges,
 ) -> Result<EntityChanges, Error> {
     let mut out = EntityChanges {
         entity_changes: vec![],
     };
 
-    //todo: check if we wand to check the block ordinal here and sort by the ordinal
-    // or simply stream out all the entity changes
+    for change in factory_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
+
+    for change in bundle_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
+
+    for change in transaction_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
 
     for change in pool_entities.entity_changes {
         out.entity_changes.push(change);
@@ -2346,7 +2337,19 @@ pub fn graph_out(
     for change in token_entities.entity_changes {
         out.entity_changes.push(change);
     }
-    //
+
+    for change in tick_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
+
+    for change in position_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
+
+    for change in position_snapshot_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
+
     // for change in swaps_mints_burns_entities.entity_changes {
     //     out.entity_changes.push(change);
     // }

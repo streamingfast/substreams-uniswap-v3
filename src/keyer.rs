@@ -216,19 +216,31 @@ pub fn swap_fee_usd(pool_address: &String) -> String {
 }
 
 pub fn swap_token_volume(token_address: &String, token: String) -> String {
-    format!("{}:{}", token_address, token)
+    format!("token:{}:{}", token_address, token)
 }
 
 pub fn swap_token_volume_usd(token_address: &String) -> String {
-    format!("{}:volume:usd", token_address)
+    format!("token:{}:volume:usd", token_address)
 }
 
 pub fn swap_token_volume_untracked_volume_usd(token_address: &String) -> String {
-    format!("{}:volume:untrackedUSD", token_address)
+    format!("token:{}:volume:untrackedUSD", token_address)
 }
 
 pub fn swap_token_fee_usd(token_address: &String) -> String {
-    format!("{}:feesUSD", token_address)
+    format!("token:{}:feesUSD", token_address)
+}
+
+pub fn swap_factory_total_fees_usd() -> String {
+    format!("factory:totalFeesUSD")
+}
+
+pub fn swap_factory_total_volume_usd() -> String {
+    format!("factory:totalVolumeUSD")
+}
+
+pub fn swap_factory_untracked_volume_usd() -> String {
+    format!("factory:untrackedVolumeUSD")
 }
 
 pub fn swap_factory_total_volume_eth() -> String {

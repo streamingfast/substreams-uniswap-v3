@@ -252,4 +252,7 @@ message SnapshotPosition {
   string transaction = 14;
   string fee_growth_inside_0_last_X_128 = 15;
   string fee_growth_inside_1_last_X_128 = 16;
+
+  // internal
+  uint64 log_ordinal = 17;
 }

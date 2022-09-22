@@ -160,44 +160,47 @@ pub fn tx_count_factory_entity_change(tx_count_delta: StoreDelta) -> Option<Enti
     });
 }
 
-pub fn swap_volume_factory_entity_change(swap_volume_delta: StoreDelta) -> Option<EntityChange> {
+pub fn swap_volume_factory_entity_change(delta: StoreDelta) -> Option<EntityChange> {
+    if !delta.key.as_str().starts_with("factory:") {
+        return None;
+    }
     let mut change: EntityChange = EntityChange {
         entity: "Factory".to_string(),
         id: Hex(utils::UNISWAP_V3_FACTORY).to_string(),
-        ordinal: swap_volume_delta.ordinal,
+        ordinal: delta.ordinal,
         operation: Operation::Update as i32,
         fields: vec![],
     };
-    match swap_volume_delta.key.as_str().split(":").last().unwrap() {
-        "usd" => change.fields.push(update_field!(
+    match delta.key.as_str().split(":").last().unwrap() {
+        "totalVolumeUSD" => change.fields.push(update_field!(
             "totalVolumeUSD",
             FieldType::Bigdecimal,
-            utils::decode_bytes_to_big_decimal(swap_volume_delta.old_value).to_string(),
-            utils::decode_bytes_to_big_decimal(swap_volume_delta.new_value).to_string()
+            utils::decode_bytes_to_big_decimal(delta.old_value).to_string(),
+            utils::decode_bytes_to_big_decimal(delta.new_value).to_string()
         )),
-        "untrackedUSD" => change.fields.push(update_field!(
+        "untrackedVolumeUSD" => change.fields.push(update_field!(
             "untrackedVolumeUSD",
             FieldType::Bigdecimal,
-            utils::decode_bytes_to_big_decimal(swap_volume_delta.old_value).to_string(),
-            utils::decode_bytes_to_big_decimal(swap_volume_delta.new_value).to_string()
+            utils::decode_bytes_to_big_decimal(delta.old_value).to_string(),
+            utils::decode_bytes_to_big_decimal(delta.new_value).to_string()
         )),
-        "feesUSD" => change.fields.push(update_field!(
+        "totalFeesUSD" => change.fields.push(update_field!(
             "totalFeesUSD",
             FieldType::Bigdecimal,
-            decode_bytes_to_big_decimal(swap_volume_delta.old_value).to_string(),
-            decode_bytes_to_big_decimal(swap_volume_delta.new_value).to_string()
+            utils::decode_bytes_to_big_decimal(delta.old_value).to_string(),
+            utils::decode_bytes_to_big_decimal(delta.new_value).to_string()
         )),
         "totalVolumeETH" => change.fields.push(update_field!(
             "totalVolumeETH",
             FieldType::Bigdecimal,
-            utils::decode_bytes_to_big_decimal(swap_volume_delta.old_value).to_string(),
-            utils::decode_bytes_to_big_decimal(swap_volume_delta.new_value).to_string()
+            utils::decode_bytes_to_big_decimal(delta.old_value).to_string(),
+            utils::decode_bytes_to_big_decimal(delta.new_value).to_string()
         )),
         "totalFeesETH" => change.fields.push(update_field!(
             "totalFeesETH",
             FieldType::Bigdecimal,
-            utils::decode_bytes_to_big_decimal(swap_volume_delta.old_value).to_string(),
-            utils::decode_bytes_to_big_decimal(swap_volume_delta.new_value).to_string()
+            utils::decode_bytes_to_big_decimal(delta.old_value).to_string(),
+            utils::decode_bytes_to_big_decimal(delta.new_value).to_string()
         )),
         _ => {
             return None;
@@ -661,7 +664,7 @@ pub fn tokens_created_token_entity_change(pool: Pool) -> Vec<EntityChange> {
     return vec![
         EntityChange {
             entity: "Token".to_string(),
-            id: pool.address.clone(),
+            id: token0.address.clone(),
             ordinal: pool.log_ordinal,
             operation: Operation::Create as i32,
             fields: vec![
@@ -728,7 +731,7 @@ pub fn tokens_created_token_entity_change(pool: Pool) -> Vec<EntityChange> {
         },
         EntityChange {
             entity: "Token".to_string(),
-            id: pool.address,
+            id: token1.address.clone(),
             ordinal: pool.log_ordinal,
             operation: Operation::Create as i32,
             fields: vec![
@@ -796,9 +799,12 @@ pub fn tokens_created_token_entity_change(pool: Pool) -> Vec<EntityChange> {
     ];
 }
 
-/// key -> swap:{pool_id}:volume:{token_id}:(token0/token1)
 pub fn swap_volume_token_entity_change(delta: StoreDelta) -> Option<EntityChange> {
-    let token_address = delta.key.as_str().split(":").nth(0).unwrap().to_string();
+    if !delta.key.as_str().starts_with("token:") {
+        return None;
+    }
+
+    let token_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
     let mut change: EntityChange = EntityChange {
         entity: "Token".to_string(),
         id: token_address,
@@ -1096,6 +1102,37 @@ pub fn position_create_entity_change(position: Position) -> EntityChange {
             new_field!("token1", FieldType::String, position.token1),
             new_field!("tickLower", FieldType::String, position.tick_lower),
             new_field!("tickUpper", FieldType::String, position.tick_upper),
+            new_field!("liquidity", FieldType::Bigint, BigInt::zero().to_string()),
+            new_field!(
+                "depositedToken0",
+                FieldType::Bigdecimal,
+                BigDecimal::zero().to_string()
+            ),
+            new_field!(
+                "depositedToken1",
+                FieldType::Bigdecimal,
+                BigDecimal::zero().to_string()
+            ),
+            new_field!(
+                "withdrawnToken0",
+                FieldType::Bigdecimal,
+                BigDecimal::zero().to_string()
+            ),
+            new_field!(
+                "withdrawnToken1",
+                FieldType::Bigdecimal,
+                BigDecimal::zero().to_string()
+            ),
+            new_field!(
+                "collectedFeesToken0",
+                FieldType::Bigdecimal,
+                BigDecimal::zero().to_string()
+            ),
+            new_field!(
+                "collectedFeesToken1",
+                FieldType::Bigdecimal,
+                BigDecimal::zero().to_string()
+            ),
             new_field!("transaction", FieldType::String, position.transaction),
             new_field!(
                 "feeGrowthInside0LastX128",
@@ -1157,10 +1194,10 @@ pub fn positions_changes_entity_change(delta: StoreDelta) -> Option<EntityChange
 // --------------------
 pub fn snapshot_position_entity_change(snapshot_position: SnapshotPosition) -> EntityChange {
     return EntityChange {
-        entity: "".to_string(),
+        entity: "PositionSnapshot".to_string(),
         id: snapshot_position.id.clone(),
-        ordinal: 0,
-        operation: 0,
+        ordinal: snapshot_position.log_ordinal,
+        operation: Operation::Create as i32,
         fields: vec![
             new_field!("id", FieldType::String, snapshot_position.id),
             new_field!("owner", FieldType::String, snapshot_position.owner),
