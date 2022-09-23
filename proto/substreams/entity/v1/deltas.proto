@@ -56,16 +56,16 @@ pub enum Value {
 
 message Value {
   oneof typed {
-    int32 int32_value = 1;
-    string bigdecimal_value = 2;
-    string bigint_value = 3;
-    string string_value = 4;
-    bytes bytes_value = 5;
-    bool bool_value = 6;
+    int32 int32 = 1;
+    string bigdecimal = 2;
+    string bigint = 3;
+    string string = 4;
+    bytes bytes = 5;
+    bool bool = 6;
 
     //reserved 7 to 9;  // For future types
 
-    Array array_value = 10;
+    Array array = 10;
   }
 }
 
