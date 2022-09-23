@@ -1,20 +1,20 @@
 use crate::pb::entity::field::Type as FieldType;
 use crate::pb::entity::EntityChange;
 use crate::pb::entity::Field;
-use crate::utils::decode_bytes_to_big_decimal;
 use crate::{
-    big_decimal_string_field_value, big_decimal_vec_field_value, big_int_field_value,
-    int_field_value, keyer, new_field, string_field_value, update_field, utils, BurnEvent,
-    Erc20Token, Event, Flash, MintEvent, Pool, PoolSqrtPrice, Position, SnapshotPosition,
-    SnapshotPositions, SwapEvent, Tick, Transaction,
+    keyer, new_field, update_field, utils, BurnEvent, Erc20Token, Event, Flash, MintEvent, Pool,
+    PoolSqrtPrice, Position, SnapshotPosition, SnapshotPositions, SwapEvent, Tick, Transaction,
 };
 use bigdecimal::{BigDecimal, Zero};
-use num_bigint::{BigInt, ToBigInt};
+use num_bigint::BigInt;
 use std::str::FromStr;
 use substreams::pb::substreams::store_delta::Operation;
 use substreams::pb::substreams::StoreDelta;
 use substreams::store::StoreGet;
-use substreams::{log, proto, Hex};
+use substreams::{proto, Hex};
+
+extern crate base64;
+use base64::encode;
 
 // -------------------
 //  Map Bundle Entities
@@ -1096,7 +1096,7 @@ pub fn position_create_entity_change(position: Position) -> EntityChange {
         operation: Operation::Create as i32,
         fields: vec![
             new_field!("id", FieldType::String, position.id),
-            new_field!("owner", FieldType::String, position.owner),
+            new_field!("owner", FieldType::Bytes, encode(position.owner.as_bytes())),
             new_field!("pool", FieldType::String, position.pool),
             new_field!("token0", FieldType::String, position.token0),
             new_field!("token1", FieldType::String, position.token1),
@@ -1200,7 +1200,11 @@ pub fn snapshot_position_entity_change(snapshot_position: SnapshotPosition) -> E
         operation: Operation::Create as i32,
         fields: vec![
             new_field!("id", FieldType::String, snapshot_position.id),
-            new_field!("owner", FieldType::String, snapshot_position.owner),
+            new_field!(
+                "owner",
+                FieldType::Bytes,
+                encode(snapshot_position.owner.as_bytes())
+            ),
             new_field!("pool", FieldType::String, snapshot_position.pool),
             new_field!("position", FieldType::String, snapshot_position.position),
             new_field!(
@@ -1379,13 +1383,17 @@ pub fn swaps_mints_burns_created_entity_change(
                         new_field!("pool", FieldType::String, event.pool_address),
                         new_field!("token0", FieldType::String, event.token0),
                         new_field!("token1", FieldType::String, event.token1),
-                        new_field!("sender", FieldType::String, swap.sender), // should this be bytes ?
-                        new_field!("recipient", FieldType::String, swap.recipient), // should this be bytes ?
-                        new_field!("origin", FieldType::String, swap.origin), // should this be bytes ?
+                        new_field!("sender", FieldType::Bytes, encode(swap.sender.as_bytes())),
+                        new_field!(
+                            "recipient",
+                            FieldType::Bytes,
+                            encode(swap.recipient.as_bytes())
+                        ),
+                        new_field!("origin", FieldType::Bytes, encode(swap.origin.as_bytes())),
                         new_field!("amount0", FieldType::Bigdecimal, swap.amount_0),
                         new_field!("amount1", FieldType::Bigdecimal, swap.amount_1),
                         new_field!("amountUSD", FieldType::Bigdecimal, amount_usd.to_string()),
-                        new_field!("sqrtPriceX96", FieldType::Int32, swap.sqrt_price),
+                        new_field!("sqrtPriceX96", FieldType::Bigint, swap.sqrt_price),
                         new_field!("tick", FieldType::Bigint, swap.tick.to_string()),
                         new_field!("logIndex", FieldType::Bigint, event.log_ordinal.to_string()), // not sure if this is good
                     ],
@@ -1415,9 +1423,9 @@ pub fn swaps_mints_burns_created_entity_change(
                         new_field!("pool", FieldType::String, event.pool_address),
                         new_field!("token0", FieldType::String, event.token0),
                         new_field!("token1", FieldType::String, event.token1),
-                        new_field!("owner", FieldType::String, mint.owner), // should this be bytes ?
-                        new_field!("sender", FieldType::String, mint.sender), // should this be bytes ?
-                        new_field!("origin", FieldType::String, mint.origin), // should this be bytes ?
+                        new_field!("owner", FieldType::Bytes, encode(mint.owner.as_bytes())),
+                        new_field!("sender", FieldType::Bytes, encode(mint.sender.as_bytes())),
+                        new_field!("origin", FieldType::Bytes, encode(mint.origin.as_bytes())),
                         new_field!("amount", FieldType::Bigint, mint.amount),
                         new_field!("amount0", FieldType::Bigdecimal, mint.amount_0),
                         new_field!("amount1", FieldType::Bigdecimal, mint.amount_1),
@@ -1448,12 +1456,12 @@ pub fn swaps_mints_burns_created_entity_change(
                     fields: vec![
                         new_field!("id", FieldType::String, transaction_id),
                         new_field!("transaction", FieldType::String, event.transaction_id),
-                        new_field!("timestamp", FieldType::Bigint, event.timestamp.to_string()),
                         new_field!("pool", FieldType::String, event.pool_address),
                         new_field!("token0", FieldType::String, event.token0),
                         new_field!("token1", FieldType::String, event.token1),
-                        new_field!("owner", FieldType::String, burn.owner), // should this be bytes ?
-                        new_field!("origin", FieldType::String, burn.origin), // should this be bytes ?
+                        new_field!("timestamp", FieldType::Bigint, event.timestamp.to_string()),
+                        new_field!("owner", FieldType::Bytes, encode(burn.owner.as_bytes())),
+                        new_field!("origin", FieldType::Bytes, encode(burn.origin.as_bytes())),
                         new_field!("amount", FieldType::Bigint, burn.amount),
                         new_field!("amount0", FieldType::Bigdecimal, burn.amount_0),
                         new_field!("amount1", FieldType::Bigdecimal, burn.amount_1),

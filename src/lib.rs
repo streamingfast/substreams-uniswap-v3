@@ -1301,7 +1301,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let lower_tick_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &lower_tick_price0);
 
-                let tick_result = rpc::fee_growth_outside_x128_call(
+                let lower_tick_result = rpc::fee_growth_outside_x128_call(
                     &event.pool_address,
                     &lower_tick_idx.to_string(),
                 );
@@ -1314,8 +1314,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     price1: lower_tick_price1.to_string(),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: tick_result.0.to_string(),
-                    fee_growth_outside_1x_128: tick_result.1.to_string(),
+                    fee_growth_outside_0x_128: lower_tick_result.0.to_string(),
+                    fee_growth_outside_1x_128: lower_tick_result.1.to_string(),
                     log_ordinal: event.log_ordinal,
                     amount: burn.amount.clone(),
                     r#type: Lower as i32,
@@ -1332,7 +1332,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let upper_upper_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &upper_tick_price0);
 
-                let tick_result = rpc::fee_growth_outside_x128_call(
+                let upper_tick_result = rpc::fee_growth_outside_x128_call(
                     &event.pool_address,
                     &upper_tick_idx.to_string(),
                 );
@@ -1345,8 +1345,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     price1: upper_upper_price1.to_string(),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: tick_result.0.to_string(),
-                    fee_growth_outside_1x_128: tick_result.1.to_string(),
+                    fee_growth_outside_0x_128: upper_tick_result.0.to_string(),
+                    fee_growth_outside_1x_128: upper_tick_result.1.to_string(),
                     log_ordinal: event.log_ordinal,
                     amount: burn.amount,
                     r#type: Upper as i32,
@@ -1368,7 +1368,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let lower_tick_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &lower_tick_price0);
 
-                let tick_result = rpc::fee_growth_outside_x128_call(
+                let lower_tick_result = rpc::fee_growth_outside_x128_call(
                     &event.pool_address,
                     &lower_tick_idx.to_string(),
                 );
@@ -1383,8 +1383,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     price1: lower_tick_price1.to_string(),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: tick_result.0.to_string(),
-                    fee_growth_outside_1x_128: tick_result.1.to_string(),
+                    fee_growth_outside_0x_128: lower_tick_result.0.to_string(),
+                    fee_growth_outside_1x_128: lower_tick_result.1.to_string(),
                     log_ordinal: event.log_ordinal,
                     amount: mint.amount.clone(),
                     r#type: Lower as i32,
@@ -1401,7 +1401,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let upper_tick_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &upper_tick_price0);
 
-                let tick_result = rpc::fee_growth_outside_x128_call(
+                let upper_tick_result = rpc::fee_growth_outside_x128_call(
                     &event.pool_address,
                     &upper_tick_idx.to_string(),
                 );
@@ -1414,8 +1414,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     price1: upper_tick_price1.to_string(),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: tick_result.0.to_string(),
-                    fee_growth_outside_1x_128: tick_result.1.to_string(),
+                    fee_growth_outside_0x_128: upper_tick_result.0.to_string(),
+                    fee_growth_outside_1x_128: upper_tick_result.1.to_string(),
                     log_ordinal: event.log_ordinal,
                     amount: mint.amount,
                     r#type: Upper as i32,
@@ -1915,33 +1915,25 @@ pub fn map_position_snapshots(
 pub fn map_flashes(block: Block, pool_store: StoreGet) -> Result<Flashes, Error> {
     let mut out = Flashes { flashes: vec![] };
 
-    for trx in block.transaction_traces {
-        for call in trx.calls.iter() {
-            if call.state_reverted {
-                continue;
-            }
-            for log in call.logs.iter() {
-                log::println(Hex(log.topics.get(0).unwrap()).to_string());
-                if abi::pool::events::Flash::match_log(&log) {
-                    let pool_address: String = Hex(&log.address).to_string();
+    for log in block.logs() {
+        if abi::pool::events::Flash::match_log(&log.log) {
+            let pool_address: String = Hex(&log.address()).to_string();
 
-                    match pool_store.get_last(keyer::pool_key(&pool_address)) {
-                        None => {
-                            panic!("pool {} not found for flash", pool_address)
-                        }
-                        Some(_) => {
-                            log::info!("pool_address: {}", pool_address);
-                            let (fee_growth_global_0x_128, fee_growth_global_1x_128) =
-                                rpc::fee_growth_global_x128_call(&pool_address);
+            match pool_store.get_last(keyer::pool_key(&pool_address)) {
+                None => {
+                    panic!("pool {} not found for flash", pool_address)
+                }
+                Some(_) => {
+                    log::info!("pool_address: {}", pool_address);
+                    let (fee_growth_global_0x_128, fee_growth_global_1x_128) =
+                        rpc::fee_growth_global_x128_call(&pool_address);
 
-                            out.flashes.push(Flash {
-                                pool_address,
-                                fee_growth_global_0x_128: fee_growth_global_0x_128.to_string(),
-                                fee_growth_global_1x_128: fee_growth_global_1x_128.to_string(),
-                                log_ordinal: log.ordinal,
-                            });
-                        }
-                    }
+                    out.flashes.push(Flash {
+                        pool_address,
+                        fee_growth_global_0x_128: fee_growth_global_0x_128.to_string(),
+                        fee_growth_global_1x_128: fee_growth_global_1x_128.to_string(),
+                        log_ordinal: log.ordinal(),
+                    });
                 }
             }
         }
@@ -2256,7 +2248,7 @@ pub fn map_swaps_mints_burns_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_flashes_entities(flashes: Flashes) -> Result<EntityChanges, Error> {
+pub fn map_flash_entities(flashes: Flashes) -> Result<EntityChanges, Error> {
     let mut out = EntityChanges {
         entity_changes: vec![],
     };
@@ -2312,7 +2304,8 @@ pub fn graph_out(
     tick_entities: EntityChanges,
     position_entities: EntityChanges,
     position_snapshot_entities: EntityChanges,
-    // swaps_mints_burns_entities: EntityChanges,
+    flash_entities: EntityChanges,
+    swaps_mints_burns_entities: EntityChanges,
 ) -> Result<EntityChanges, Error> {
     let mut out = EntityChanges {
         entity_changes: vec![],
@@ -2350,9 +2343,13 @@ pub fn graph_out(
         out.entity_changes.push(change);
     }
 
-    // for change in swaps_mints_burns_entities.entity_changes {
-    //     out.entity_changes.push(change);
-    // }
+    for change in flash_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
+
+    for change in swaps_mints_burns_entities.entity_changes {
+        out.entity_changes.push(change);
+    }
 
     Ok(out)
 }

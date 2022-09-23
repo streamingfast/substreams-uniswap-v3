@@ -29,6 +29,8 @@ message Field {
     INT32 = 3;
     BYTES = 4;  // Serialized as Base64 strings.
     STRING = 5;
+    BOOLEAN = 6;
+    STRING_ARRAY = 7;
   }
   Type value_type = 2;
   string new_value = 3;

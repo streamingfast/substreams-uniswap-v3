@@ -1,5 +1,5 @@
 use crate::{abi, eth, utils, Erc20Token};
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, Zero};
 use ethabi::Uint;
 use num_bigint::BigInt;
 use std::str::FromStr;
@@ -39,8 +39,14 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDec
 pub fn fee_growth_outside_x128_call(pool_address: &String, tick_idx: &String) -> (BigInt, BigInt) {
     let tick: BigInt = BigInt::from_str(tick_idx.as_str()).unwrap();
     let tick = abi::pool::functions::Ticks { tick };
+    let rpc_tick_response = tick.call(hex::decode(pool_address).unwrap());
+
+    if rpc_tick_response.is_none() {
+        return (BigInt::zero(), BigInt::zero());
+    }
+
     let (_, _, fee_growth_outside_0x_128, fee_growth_outside_1x_128, _, _, _, _) =
-        tick.call(hex::decode(pool_address).unwrap()).unwrap();
+        rpc_tick_response.unwrap();
 
     return (
         BigInt::from_str(fee_growth_outside_0x_128.to_string().as_str()).unwrap(),

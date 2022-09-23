@@ -10,16 +10,20 @@ crate-type = ["cdylib"]
 [dependencies]
 ethabi = "17.0"
 wasm-bindgen = "0.2.79"
-prost = { version = "0.11.0" }
+prost = "0.11.0"
 prost-types = "0.11.0"
 hex = "0.4.3"
-substreams = { version = "0.0.20" }
-substreams-ethereum = { version = "0.2.2-rc.2" }
+substreams = "~0.0.20"
+substreams-ethereum = "0.2.2-rc.2"
 num-bigint = "0.4"
 bigdecimal = "0.3"
 pad = "0.1"
 
+# Have to use this version because the recent onces redefine
+# a alloc and wealloc which breaks wasm memory management
+base64 = "0.13.0"
+
 [build-dependencies]
 prost-build = "0.11.0"
 anyhow = "1"
-substreams-ethereum = { version = "0.2.2-rc.2" }
+substreams-ethereum = "0.2.2-rc.2"
