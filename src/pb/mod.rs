@@ -1,6 +1,7 @@
 use crate::pb::position_event::PositionEventType;
 use crate::uniswap::position::PositionType;
 use crate::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
+use substreams::pb::substreams::StoreDelta;
 use ethabi::Uint;
 use num_bigint::BigInt;
 use std::str::FromStr;
@@ -31,6 +32,47 @@ pub mod position_event {
         Collect(Collect),
         Transfer(Transfer),
     }
+}
+
+impl entity::EntityChange {
+    pub fn new(entity: String, id: String, ordinal: u64) -> EntityChange {
+	//"Token", "id", 1, Operation::Create,
+	return
+    }
+    pub fn update_bigdecimal_from_delta(&self, name: &String, delta: StoreDelta) -> EntityChange {
+	// WARN: si la value de la `STRING` est VIDE ici, on considère cela comme un NULL value.
+	// This is to honor the new `optional` field presence when the string is empty
+	// on the StoreDelta side.
+	self.fields.push(Field{
+	    name: name.clone(),
+	    new_value: entity::value::Typed::Bigdecimal(std::from_utf8(delta.new_value).to_string()),
+	    old_value: entity::value::Typed::Bigdecimal(std::from_utf8(delta.old_value).to_string()),
+	});
+	self
+    }
+    pub fn create_bigdecimal_from_string(&self, name: &String, value: &String) {
+	self.fields.push(Field{
+	    name: name.clone(),
+	    new_value: entity::value::Typed::Bigdecimal(value),
+	});
+	self
+    }
+    pub fn create_bigdecimal(&self, name: &String, value: &Bigdecimal) {
+	self.fields.push(Field{
+	    name: name.clone(),
+	    new_value: entity::value::Typed::Bigdecimal(value.to_string()),
+	});
+	self
+    }
+
+    // WARN: also here, check for nullability when the input string is empty in the Delta
+    pub fn update_bigint_from_delta();
+    pub fn update_int32_from_delta();
+    pub fn update_string_from_delta();
+    pub fn update_bytes_from_delta();
+    pub fn update_bool_from_delta();
+
+    
 }
 
 impl PositionEvent {

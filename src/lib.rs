@@ -1619,9 +1619,7 @@ pub fn map_positions(block: Block, all_positions_store: StoreGet) -> Result<Posi
     let mut enriched_positions: HashMap<String, Position> = HashMap::new();
 
     for log in block.logs() {
-        let mut position: Position = Position {
-            ..Default::default()
-        };
+        let mut position: Position = Default::default();
         if log.address() != NON_FUNGIBLE_POSITION_MANAGER {
             continue;
         }
@@ -1973,6 +1971,11 @@ pub fn map_bundle_entities(
     Ok(out)
 }
 
+impl EntityChanges {
+    pub fn total_chose_binne();
+    self.entity_changes.push()
+}
+
 #[substreams::handlers::map]
 pub fn map_factory_entities(
     block: Block,
@@ -2007,6 +2010,13 @@ pub fn map_factory_entities(
         }
     }
 
+
+    total_value_locked(&out, totals_deltas);
+    total_value_locked(&out, totals_deltas);
+    total_value_locked(&out, totals_deltas);
+    total_value_locked(&out, totals_deltas);
+    total_value_locked(&out, totals_deltas);
+    
     for delta in totals_deltas {
         if let Some(change) = db::total_value_locked_factory_entity_change(delta) {
             out.entity_changes.push(change);

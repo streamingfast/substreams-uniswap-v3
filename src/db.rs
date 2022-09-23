@@ -16,6 +16,11 @@ use substreams::pb::substreams::StoreDelta;
 use substreams::store::StoreGet;
 use substreams::{log, proto, Hex};
 
+
+impl Positions {
+    
+}
+
 // -------------------
 //  Map Bundle Entities
 // -------------------
@@ -221,7 +226,7 @@ pub fn total_value_locked_factory_entity_change(
         id: Hex(utils::UNISWAP_V3_FACTORY).to_string(),
         ordinal: total_value_locked_delta.ordinal,
         operation: Operation::Update as i32,
-        fields: vec![],
+	..Default::default(),
     };
 
     match total_value_locked_delta
@@ -614,15 +619,10 @@ pub fn swap_volume_pool_entity_change(delta: StoreDelta) -> Option<EntityChange>
         id: pool_address,
         ordinal: delta.ordinal,
         operation: Operation::Update as i32,
-        fields: vec![],
+	..Default::default(),
     };
     match delta.key.as_str().split(":").last().unwrap() {
-        "token0" => change.fields.push(update_field!(
-            "volumeToken0",
-            FieldType::Bigdecimal,
-            utils::decode_bytes_to_big_decimal(delta.old_value).to_string(),
-            utils::decode_bytes_to_big_decimal(delta.new_value).to_string()
-        )),
+        "token0" => change.push_bigdecimal_field_update("volumeToken0", delta),
         "token1" => change.fields.push(update_field!(
             "volumeToken1",
             FieldType::Bigdecimal,
@@ -662,6 +662,9 @@ pub fn tokens_created_token_entity_change(pool: Pool) -> Vec<EntityChange> {
     let token1: &Erc20Token = pool.token1.as_ref().unwrap();
 
     return vec![
+	EntityChange::new("Token", token0.address.clone(), pool.log_ordinal, Operation::Create).
+	    create_string("id", token0.address.clone()).
+	    create_string("", ...)
         EntityChange {
             entity: "Token".to_string(),
             id: token0.address.clone(),
@@ -1072,7 +1075,7 @@ pub fn ticks_liquidities_tick_entity_change(delta: StoreDelta) -> Option<EntityC
             FieldType::Bigint,
             utils::decode_bytes_to_big_int(delta.old_value).to_string(),
             utils::decode_bytes_to_big_int(delta.new_value).to_string()
-        )),
+        ))},
         "liquidityGross" => change.fields.push(update_field!(
             "liquidityGross",
             FieldType::Bigint,
