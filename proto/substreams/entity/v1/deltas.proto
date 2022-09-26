@@ -20,40 +20,6 @@ message EntityChange {
   repeated Field fields = 5;
 }
 
-// message Field {
-//   string name = 1;
-//   enum Type {
-//     UNSET = 0;    // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
-//     BIGDECIMAL = 1;
-//     BIGINT = 2;
-//     INT32 = 3;
-//     BYTES = 4;  // Serialized as Base64 strings.
-//     STRING = 5;
-//   }
-//   Type value_type = 2;
-//   string new_value = 3;
-//   bool new_value_null = 4;
-//   string old_value = 5;
-//   bool old_value_null = 6;
-// }
-
-
-///
-
-/*
-Target:
-pub enum Value {
-    String(String),
-    Int(i32),
-    BigDecimal(scalar::BigDecimal),
-    Bool(bool),
-    List(Vec<Value>),
-    Null,
-    Bytes(scalar::Bytes),
-    BigInt(scalar::BigInt),
-}
-*/
-
 message Value {
   oneof typed {
     int32 int32 = 1;
