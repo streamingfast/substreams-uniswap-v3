@@ -1,4 +1,14 @@
 #[macro_export]
+macro_rules! num_to_enum {
+    ($num:expr => $enm:ident<$tpe:ty>{ $($fld:ident),+ }; $err:expr) => ({
+        match $num {
+            $(_ if $num == $enm::$fld as $tpe => { $enm::$fld })+
+            _ => $err
+        }
+    });
+}
+
+#[macro_export]
 macro_rules! new_field {
     ($name:expr, $value_type:expr, $new_value:expr) => {
         Field {

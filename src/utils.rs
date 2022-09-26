@@ -3,19 +3,17 @@ use crate::pb::PositionEvent;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::Transaction;
 use crate::{
-    keyer, math, rpc, Erc20Token, IncreaseLiquidity, Pool, PoolLiquidity, Position, StorageChange,
-    ToPrimitive, WHITELIST_TOKENS,
+    keyer, math, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, ToPrimitive,
+    WHITELIST_TOKENS,
 };
 use bigdecimal::{BigDecimal, Zero};
-use ethabi::Uint;
+
 use num_bigint::BigInt;
 use std::ops::{Add, Mul};
 use std::str;
 use std::str::FromStr;
 use substreams::store::StoreGet;
 use substreams::{hex, log, proto, Hex};
-use substreams_ethereum::pb::eth;
-use substreams_ethereum::pb::eth::v2::Block;
 
 // const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 // const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";

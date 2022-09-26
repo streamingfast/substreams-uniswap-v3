@@ -3,7 +3,7 @@ use bigdecimal::BigDecimal;
 use ethabi::Uint;
 use num_bigint::BigInt;
 use std::str::FromStr;
-use substreams::{log, Hex};
+use substreams::log;
 use substreams_ethereum::pb::eth as ethpb;
 
 pub fn token_total_supply_call(token_address: &String) -> BigInt {
