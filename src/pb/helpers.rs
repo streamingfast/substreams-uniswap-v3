@@ -154,12 +154,12 @@ impl EntityChange {
         self
     }
 
-    pub fn change_bytes(&mut self, name: String, change: BytesChange) -> &mut EntityChange {
+    pub fn change_bytes(&mut self, name: &str, change: BytesChange) -> &mut EntityChange {
         let operation: Operation = convert_i32_to_operation(self.operation);
         match operation {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
-                name,
+                name: name.to_string(),
                 new_value: Some(Value {
                     typed: Some(Typed::Bytes(change.new_value)),
                 }),
@@ -168,7 +168,7 @@ impl EntityChange {
                 }),
             }),
             Operation::Create => self.fields.push(Field {
-                name,
+                name: name.to_string(),
                 new_value: Some(Value {
                     typed: Some(Typed::Bytes(change.new_value)),
                 }),
@@ -180,13 +180,13 @@ impl EntityChange {
         self
     }
 
-    pub fn change_bool(&mut self, name: String, change: BoolChange) -> &mut EntityChange {
+    pub fn change_bool(&mut self, name: &str, change: BoolChange) -> &mut EntityChange {
         let operation: Operation = convert_i32_to_operation(self.operation);
 
         match operation {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
-                name,
+                name: name.to_string(),
                 new_value: Some(Value {
                     typed: Some(Typed::Bool(change.new_value)),
                 }),
@@ -195,7 +195,7 @@ impl EntityChange {
                 }),
             }),
             Operation::Create => self.fields.push(Field {
-                name,
+                name: name.to_string(),
                 new_value: Some(Value {
                     typed: Some(Typed::Bool(change.new_value)),
                 }),
