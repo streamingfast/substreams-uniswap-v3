@@ -18,9 +18,6 @@ substreams-ethereum = "0.2.2-rc.2"
 num-bigint = "0.4"
 bigdecimal = "0.3"
 pad = "0.1"
-
-# Have to use this version because the recent onces redefine
-# a alloc and wealloc which breaks wasm memory management
 base64 = "0.13.0"
 
 [build-dependencies]
