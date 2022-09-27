@@ -2,18 +2,6 @@ use crate::{keyer, math, pb};
 use bigdecimal::{BigDecimal, Zero};
 use substreams::{errors::Error, proto, store::StoreGet};
 
-pub fn get_pool_sqrt_price(
-    pool_sqrt_price_store: &StoreGet,
-    pool_address: &String,
-) -> Result<pb::uniswap::PoolSqrtPrice, Error> {
-    return match &pool_sqrt_price_store.get_last(&keyer::pool_sqrt_price_key(&pool_address)) {
-        None => Err(Error::Unexpected(
-            format!("no sqrt price found for pool {}", pool_address).to_string(),
-        )),
-        Some(bytes) => Ok(proto::decode(bytes).unwrap()),
-    };
-}
-
 pub fn get_pool(pool_store: &StoreGet, pool_address: &String) -> Result<pb::uniswap::Pool, Error> {
     return match &pool_store.get_last(&keyer::pool_key(&pool_address)) {
         None => Err(Error::Unexpected("pool not found".to_string())),
@@ -24,20 +12,6 @@ pub fn get_pool(pool_store: &StoreGet, pool_address: &String) -> Result<pb::unis
             }
             Ok(p)
         }
-    };
-}
-
-pub fn get_price(
-    prices_store: &StoreGet,
-    token_numerator_address: &String,
-    token_denominator_address: &String,
-) -> Result<BigDecimal, Error> {
-    return match &prices_store.get_last(&keyer::prices_token_pair(
-        token_numerator_address,
-        token_denominator_address,
-    )) {
-        None => Err(Error::Unexpected("price not found".to_string())),
-        Some(bytes) => Ok(math::decimal_from_bytes(&bytes)),
     };
 }
 

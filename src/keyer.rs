@@ -56,7 +56,6 @@ pub fn prices_pool_token_key(
     token_address: &String,
     token: String,
 ) -> String {
-    // hackish way of having the token0 or token1 in the key could be done better
     format!("pool:{}:{}:{}", pool_address, token_address, token)
 }
 

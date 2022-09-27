@@ -14,6 +14,9 @@ pub mod tokens;
 #[path = "./substreams.entity.v1.rs"]
 pub mod entity;
 
+pub mod change;
+pub mod helpers;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PositionEvent {
     pub event: PositionEventType,
@@ -49,8 +52,8 @@ impl PositionEvent {
         return match &self.event {
             PositionEventType::IncreaseLiquidity(evt) => evt.liquidity.to_string(),
             PositionEventType::DecreaseLiquidity(evt) => evt.liquidity.to_string(),
-            PositionEventType::Collect(evt) => "0".to_string(),
-            PositionEventType::Transfer(evt) => "0".to_string(),
+            PositionEventType::Collect(_) => "0".to_string(),
+            PositionEventType::Transfer(_) => "0".to_string(),
         };
     }
 

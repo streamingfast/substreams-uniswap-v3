@@ -14,8 +14,8 @@ mod utils;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
-use crate::keyer::{native_pool_from_key, position};
-use crate::pb::entity::{EntityChange, EntityChanges};
+use crate::keyer::native_pool_from_key;
+use crate::pb::entity::EntityChanges;
 use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
@@ -31,8 +31,7 @@ use crate::uniswap::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
 use crate::uniswap::{
-    Flash, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transaction,
-    Transactions,
+    Flash, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transactions,
 };
 use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY};
 use bigdecimal::ToPrimitive;
@@ -1619,9 +1618,7 @@ pub fn map_positions(block: Block, all_positions_store: StoreGet) -> Result<Posi
     let mut enriched_positions: HashMap<String, Position> = HashMap::new();
 
     for log in block.logs() {
-        let mut position: Position = Position {
-            ..Default::default()
-        };
+        let mut position: Position = Default::default();
         if log.address() != NON_FUNGIBLE_POSITION_MANAGER {
             continue;
         }
@@ -1947,22 +1944,18 @@ pub fn map_bundle_entities(
     block: Block,
     derived_eth_prices_deltas: store::Deltas,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        ..Default::default()
-    };
+    let mut entity_changes: EntityChanges = Default::default();
 
     if block.number == 12369621 {
-        out.entity_changes
-            .push(db::bundle_created_bundle_entity_change())
+        db::created_bundle_entity_change(&mut entity_changes);
     }
 
-    for delta in derived_eth_prices_deltas {
-        if let Some(change) = db::bundle_store_eth_price_usd_bundle_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
+    db::bundle_store_eth_price_usd_bundle_entity_change(
+        &mut entity_changes,
+        derived_eth_prices_deltas,
+    );
 
-    Ok(out)
+    Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
@@ -1973,39 +1966,18 @@ pub fn map_factory_entities(
     swaps_volume_deltas: store::Deltas,
     totals_deltas: store::Deltas,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
+    let mut entity_changes: EntityChanges = Default::default();
 
     if block.number == 12369621 {
-        out.entity_changes
-            .push(db::factory_created_factory_entity_change());
+        db::factory_created_factory_entity_change(&mut entity_changes)
     }
 
-    for delta in pool_count_deltas {
-        out.entity_changes
-            .push(db::pool_created_factory_entity_change(delta))
-    }
+    db::pool_created_factory_entity_change(&mut entity_changes, pool_count_deltas);
+    db::tx_count_factory_entity_change(&mut entity_changes, tx_count_deltas);
+    db::swap_volume_factory_entity_change(&mut entity_changes, swaps_volume_deltas);
+    db::total_value_locked_factory_entity_change(&mut entity_changes, totals_deltas);
 
-    for delta in tx_count_deltas {
-        if let Some(change) = db::tx_count_factory_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in swaps_volume_deltas {
-        if let Some(change) = db::swap_volume_factory_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in totals_deltas {
-        if let Some(change) = db::total_value_locked_factory_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    Ok(out)
+    Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
@@ -2020,65 +1992,30 @@ pub fn map_pool_entities(
     tx_count_deltas: store::Deltas,
     swaps_volume_deltas: store::Deltas,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        ..Default::default()
-    };
-
-    for pool in pools_created.pools {
-        out.entity_changes
-            .push(db::pools_created_pool_entity_change(pool));
-    }
-
-    for delta in pool_sqrt_price_deltas {
-        if let Some(change) = db::pool_sqrt_price_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in pool_liquidities_store_deltas {
-        out.entity_changes
-            .push(db::pool_liquidities_pool_entity_change(delta))
-    }
-
-    for delta in total_value_locked_deltas {
-        if let Some(change) = db::total_value_locked_pool_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in total_value_locked_by_tokens_deltas {
-        if let Some(change) = db::total_value_locked_by_token_pool_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in pool_fee_growth_global_x128_deltas {
-        if let Some(change) = db::pool_fee_growth_global_x128_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in price_deltas {
-        if let Some(change) = db::price_pool_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in tx_count_deltas {
-        if let Some(change) = db::tx_count_pool_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in swaps_volume_deltas {
-        if let Some(change) = db::swap_volume_pool_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::pools_created_pool_entity_change(pools_created, &mut entity_changes);
+    db::pool_sqrt_price_entity_change(&mut entity_changes, pool_sqrt_price_deltas);
+    db::pool_liquidities_pool_entity_change(&mut entity_changes, pool_liquidities_store_deltas);
+    db::total_value_locked_pool_entity_change(&mut entity_changes, total_value_locked_deltas);
+    db::total_value_locked_by_token_pool_entity_change(
+        &mut entity_changes,
+        total_value_locked_by_tokens_deltas,
+    );
+    db::pool_fee_growth_global_x128_entity_change(
+        &mut entity_changes,
+        pool_fee_growth_global_x128_deltas,
+    );
+    db::price_pool_entity_change(&mut entity_changes, price_deltas);
+    db::tx_count_pool_entity_change(&mut entity_changes, tx_count_deltas);
+    db::swap_volume_pool_entity_change(&mut entity_changes, swaps_volume_deltas);
+    Ok(entity_changes)
 }
 
+//todo: when a pool is created, we also save the token
+// (id, name, symbol, decimals and total supply)
+// issue here is what if we have multiple pools with t1-t2, t1-t3, t1-t4, etc.
+// we will have t1 generate multiple entity changes for nothings since it has
+// already been emitted -- subgraph doesn't solve this either
 #[substreams::handlers::map]
 pub fn map_tokens_entities(
     pools_created: Pools,
@@ -2088,50 +2025,17 @@ pub fn map_tokens_entities(
     total_value_locked_deltas: store::Deltas,
     derived_eth_prices_deltas: store::Deltas,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
-
-    //todo: when a pool is created, we also save the token
-    // (id, name, symbol, decimals and total supply)
-    // issue here is what if we have multiple pools with t1-t2, t1-t3, t1-t4, etc.
-    // we will have t1 generate multiple entity changes for nothings since it has
-    // already been emitted -- subgraph doesn't solve this either
-    for pool in pools_created.pools {
-        out.entity_changes
-            .append(&mut db::tokens_created_token_entity_change(pool));
-    }
-
-    for delta in swaps_volume_deltas {
-        if let Some(change) = db::swap_volume_token_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in tx_count_deltas {
-        if let Some(change) = db::tx_count_token_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in total_value_locked_by_deltas {
-        out.entity_changes
-            .push(db::total_value_locked_by_token_token_entity_change(delta))
-    }
-
-    for delta in total_value_locked_deltas {
-        if let Some(change) = db::total_value_locked_usd_token_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in derived_eth_prices_deltas {
-        if let Some(change) = db::derived_eth_prices_token_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::tokens_created_token_entity_change(&mut entity_changes, pools_created);
+    db::swap_volume_token_entity_change(&mut entity_changes, swaps_volume_deltas);
+    db::tx_count_token_entity_change(&mut entity_changes, tx_count_deltas);
+    db::total_value_locked_by_token_token_entity_change(
+        &mut entity_changes,
+        total_value_locked_by_deltas,
+    );
+    db::total_value_locked_usd_token_entity_change(&mut entity_changes, total_value_locked_deltas);
+    db::derived_eth_prices_token_entity_change(&mut entity_changes, derived_eth_prices_deltas);
+    Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
@@ -2139,36 +2043,10 @@ pub fn map_tick_entities(
     ticks_deltas: store::Deltas,
     ticks_liquidities_deltas: store::Deltas,
 ) -> Result<EntityChanges, Error> {
-    let mut out: EntityChanges = EntityChanges {
-        ..Default::default()
-    };
-
-    for tick in ticks_deltas {
-        let mut old_tick = Tick {
-            ..Default::default()
-        };
-        let new_tick: Tick = proto::decode(&tick.new_value).unwrap();
-
-        if tick.old_value.len() != 0 {
-            old_tick = proto::decode(&tick.old_value).unwrap();
-            out.entity_changes
-                .push(db::ticks_updated_tick_entity_change(old_tick, new_tick));
-        } else {
-            // no old tick, so we have a new tick
-            if new_tick.origin == Mint as i32 {
-                out.entity_changes
-                    .push(db::ticks_created_tick_entity_change(new_tick));
-            }
-        }
-    }
-
-    for delta in ticks_liquidities_deltas {
-        if let Some(change) = db::ticks_liquidities_tick_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::create_or_update_ticks_entity_change(&mut entity_changes, ticks_deltas);
+    db::ticks_liquidities_tick_entity_change(&mut entity_changes, ticks_liquidities_deltas);
+    Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
@@ -2176,89 +2054,49 @@ pub fn map_position_entities(
     positions: Positions,
     positions_changes_deltas: store::Deltas,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
-
-    for position in positions.positions {
-        out.entity_changes
-            .push(db::position_create_entity_change(position));
-    }
-
-    for delta in positions_changes_deltas {
-        if let Some(change) = db::positions_changes_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::position_create_entity_change(positions, &mut entity_changes);
+    db::positions_changes_entity_change(&mut entity_changes, positions_changes_deltas);
+    Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
 pub fn map_position_snapshot_entities(
     snapshot_positions: SnapshotPositions,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
-
-    for snapshot_position in snapshot_positions.snapshot_positions {
-        out.entity_changes
-            .push(db::snapshot_position_entity_change(snapshot_position));
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::snapshot_position_entity_change(snapshot_positions, &mut entity_changes);
+    Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
 pub fn map_transaction_entities(transactions: Transactions) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
-
-    for transaction in transactions.transactions {
-        out.entity_changes
-            .push(db::transaction_entity_change(transaction))
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::transaction_entity_change(transactions, &mut entity_changes);
+    Ok(entity_changes)
 }
 
-//todo: check the tickLower, tickUpper, amount, amount0, amount1 and amountUSD, for the moment
-// they are stored as String values, but shouldn't it be int instead or BigInt in some cases?
 #[substreams::handlers::map]
 pub fn map_swaps_mints_burns_entities(
     events: Events,
     tx_count_store: StoreGet,
     store_eth_prices: StoreGet,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
-
-    for event in events.events {
-        if let Some(change) =
-            db::swaps_mints_burns_created_entity_change(event, &tx_count_store, &store_eth_prices)
-        {
-            out.entity_changes.push(change);
-        }
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::swaps_mints_burns_created_entity_change(
+        events,
+        tx_count_store,
+        store_eth_prices,
+        &mut entity_changes,
+    );
+    Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
 pub fn map_flash_entities(flashes: Flashes) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
-
-    for flash in flashes.flashes {
-        out.entity_changes
-            .push(db::flashes_update_pool_fee_entity_change(flash));
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::flashes_update_pool_fee_entity_change(flashes, &mut entity_changes);
+    Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
@@ -2267,29 +2105,11 @@ pub fn map_uniswap_day_data_entities(
     totals_deltas: store::Deltas,
     volume_deltas: store::Deltas,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
-
-    for delta in tx_count_deltas {
-        if let Some(change) = db::uniswap_day_data_tx_count_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in totals_deltas {
-        if let Some(change) = db::uniswap_day_data_totals_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    for delta in volume_deltas {
-        if let Some(change) = db::uniswap_day_data_volumes_entity_change(delta) {
-            out.entity_changes.push(change);
-        }
-    }
-
-    Ok(out)
+    let mut entity_changes: EntityChanges = Default::default();
+    db::uniswap_day_data_tx_count_entity_change(&mut entity_changes, tx_count_deltas);
+    db::uniswap_day_data_totals_entity_change(&mut entity_changes, totals_deltas);
+    db::uniswap_day_data_volumes_entity_change(&mut entity_changes, volume_deltas);
+    Ok(entity_changes)
 }
 
 //todo: check if we want to check the block ordinal here and sort by the ordinal
@@ -2307,49 +2127,17 @@ pub fn graph_out(
     flash_entities: EntityChanges,
     swaps_mints_burns_entities: EntityChanges,
 ) -> Result<EntityChanges, Error> {
-    let mut out = EntityChanges {
-        entity_changes: vec![],
-    };
-
-    for change in factory_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in bundle_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in transaction_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in pool_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in token_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in tick_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in position_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in position_snapshot_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in flash_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    for change in swaps_mints_burns_entities.entity_changes {
-        out.entity_changes.push(change);
-    }
-
-    Ok(out)
+    Ok(EntityChanges {
+        entity_changes: [
+            factory_entities.entity_changes,
+            bundle_entities.entity_changes,
+            transaction_entities.entity_changes,
+            pool_entities.entity_changes,
+            token_entities.entity_changes,
+            tick_entities.entity_changes,
+            position_entities.entity_changes,
+            position_snapshot_entities.entity_changes,
+        ]
+        .concat(),
+    })
 }
