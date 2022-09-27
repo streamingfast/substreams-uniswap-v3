@@ -39,6 +39,8 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDec
 pub fn fee_growth_outside_x128_call(pool_address: &String, tick_idx: &String) -> (BigInt, BigInt) {
     let tick: BigInt = BigInt::from_str(tick_idx.as_str()).unwrap();
     let tick = abi::pool::functions::Ticks { tick };
+
+    // fixme: change the call to return a result instead of an option
     let (_, _, fee_growth_outside_0x_128, fee_growth_outside_1x_128, _, _, _, _) =
         tick.call(hex::decode(pool_address).unwrap()).unwrap();
 

@@ -2134,43 +2134,17 @@ pub fn graph_out(
     position_snapshot_entities: EntityChanges,
     // swaps_mints_burns_entities: EntityChanges,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
-
-    for change in factory_entities.entity_changes {
-        entity_changes.entity_changes.push(change);
-    }
-
-    for change in bundle_entities.entity_changes {
-        entity_changes.entity_changes.push(change);
-    }
-
-    for change in transaction_entities.entity_changes {
-        entity_changes.entity_changes.push(change);
-    }
-
-    for change in pool_entities.entity_changes {
-        entity_changes.entity_changes.push(change);
-    }
-
-    for change in token_entities.entity_changes {
-        entity_changes.entity_changes.push(change);
-    }
-
-    for change in tick_entities.entity_changes {
-        entity_changes.entity_changes.push(change);
-    }
-
-    for change in position_entities.entity_changes {
-        entity_changes.entity_changes.push(change);
-    }
-
-    for change in position_snapshot_entities.entity_changes {
-        entity_changes.entity_changes.push(change);
-    }
-
-    // for change in swaps_mints_burns_entities.entity_changes {
-    //     out.entity_changes.push(change);
-    // }
-
-    Ok(entity_changes)
+    Ok(EntityChanges {
+        entity_changes: [
+            factory_entities.entity_changes,
+            bundle_entities.entity_changes,
+            transaction_entities.entity_changes,
+            pool_entities.entity_changes,
+            token_entities.entity_changes,
+            tick_entities.entity_changes,
+            position_entities.entity_changes,
+            position_snapshot_entities.entity_changes,
+        ]
+        .concat(),
+    })
 }

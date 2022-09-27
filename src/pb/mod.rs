@@ -14,6 +14,7 @@ pub mod tokens;
 #[path = "./substreams.entity.v1.rs"]
 pub mod entity;
 
+pub mod change;
 pub mod helpers;
 
 #[derive(Clone, Debug, PartialEq)]
