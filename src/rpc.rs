@@ -1,10 +1,10 @@
 use crate::{abi, eth, utils, Erc20Token};
-use bigdecimal::BigDecimal;
 use ethabi::Uint;
-use num_bigint::BigInt;
 use std::str::FromStr;
 use substreams::log;
+use substreams::scalar::{BigDecimal, BigInt};
 use substreams_ethereum::pb::eth as ethpb;
+use substreams_ethereum::scalar::EthBigInt;
 
 pub fn token_total_supply_call(token_address: &String) -> BigInt {
     let rpc_calls: ethpb::rpc::RpcCalls =
@@ -14,7 +14,7 @@ pub fn token_total_supply_call(token_address: &String) -> BigInt {
         substreams_ethereum::rpc::eth_call(&rpc_calls);
     let responses = rpc_responses_unmarshalled.responses;
 
-    return BigInt::from_signed_bytes_be(responses[0].raw.as_ref());
+    return BigInt::from_signed_bytes_be(responses[0].raw.as_slice());
 }
 
 pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDecimal) {
@@ -28,42 +28,51 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDec
     log::info!("bytes response.0: {:?}", responses[0].raw);
     log::info!("bytes response.1: {:?}", responses[1].raw);
 
-    let fee_growth_global_0_x128: BigDecimal =
-        BigDecimal::from(BigInt::from_signed_bytes_be(responses[0].raw.as_ref()));
-    let fee_growth_global_1_x128: BigDecimal =
-        BigDecimal::from(BigInt::from_signed_bytes_be(responses[1].raw.as_ref()));
+    let fee_0: BigInt = BigInt::from_signed_bytes_be(responses[0].raw.as_slice());
+    let fee_1: BigInt = BigInt::from_signed_bytes_be(responses[1].raw.as_slice());
 
-    return (fee_growth_global_0_x128, fee_growth_global_1_x128);
+    return (fee_0.into(), fee_1.into());
 }
 
-pub fn fee_growth_outside_x128_call(pool_address: &String, tick_idx: &String) -> (BigInt, BigInt) {
-    let tick: BigInt = BigInt::from_str(tick_idx.as_str()).unwrap();
-    let tick = abi::pool::functions::Ticks { tick };
+pub fn fee_growth_outside_x128_call(
+    pool_address: &String,
+    tick_idx: &String,
+) -> (EthBigInt, EthBigInt) {
+    let tick: EthBigInt = EthBigInt::new(tick_idx.try_into().unwrap());
+    log::info!("pool address {} tick idx {}", pool_address, tick_idx);
+    let ticks = abi::pool::functions::Ticks { tick };
 
-    // fixme: change the call to return a result instead of an option
-    let (_, _, fee_growth_outside_0x_128, fee_growth_outside_1x_128, _, _, _, _) =
-        tick.call(hex::decode(pool_address).unwrap()).unwrap();
+    let tick_option = ticks.call(hex::decode(pool_address).unwrap());
+    if tick_option.is_none() {
+        panic!("ticks call failed");
+    }
+    let (_, _, fee_0, fee_1, _, _, _, _) = tick_option.unwrap();
 
-    return (
-        BigInt::from_str(fee_growth_outside_0x_128.to_string().as_str()).unwrap(),
-        BigInt::from_str(fee_growth_outside_1x_128.to_string().as_str()).unwrap(),
-    );
+    return (fee_0.try_into().unwrap(), fee_1.try_into().unwrap());
 }
 
 pub fn positions_call(
     pool_address: &String,
     token_id: Uint,
-) -> Option<(Vec<u8>, Vec<u8>, BigInt, BigInt, BigInt, BigInt, BigInt)> {
+) -> Option<(
+    Vec<u8>,
+    Vec<u8>,
+    EthBigInt,
+    EthBigInt,
+    EthBigInt,
+    EthBigInt,
+    EthBigInt,
+)> {
     let positions = abi::positionmanager::functions::Positions { token_id };
     if let Some(positions_result) = positions.call(hex::decode(pool_address).unwrap()) {
         return Some((
             positions_result.2,
             positions_result.3,
-            BigInt::from_str(positions_result.4.to_string().as_str()).unwrap(),
+            positions_result.4.try_into().unwrap(),
             positions_result.5,
             positions_result.6,
-            BigInt::from_str(positions_result.8.to_string().as_str()).unwrap(),
-            BigInt::from_str(positions_result.9.to_string().as_str()).unwrap(),
+            positions_result.8.try_into().unwrap(),
+            positions_result.9.try_into().unwrap(),
         ));
     };
 
@@ -81,9 +90,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
             decimals = decoded_decimals as u64;
         }
         Err(err) => match utils::get_static_uniswap_tokens(token_address.as_str()) {
-            Some(token) => {
-                decimals = token.decimals;
-            }
+            Some(token) => decimals = token.decimals,
             None => {
                 log::debug!(
                     "{} is not a an ERC20 token contract decimal `eth_call` failed: {}",
@@ -102,12 +109,8 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
             name = decoded_name;
         }
         Err(_) => match utils::get_static_uniswap_tokens(token_address.as_str()) {
-            Some(token) => {
-                name = token.name;
-            }
-            None => {
-                name = eth::read_string_from_bytes(responses[1].raw.as_ref());
-            }
+            Some(token) => name = token.name,
+            None => name = eth::read_string_from_bytes(responses[1].raw.as_ref()),
         },
     }
     log::debug!("decoded_name ok");
@@ -118,12 +121,8 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
             symbol = s;
         }
         Err(_) => match utils::get_static_uniswap_tokens(token_address.as_str()) {
-            Some(token) => {
-                symbol = token.symbol;
-            }
-            None => {
-                symbol = eth::read_string_from_bytes(responses[2].raw.as_ref());
-            }
+            Some(token) => symbol = token.symbol,
+            None => symbol = eth::read_string_from_bytes(responses[2].raw.as_ref()),
         },
     }
     log::debug!("decoded_symbol ok");

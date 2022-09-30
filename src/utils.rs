@@ -3,21 +3,15 @@ use crate::pb::PositionEvent;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::Transaction;
 use crate::{
-    keyer, math, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, ToPrimitive,
-    WHITELIST_TOKENS,
+    keyer, math, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, WHITELIST_TOKENS,
 };
-use bigdecimal::{BigDecimal, Zero};
 
-use num_bigint::BigInt;
 use std::ops::{Add, Mul};
 use std::str;
 use std::str::FromStr;
-use substreams::store::StoreGet;
+use substreams::scalar::{BigDecimal, BigInt};
+use substreams::store::{RawStoreGet, StoreGet};
 use substreams::{hex, log, proto, Hex};
-
-// const _DAI_USD_KEY: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
-// const _USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
-// const _USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
 pub const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
@@ -34,7 +28,7 @@ pub const _STABLE_COINS: [&str; 6] = [
 ];
 
 // hard-coded tokens which have various behaviours but for which a UniswapV3 valid pool
-// exists, some are tokens which were migrated to a new address, etc.
+// exists, some are tokens which were migrated to new addresses
 pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
     return match token_address {
         "e0b7927c4af23765cb51314a0e0521a9645f0e2a" => Some(Erc20Token {
@@ -95,14 +89,6 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
     };
 }
 
-pub fn convert_token_to_decimal(amount: &BigInt, decimals: u64) -> BigDecimal {
-    let big_float_amount = BigDecimal::from_str(amount.to_string().as_str())
-        .unwrap()
-        .with_prec(100);
-
-    return math::divide_by_decimals(big_float_amount, decimals);
-}
-
 pub fn should_handle_swap(pool: &Pool) -> bool {
     if pool.ignore_pool {
         return false;
@@ -155,24 +141,19 @@ pub fn calculate_amount_usd(
     bundle_eth_price: &BigDecimal,
 ) -> BigDecimal {
     return amount0
-        .mul(token0_derived_eth_price.mul(bundle_eth_price.clone()))
-        .add(amount1.mul(token1_derived_eth_price.mul(bundle_eth_price)));
-}
-
-pub fn decode_bytes_to_big_decimal(bytes: Vec<u8>) -> BigDecimal {
-    if bytes.len() == 0 {
-        return BigDecimal::zero();
-    }
-    let bytes_as_str = str::from_utf8(bytes.as_slice()).unwrap();
-    return BigDecimal::from_str(bytes_as_str).unwrap().with_prec(100);
-}
-
-pub fn decode_bytes_to_big_int(bytes: Vec<u8>) -> BigInt {
-    if bytes.len() == 0 {
-        return BigInt::zero();
-    }
-    let bytes_as_str = str::from_utf8(bytes.as_slice()).unwrap();
-    return BigInt::from_str(bytes_as_str).unwrap();
+        .clone()
+        .mul(
+            token0_derived_eth_price
+                .clone()
+                .mul(bundle_eth_price.clone()),
+        )
+        .add(
+            amount1.clone().mul(
+                token1_derived_eth_price
+                    .clone()
+                    .mul(bundle_eth_price.clone()),
+            ),
+        );
 }
 
 pub fn get_tracked_amount_usd(
@@ -184,28 +165,41 @@ pub fn get_tracked_amount_usd(
     amount1_abs: &BigDecimal,
     eth_price_in_usd: &BigDecimal,
 ) -> BigDecimal {
-    let price0_usd = token0_derived_eth_price.mul(eth_price_in_usd.clone());
-    let price1_usd = token1_derived_eth_price.mul(eth_price_in_usd);
+    let price0_usd = token0_derived_eth_price
+        .clone()
+        .mul(eth_price_in_usd.clone());
+    let price1_usd = token1_derived_eth_price
+        .clone()
+        .mul(eth_price_in_usd.clone());
 
     // both are whitelist tokens, return sum of both amounts
     if WHITELIST_TOKENS.contains(&token0_id.as_str())
         && WHITELIST_TOKENS.contains(&token0_id.as_str())
     {
-        return amount0_abs.mul(price0_usd).add(amount1_abs.mul(price1_usd));
+        return amount0_abs
+            .clone()
+            .mul(price0_usd)
+            .add(amount1_abs.clone().mul(price1_usd));
     }
 
     // take double value of the whitelisted token amount
     if WHITELIST_TOKENS.contains(&token0_id.as_str())
         && !WHITELIST_TOKENS.contains(&token1_id.as_str())
     {
-        return amount0_abs.mul(price0_usd).mul(BigDecimal::from(2 as i32));
+        return amount0_abs
+            .clone()
+            .mul(price0_usd)
+            .mul(BigDecimal::from(2 as i32));
     }
 
     // take double value of the whitelisted token amount
     if !WHITELIST_TOKENS.contains(&token0_id.as_str())
         && WHITELIST_TOKENS.contains(&token1_id.as_str())
     {
-        return amount1_abs.mul(price1_usd).mul(BigDecimal::from(2 as i32));
+        return amount1_abs
+            .clone()
+            .mul(price1_usd)
+            .mul(BigDecimal::from(2 as i32));
     }
 
     // neither token is on white list, tracked amount is 0
@@ -218,21 +212,19 @@ pub fn load_transaction(
     log_ordinal: u64,
     transaction: &TransactionTrace,
 ) -> Transaction {
+    let gas_price: BigInt = transaction.clone().gas_price.unwrap().bytes.into();
     return Transaction {
         id: Hex(&transaction.hash).to_string(),
         block_number,
         timestamp,
         gas_used: transaction.gas_used,
-        gas_price: BigInt::from_signed_bytes_be(
-            transaction.clone().gas_price.unwrap().bytes.as_slice(),
-        )
-        .to_string(),
+        gas_price: gas_price.to_string(),
         log_ordinal,
     };
 }
 
 pub fn get_position(
-    store_pool: &StoreGet,
+    store_pool: &RawStoreGet,
     log_address: &String,
     transaction_hash: &Vec<u8>,
     position_type: PositionType,
@@ -245,10 +237,10 @@ pub fn get_position(
         let token0_bytes = positions_call_result.0;
         let token1_bytes = positions_call_result.1;
         let fee = positions_call_result.2;
-        let tick_lower = positions_call_result.3;
-        let tick_upper = positions_call_result.4;
-        let fee_growth_inside_0_last_x128 = positions_call_result.5;
-        let fee_growth_inside_1_last_x128 = positions_call_result.6;
+        let tick_lower: BigInt = positions_call_result.3.into();
+        let tick_upper: BigInt = positions_call_result.4.into();
+        let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into();
+        let fee_growth_inside_1_last_x128: BigInt = positions_call_result.6.into();
 
         let token0: String = Hex(&token0_bytes.as_slice()).to_string();
         let token1: String = Hex(&token1_bytes.as_slice()).to_string();
@@ -259,7 +251,7 @@ pub fn get_position(
         match store_pool.get_last(keyer::pool_token_index_key(
             &token0,
             &token1,
-            &fee.to_string(),
+            &fee.get_big_int().to_string(),
         )) {
             None => {
                 log::info!(
@@ -272,8 +264,12 @@ pub fn get_position(
             Some(pool_bytes) => pool = proto::decode(&pool_bytes).unwrap(),
         }
 
-        let amount0 = convert_token_to_decimal(&event.get_amount0(), pool.token0.unwrap().decimals);
-        let amount1 = convert_token_to_decimal(&event.get_amount1(), pool.token1.unwrap().decimals);
+        let amount0 = &event
+            .get_amount0()
+            .to_decimals(pool.token0.unwrap().decimals);
+        let amount1 = &event
+            .get_amount1()
+            .to_decimals(pool.token1.unwrap().decimals);
 
         return Some(Position {
             id: event.get_token_id().to_string(),
@@ -281,8 +277,8 @@ pub fn get_position(
             pool: pool.address.clone(),
             token0,
             token1,
-            tick_lower: format!("{}#{}", pool.address, tick_lower.to_i32().unwrap()),
-            tick_upper: format!("{}#{}", pool.address, tick_upper.to_i32().unwrap()),
+            tick_lower: format!("{}#{}", pool.address, tick_lower.to_string()),
+            tick_upper: format!("{}#{}", pool.address, tick_upper.to_string()),
             transaction: Hex(&transaction_hash).to_string(),
             fee_growth_inside_0_last_x_128: fee_growth_inside_0_last_x128.to_string(),
             fee_growth_inside_1_last_x_128: fee_growth_inside_1_last_x128.to_string(),

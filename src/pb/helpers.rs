@@ -208,7 +208,7 @@ impl EntityChange {
     }
 }
 
-fn convert_i32_to_operation(operation: i32) -> Operation {
+pub fn convert_i32_to_operation(operation: i32) -> Operation {
     return match operation {
         x if x == Operation::Unset as i32 => Operation::Unset,
         x if x == Operation::Create as i32 => Operation::Create,

@@ -291,8 +291,8 @@ modules:
 
   - name: store_fees
     kind: store
-    updatePolicy: set
     initialBlock: 12369621
+    updatePolicy: set
     valueType: proto:uniswap.types.v1.Fee
     inputs:
       - source: sf.ethereum.type.v2.Block

@@ -1,9 +1,10 @@
-use bigdecimal::{BigDecimal, One, Zero};
-use num_bigint::{BigInt, BigUint};
+use crate::BigInt;
+use num_bigint::BigUint;
 use pad::PadStr;
 use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul, Neg};
 use std::str::FromStr;
+use substreams::scalar::BigDecimal;
 
 pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
     if exponent.is_zero() {
@@ -20,12 +21,12 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
     }
 
     let mut result = amount.clone();
-    let big_int_one: &BigInt = &BigInt::one();
+    let big_int_one: BigInt = BigInt::one();
 
     let mut i = BigInt::zero();
     while i.lt(exponent.borrow()) {
         result = result.mul(amount.clone()).with_prec(100);
-        i = i.add(big_int_one);
+        i = i.add(big_int_one.clone());
     }
 
     return result;
@@ -36,7 +37,7 @@ pub fn safe_div(amount0: &BigDecimal, amount1: &BigDecimal) -> BigDecimal {
     return if amount1.eq(big_decimal_zero) {
         BigDecimal::zero()
     } else {
-        amount0.div(amount1)
+        amount0.clone().div(amount1.clone())
     };
 }
 
@@ -56,13 +57,13 @@ pub fn decimal_from_hex_be_bytes(price_bytes: &Vec<u8>) -> BigDecimal {
 
 pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     let mut result = BigDecimal::one();
-    let big_decimal_ten: &BigDecimal = &BigDecimal::from(10);
+    let big_decimal_ten: &BigDecimal = &BigDecimal::from(10 as i32);
     let big_int_one: &BigInt = &BigInt::one();
 
     let mut i = BigInt::zero();
     while i.lt(decimals) {
-        result = result.mul(big_decimal_ten);
-        i = i.add(big_int_one);
+        result = result.mul(big_decimal_ten.clone());
+        i = i.add(big_int_one.clone());
     }
 
     return result;

@@ -1,22 +1,9 @@
-use crate::{keyer, math, pb};
-use bigdecimal::{BigDecimal, Zero};
+use crate::{keyer, math, pb, BigDecimal, Pool};
+use substreams::store::{BigDecimalStoreGet, ProtoStoreGet, RawStoreGet};
 use substreams::{errors::Error, proto, store::StoreGet};
 
-pub fn get_pool(pool_store: &StoreGet, pool_address: &String) -> Result<pb::uniswap::Pool, Error> {
-    return match &pool_store.get_last(&keyer::pool_key(&pool_address)) {
-        None => Err(Error::Unexpected("pool not found".to_string())),
-        Some(bytes) => {
-            let p: pb::uniswap::Pool = proto::decode(bytes).unwrap();
-            if p.ignore_pool {
-                return Err(Error::Unexpected("pool is set to ignore".to_string()));
-            }
-            Ok(p)
-        }
-    };
-}
-
 pub fn get_pool_whitelist(
-    tokens_whitelist_pools_store: &StoreGet,
+    tokens_whitelist_pools_store: &RawStoreGet,
     token_address: &String,
 ) -> Result<String, Error> {
     return match &tokens_whitelist_pools_store.get_last(&keyer::token_pool_whitelist(token_address))
@@ -27,7 +14,7 @@ pub fn get_pool_whitelist(
 }
 
 pub fn get_price_at(
-    prices_store: &StoreGet,
+    prices_store: &RawStoreGet,
     ordinal: u64,
     token_numerator_address: &String,
     token_denominator_address: &String,
@@ -42,7 +29,7 @@ pub fn get_price_at(
 }
 
 pub fn get_pool_price(
-    prices_store: &StoreGet,
+    prices_store: &RawStoreGet,
     ordinal: u64,
     pool_address: &String,
     token_address: &String,
@@ -56,7 +43,7 @@ pub fn get_pool_price(
 }
 
 pub fn get_pool_total_value_locked_token_or_zero(
-    total_value_locked_store: &StoreGet,
+    total_value_locked_store: &BigDecimalStoreGet,
     pool_address: &String,
     token_address: &String,
 ) -> BigDecimal {
@@ -65,14 +52,12 @@ pub fn get_pool_total_value_locked_token_or_zero(
         token_address,
     )) {
         None => BigDecimal::zero().with_prec(100),
-        Some(bytes) => BigDecimal::parse_bytes(bytes.as_slice(), 10)
-            .unwrap()
-            .with_prec(100),
+        Some(big_decimal) => big_decimal.with_prec(100),
     };
 }
 
 pub fn get_pool_liquidity(
-    pool_liquidities_store: &StoreGet,
+    pool_liquidities_store: &RawStoreGet,
     pool_address: &String,
 ) -> Result<BigDecimal, Error> {
     return match &pool_liquidities_store.get_last(&keyer::pool_liquidity(&pool_address)) {
@@ -81,7 +66,7 @@ pub fn get_pool_liquidity(
     };
 }
 
-pub fn get_eth_price(eth_prices_store: &StoreGet) -> Result<BigDecimal, Error> {
+pub fn get_eth_price(eth_prices_store: &RawStoreGet) -> Result<BigDecimal, Error> {
     return match &eth_prices_store.get_last(&keyer::bundle_eth_price()) {
         None => Err(Error::Unexpected("bundle eth price not found".to_string())),
         Some(bytes) => Ok(math::decimal_from_bytes(&bytes)),
@@ -89,7 +74,7 @@ pub fn get_eth_price(eth_prices_store: &StoreGet) -> Result<BigDecimal, Error> {
 }
 
 pub fn get_token_eth_price(
-    eth_prices_store: &StoreGet,
+    eth_prices_store: &RawStoreGet,
     token_address: &String,
 ) -> Result<BigDecimal, Error> {
     return match &eth_prices_store.get_last(&keyer::token_eth_price(token_address)) {

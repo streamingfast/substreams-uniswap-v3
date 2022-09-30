@@ -1,11 +1,10 @@
-use crate::{helper, math, Erc20Token};
-use bigdecimal::{BigDecimal, One, Zero};
-use num_bigint::BigInt;
+use crate::{helper, keyer, math, Erc20Token, Pool};
 use std::ops::{Div, Mul};
 use std::str;
 use std::str::FromStr;
 use substreams::log;
-use substreams::store::StoreGet;
+use substreams::scalar::{BigDecimal, BigInt};
+use substreams::store::{BigDecimalStoreGet, ProtoStoreGet, RawStoreGet, StoreGet};
 
 const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -45,7 +44,7 @@ pub const WHITELIST_TOKENS: [&str; 21] = [
 ];
 
 pub fn sqrt_price_x96_to_token_prices(
-    sqrt_price: &BigDecimal,
+    sqrt_price: BigDecimal,
     token_0: &Erc20Token,
     token_1: &Erc20Token,
 ) -> (BigDecimal, BigDecimal) {
@@ -57,7 +56,7 @@ pub fn sqrt_price_x96_to_token_prices(
         token_1.decimals
     );
 
-    let price: BigDecimal = sqrt_price.mul(sqrt_price);
+    let price: BigDecimal = sqrt_price.clone().mul(sqrt_price);
     let token0_decimals: BigInt = BigInt::from(token_0.decimals);
     let token1_decimals: BigInt = BigInt::from(token_1.decimals);
     let denominator: BigDecimal =
@@ -78,11 +77,11 @@ pub fn find_eth_per_token(
     log_ordinal: u64,
     pool_address: &String,
     token_address: &String,
-    pools_store: &StoreGet,
-    pool_liquidities_store: &StoreGet,
-    tokens_whitelist_pools_store: &StoreGet,
-    total_native_value_locked_store: &StoreGet,
-    prices_store: &StoreGet,
+    pools_store: &ProtoStoreGet<Pool>,
+    pool_liquidities_store: &RawStoreGet,
+    tokens_whitelist_pools_store: &RawStoreGet,
+    total_native_value_locked_store: &BigDecimalStoreGet,
+    prices_store: &RawStoreGet,
 ) -> BigDecimal {
     log::debug!(
         "finding ETH per token for {} in pool {}",
@@ -123,9 +122,9 @@ pub fn find_eth_per_token(
 
         for pool_address in whitelisted_pools.iter() {
             log::info!("checking pool: {}", pool_address);
-            let pool = match helper::get_pool(&pools_store, &pool_address.to_string()) {
-                Ok(p) => p,
-                Err(_) => continue,
+            let pool = match pools_store.get_last(keyer::pool_key(&pool_address.to_string())) {
+                None => continue,
+                Some(p) => p,
             };
             let token0 = pool.token0.as_ref().unwrap();
             let token1 = pool.token1.as_ref().unwrap();
@@ -207,7 +206,7 @@ pub fn find_eth_per_token(
                         };
                         log::info!("found token 1 price {}", token1_price);
                         largest_eth_locked = eth_locked.clone();
-                        price_so_far = token1_price.mul(&eth_locked);
+                        price_so_far = token1_price.mul(eth_locked.clone());
                         log::info!("price_so_far {}", price_so_far);
                     }
                 }
@@ -272,7 +271,7 @@ pub fn find_eth_per_token(
                         };
                         log::info!("found token 0 price {}", token0_price);
                         largest_eth_locked = eth_locked.clone();
-                        price_so_far = token0_price.mul(&eth_locked);
+                        price_so_far = token0_price.mul(eth_locked.clone());
                         log::info!("price_so_far {}", price_so_far);
                     }
                 }
@@ -282,7 +281,7 @@ pub fn find_eth_per_token(
     return price_so_far;
 }
 
-pub fn get_eth_price_in_usd(prices_store: &StoreGet, ordinal: u64) -> BigDecimal {
+pub fn get_eth_price_in_usd(prices_store: &RawStoreGet, ordinal: u64) -> BigDecimal {
     // USDC is the token0 in this pool kinda same point as
     // mentioned earlier, token0 hard-coded is not clean
     match helper::get_pool_price(

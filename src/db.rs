@@ -1,21 +1,17 @@
 use crate::pb::entity::EntityChange;
 
 use crate::pb::change::BigIntChange;
+use crate::pb::helpers::convert_i32_to_operation;
 use crate::uniswap::tick::Origin;
 use crate::{
     keyer, pb, utils, BurnEvent, EntityChanges, Erc20Token, Events, Flashes, MintEvent,
     PoolSqrtPrice, Pools, Positions, SnapshotPositions, SwapEvent, Tick, Transactions,
 };
-use bigdecimal::{BigDecimal, Zero};
-use num_bigint::BigInt;
 use pb::entity::entity_change::Operation;
 use std::str::FromStr;
-use substreams::store::{Deltas, StoreGet};
+use substreams::scalar::{BigDecimal, BigInt};
+use substreams::store::{Deltas, RawStoreGet, StoreGet};
 use substreams::{proto, Hex};
-
-extern crate base64;
-use crate::utils::decode_bytes_to_big_decimal;
-use base64::encode;
 
 // -------------------
 //  Map Bundle Entities
@@ -23,7 +19,7 @@ use base64::encode;
 pub fn created_bundle_entity_change(entity_changes: &mut EntityChanges) {
     entity_changes
         .push_change("Bundle", "1".to_string(), 1, Operation::Create)
-        .change_string("id", "1".into())
+        // .change_string("id", "1".into());
         .change_bigdecimal("ethPriceUSD", BigDecimal::zero().into());
 }
 
@@ -198,12 +194,17 @@ pub fn pool_sqrt_price_entity_change(entity_changes: &mut EntityChanges, deltas:
         let old_value: PoolSqrtPrice = proto::decode(&delta.old_value).unwrap();
 
         entity_changes
-            .push_change("Pool", pool_address, delta.ordinal, delta.operation.into())
+            .push_change(
+                "Pool",
+                pool_address,
+                delta.ordinal,
+                convert_i32_to_operation(delta.operation),
+            )
             .change_bigint(
                 "sqrtPrice",
-                (new_value.sqrt_price, old_value.sqrt_price).into(),
+                (old_value.sqrt_price, new_value.sqrt_price).into(),
             )
-            .change_bigint("tick", (new_value.tick, old_value.tick).into());
+            .change_bigint("tick", (old_value.tick, new_value.tick).into());
     }
 }
 
@@ -551,7 +552,7 @@ pub fn position_create_entity_change(positions: Positions, entity_changes: &mut 
                 Operation::Create,
             )
             .change_string("id", position.id.into())
-            .change_string("owner", position.owner.into())
+            .change_string("owner", position.owner.into()) // string works
             .change_string("pool", position.pool.into())
             .change_string("token0", position.token0.into())
             .change_string("token1", position.token1.into())
@@ -621,7 +622,7 @@ pub fn snapshot_position_entity_change(
                 Operation::Create,
             )
             .change_string("id", snapshot_position.id.into())
-            .change_string("owner", snapshot_position.owner.into())
+            .change_string("owner", snapshot_position.owner.into()) // string works
             .change_string("pool", snapshot_position.pool.into())
             .change_string("position", snapshot_position.position.into())
             .change_bigint("blockNumber", snapshot_position.block_number.into())
@@ -676,8 +677,8 @@ pub fn transaction_entity_change(transactions: Transactions, entity_changes: &mu
 // --------------------
 pub fn swaps_mints_burns_created_entity_change(
     events: Events,
-    tx_count_store: StoreGet,
-    store_eth_prices: StoreGet,
+    tx_count_store: RawStoreGet,
+    store_eth_prices: RawStoreGet,
     entity_changes: &mut EntityChanges,
 ) {
     for event in events.events {
@@ -705,7 +706,7 @@ pub fn swaps_mints_burns_created_entity_change(
                         BigDecimal::from(0 as u64)
                     }
                     Some(derived_eth_price_bytes) => {
-                        decode_bytes_to_big_decimal(derived_eth_price_bytes)
+                        BigDecimal::from_store_bytes(derived_eth_price_bytes)
                     }
                 };
 
@@ -717,20 +718,21 @@ pub fn swaps_mints_burns_created_entity_change(
                         BigDecimal::from(0 as u64)
                     }
                     Some(derived_eth_price_bytes) => {
-                        decode_bytes_to_big_decimal(derived_eth_price_bytes)
+                        BigDecimal::from_store_bytes(derived_eth_price_bytes)
                     }
                 };
 
-            let bundle_eth_price: BigDecimal = match store_eth_prices
-                .get_last(keyer::bundle_eth_price())
-            {
-                None => {
-                    // initializePool has occurred beforehand so there should always be a price
-                    // maybe just ? instead of returning 1 and bubble up the error if there is one
-                    BigDecimal::from(1 as u64)
-                }
-                Some(bundle_eth_price_bytes) => decode_bytes_to_big_decimal(bundle_eth_price_bytes),
-            };
+            let bundle_eth_price: BigDecimal =
+                match store_eth_prices.get_last(keyer::bundle_eth_price()) {
+                    None => {
+                        // initializePool has occurred beforehand so there should always be a price
+                        // maybe just ? instead of returning 1 and bubble up the error if there is one
+                        BigDecimal::from(1 as u64)
+                    }
+                    Some(bundle_eth_price_bytes) => {
+                        BigDecimal::from_store_bytes(bundle_eth_price_bytes)
+                    }
+                };
 
             return match event.r#type.unwrap() {
                 SwapEvent(swap) => {
@@ -758,9 +760,9 @@ pub fn swaps_mints_burns_created_entity_change(
                         .change_string("pool", event.pool_address.into())
                         .change_string("token0", event.token0.into())
                         .change_string("token0", event.token1.into())
-                        .change_string("sender", swap.sender.into()) // should this be bytes ?
-                        .change_string("recipient", swap.recipient.into()) // should this be bytes ?
-                        .change_string("origin", swap.origin.into()) // should this be bytes ?
+                        .change_string("sender", swap.sender.into()) // this as change_string()
+                        .change_string("recipient", swap.recipient.into()) // this as change_string()
+                        .change_string("origin", swap.origin.into()) // this as change_string()
                         .change_bigdecimal("amount0", swap.amount_0.into())
                         .change_bigdecimal("amount1", swap.amount_1.into())
                         .change_bigdecimal("amountUSD", amount_usd.into())
@@ -794,9 +796,9 @@ pub fn swaps_mints_burns_created_entity_change(
                         .change_string("pool", event.pool_address.into())
                         .change_string("token0", event.token0.into())
                         .change_string("token0", event.token1.into())
-                        .change_string("owner", mint.owner.into()) // should this be bytes ?
-                        .change_string("sender", mint.sender.into()) // should this be bytes ?
-                        .change_string("origin", mint.origin.into()) // should this be bytes ?
+                        .change_string("owner", mint.owner.into()) // this as change_string()
+                        .change_string("sender", mint.sender.into()) // this as change_string()
+                        .change_string("origin", mint.origin.into()) // this as change_string()
                         .change_bigint("amount", mint.amount.into())
                         .change_bigdecimal("amount0", mint.amount_0.into())
                         .change_bigdecimal("amount1", mint.amount_1.into())
@@ -831,8 +833,8 @@ pub fn swaps_mints_burns_created_entity_change(
                         .change_string("pool", event.pool_address.into())
                         .change_string("token0", event.token0.into())
                         .change_string("token0", event.token1.into())
-                        .change_string("owner", burn.owner.into()) // fixme: bytes
-                        .change_string("origin", burn.origin.into()) // fixme: bytes
+                        .change_string("owner", burn.owner.into()) // this as change_string()
+                        .change_string("origin", burn.origin.into()) // this as change_string()
                         .change_bigint("amount", burn.amount.into())
                         .change_bigdecimal("amount0", burn.amount_0.into())
                         .change_bigdecimal("amount1", burn.amount_1.into())

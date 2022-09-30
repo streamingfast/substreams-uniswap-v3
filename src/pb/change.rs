@@ -1,8 +1,7 @@
 use crate::utils;
-use bigdecimal::BigDecimal;
-use num_bigint::BigInt;
 use std::str;
 use substreams::pb::substreams::StoreDelta;
+use substreams::scalar::{BigDecimal, BigInt};
 use substreams::Hex;
 
 #[derive(Debug)]
@@ -50,8 +49,8 @@ pub struct BigDecimalChange {
 impl From<StoreDelta> for BigDecimalChange {
     fn from(delta: StoreDelta) -> Self {
         BigDecimalChange {
-            old_value: utils::decode_bytes_to_big_decimal(delta.old_value).to_string(),
-            new_value: utils::decode_bytes_to_big_decimal(delta.new_value).to_string(),
+            old_value: BigDecimal::from_store_bytes(delta.old_value).to_string(),
+            new_value: BigDecimal::from_store_bytes(delta.new_value).to_string(),
         }
     }
 }
@@ -59,7 +58,7 @@ impl From<StoreDelta> for BigDecimalChange {
 impl From<BigDecimal> for BigDecimalChange {
     fn from(new_value: BigDecimal) -> Self {
         BigDecimalChange {
-            old_value: String::default(),
+            old_value: "0".to_string(),
             new_value: new_value.to_string(),
         }
     }
@@ -68,7 +67,7 @@ impl From<BigDecimal> for BigDecimalChange {
 impl From<String> for BigDecimalChange {
     fn from(new_value: String) -> Self {
         BigDecimalChange {
-            old_value: String::default(),
+            old_value: "0".to_string(),
             new_value,
         }
     }
@@ -84,8 +83,8 @@ pub struct BigIntChange {
 impl From<StoreDelta> for BigIntChange {
     fn from(delta: StoreDelta) -> Self {
         BigIntChange {
-            old_value: utils::decode_bytes_to_big_int(delta.old_value).to_string(),
-            new_value: utils::decode_bytes_to_big_int(delta.new_value).to_string(),
+            old_value: BigInt::from_store_bytes(delta.old_value).to_string(),
+            new_value: BigInt::from_store_bytes(delta.new_value).to_string(),
         }
     }
 }
@@ -93,7 +92,7 @@ impl From<StoreDelta> for BigIntChange {
 impl From<BigInt> for BigIntChange {
     fn from(new_value: BigInt) -> Self {
         BigIntChange {
-            old_value: String::default(),
+            old_value: "0".to_string(),
             new_value: new_value.to_string(),
         }
     }
@@ -102,7 +101,7 @@ impl From<BigInt> for BigIntChange {
 impl From<String> for BigIntChange {
     fn from(new_value: String) -> Self {
         BigIntChange {
-            old_value: String::default(),
+            old_value: "0".to_string(),
             new_value,
         }
     }
@@ -111,7 +110,7 @@ impl From<String> for BigIntChange {
 impl From<i32> for BigIntChange {
     fn from(new_value: i32) -> Self {
         BigIntChange {
-            old_value: String::default(),
+            old_value: "0".to_string(),
             new_value: new_value.to_string(),
         }
     }
@@ -120,7 +119,7 @@ impl From<i32> for BigIntChange {
 impl From<u32> for BigIntChange {
     fn from(new_value: u32) -> Self {
         BigIntChange {
-            old_value: String::default(),
+            old_value: "0".to_string(),
             new_value: new_value.to_string(),
         }
     }
@@ -129,7 +128,7 @@ impl From<u32> for BigIntChange {
 impl From<u64> for BigIntChange {
     fn from(new_value: u64) -> Self {
         BigIntChange {
-            old_value: String::default(),
+            old_value: "0".to_string(),
             new_value: new_value.to_string(),
         }
     }
@@ -209,6 +208,7 @@ impl From<i64> for StringChange {
     }
 }
 
+// ---------- BytesChange ----------
 #[derive(Debug)]
 pub struct BytesChange {
     pub old_value: Vec<u8>,
@@ -218,12 +218,22 @@ pub struct BytesChange {
 impl From<StoreDelta> for BytesChange {
     fn from(delta: StoreDelta) -> Self {
         BytesChange {
-            old_value: delta.old_value,
-            new_value: delta.new_value,
+            old_value: Vec::from(base64::encode(delta.old_value).as_str()),
+            new_value: Vec::from(base64::encode(delta.new_value).as_str()),
         }
     }
 }
 
+impl From<String> for BytesChange {
+    fn from(new_value: String) -> Self {
+        BytesChange {
+            old_value: Vec::default(),
+            new_value: Vec::from(base64::encode(new_value).as_str()),
+        }
+    }
+}
+
+// ---------- BoolChange ----------
 #[derive(Debug)]
 pub struct BoolChange {
     pub old_value: bool,

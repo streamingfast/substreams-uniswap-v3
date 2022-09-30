@@ -1,8 +1,7 @@
 use crate::pb::position_event::PositionEventType;
 use crate::uniswap::position::PositionType;
-use crate::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
+use crate::{BigInt, Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
 use ethabi::Uint;
-use num_bigint::BigInt;
 use std::str::FromStr;
 
 #[path = "./uniswap.types.v1.rs"]
