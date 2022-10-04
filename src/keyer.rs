@@ -15,15 +15,14 @@ pub fn pool_key(pool_address: &String) -> String {
     format!("pool:{}", pool_address)
 }
 
-pub fn pool_token_index_key(
-    token0_address: &String,
-    token1_address: &String,
-    fee: &String,
-) -> String {
+pub fn pool_token_index_key<T>(token0_address: T, token1_address: T, fee: T) -> String
+where
+    T: AsRef<str>,
+{
     format!(
         "index:{}:{}",
-        generate_tokens_key(token0_address.as_str(), token1_address.as_str()),
-        fee
+        generate_tokens_key(token0_address.as_ref(), token1_address.as_ref()),
+        fee.as_ref()
     )
 }
 

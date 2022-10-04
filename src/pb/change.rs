@@ -2,6 +2,7 @@ use crate::utils;
 use std::str;
 use substreams::pb::substreams::StoreDelta;
 use substreams::scalar::{BigDecimal, BigInt};
+use substreams::store::{BigDecimalDelta, BigIntDelta};
 use substreams::Hex;
 
 #[derive(Debug)]
@@ -51,6 +52,15 @@ impl From<StoreDelta> for BigDecimalChange {
         BigDecimalChange {
             old_value: BigDecimal::from_store_bytes(delta.old_value).to_string(),
             new_value: BigDecimal::from_store_bytes(delta.new_value).to_string(),
+        }
+    }
+}
+
+impl From<BigDecimalDelta> for BigDecimalChange {
+    fn from(delta: BigDecimalDelta) -> Self {
+        BigDecimalChange {
+            old_value: delta.old_value.to_string(),
+            new_value: delta.new_value.to_string(),
         }
     }
 }
@@ -148,6 +158,15 @@ impl From<(String, String)> for BigIntChange {
         BigIntChange {
             old_value: change.0,
             new_value: change.1,
+        }
+    }
+}
+
+impl From<BigIntDelta> for BigIntChange {
+    fn from(delta: BigIntDelta) -> Self {
+        BigIntChange {
+            old_value: delta.old_value.to_string(),
+            new_value: delta.new_value.to_string(),
         }
     }
 }

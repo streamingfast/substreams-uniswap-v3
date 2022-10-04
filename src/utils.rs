@@ -8,7 +8,6 @@ use crate::{
 
 use std::ops::{Add, Mul};
 use std::str;
-use std::str::FromStr;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{RawStoreGet, StoreGet};
 use substreams::{hex, log, proto, Hex};
@@ -87,20 +86,6 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
         }),
         _ => None,
     };
-}
-
-pub fn should_handle_swap(pool: &Pool) -> bool {
-    if pool.ignore_pool {
-        return false;
-    }
-    return &pool.address != "9663f2ca0454accad3e094448ea6f77443880454";
-}
-
-pub fn should_handle_mint_and_burn(pool: &Pool) -> bool {
-    if pool.ignore_pool {
-        return false;
-    }
-    return true;
 }
 
 pub fn extract_pool_liquidity(
@@ -212,15 +197,25 @@ pub fn load_transaction(
     log_ordinal: u64,
     transaction: &TransactionTrace,
 ) -> Transaction {
-    let gas_price: BigInt = transaction.clone().gas_price.unwrap().bytes.into();
-    return Transaction {
-        id: Hex(&transaction.hash).to_string(),
-        block_number,
-        timestamp,
-        gas_used: transaction.gas_used,
-        gas_price: gas_price.to_string(),
-        log_ordinal,
-    };
+    match transaction.clone().gas_price {
+        None => {
+            panic!(
+                "no gas price, trx hash: {}",
+                Hex(&transaction.hash).to_string()
+            )
+        }
+        Some(_) => {
+            let gas_price: BigInt = transaction.clone().gas_price.unwrap().bytes.into();
+            return Transaction {
+                id: Hex(&transaction.hash).to_string(),
+                block_number,
+                timestamp,
+                gas_used: transaction.gas_used,
+                gas_price: gas_price.to_string(),
+                log_ordinal,
+            };
+        }
+    }
 }
 
 pub fn get_position(
@@ -234,16 +229,16 @@ pub fn get_position(
     event: PositionEvent,
 ) -> Option<Position> {
     if let Some(positions_call_result) = rpc::positions_call(log_address, event.get_token_id()) {
-        let token0_bytes = positions_call_result.0;
-        let token1_bytes = positions_call_result.1;
+        let token_id_0_bytes = positions_call_result.0;
+        let token_id_1_bytes = positions_call_result.1;
         let fee = positions_call_result.2;
         let tick_lower: BigInt = positions_call_result.3.into();
         let tick_upper: BigInt = positions_call_result.4.into();
         let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into();
         let fee_growth_inside_1_last_x128: BigInt = positions_call_result.6.into();
 
-        let token0: String = Hex(&token0_bytes.as_slice()).to_string();
-        let token1: String = Hex(&token1_bytes.as_slice()).to_string();
+        let token0: String = Hex(&token_id_0_bytes.as_slice()).to_string();
+        let token1: String = Hex(&token_id_1_bytes.as_slice()).to_string();
         let mut pool: Pool = Pool {
             ..Default::default()
         };
@@ -251,7 +246,7 @@ pub fn get_position(
         match store_pool.get_last(keyer::pool_token_index_key(
             &token0,
             &token1,
-            &fee.get_big_int().to_string(),
+            &fee.to_string(),
         )) {
             None => {
                 log::info!(
@@ -266,10 +261,10 @@ pub fn get_position(
 
         let amount0 = &event
             .get_amount0()
-            .to_decimals(pool.token0.unwrap().decimals);
+            .to_decimal(pool.token0.unwrap().decimals);
         let amount1 = &event
             .get_amount1()
-            .to_decimals(pool.token1.unwrap().decimals);
+            .to_decimal(pool.token1.unwrap().decimals);
 
         return Some(Position {
             id: event.get_token_id().to_string(),

@@ -1,6 +1,7 @@
 use crate::pb::position_event::PositionEventType;
 use crate::uniswap::position::PositionType;
-use crate::{BigInt, Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
+use crate::PositionType::Unset;
+use crate::{BigInt, Collect, DecreaseLiquidity, IncreaseLiquidity, Pool, Position, Transfer};
 use ethabi::Uint;
 use std::str::FromStr;
 
@@ -15,6 +16,35 @@ pub mod entity;
 
 pub mod change;
 pub mod helpers;
+
+impl Pool {
+    pub fn should_handle_swap(&self) -> bool {
+        if self.ignore_pool {
+            return false;
+        }
+        return &self.address != "9663f2ca0454accad3e094448ea6f77443880454";
+    }
+
+    pub fn should_handle_mint_and_burn(&self) -> bool {
+        if self.ignore_pool {
+            return false;
+        }
+        return true;
+    }
+}
+
+impl Position {
+    pub fn convert_position_type(&self) -> PositionType {
+        match self.position_type {
+            pt if pt == Unset as i32 => return Unset,
+            pt if pt == IncreaseLiquidity as i32 => return IncreaseLiquidity,
+            pt if pt == DecreaseLiquidity as i32 => return DecreaseLiquidity,
+            pt if pt == Collect as i32 => return Collect,
+            pt if pt == Transfer as i32 => return Transfer,
+            _ => panic!("unhandled operation: {}", self.position_type),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PositionEvent {

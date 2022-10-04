@@ -37,8 +37,8 @@ modules:
 
   - name: store_pool_count
     kind: store
-    updatePolicy: set
-    valueType: string
+    updatePolicy: add
+    valueType: bigint
     inputs:
       - map: map_pools_created
 
@@ -95,7 +95,7 @@ modules:
     kind: store
     updatePolicy: set
     initialBlock: 12369621
-    valueType: string
+    valueType: string # this needs to be bigint --> todo: add policy changes to substreams' engine
     inputs:
       - map: map_pool_liquidities
 
@@ -158,7 +158,7 @@ modules:
     kind: store
     initialBlock: 12369621
     updatePolicy: set
-    valueType: string
+    valueType: string # this needs to be bigint -> check store_pool_liquidities todo
     inputs:
       - map: map_pools_created
 

@@ -1,6 +1,6 @@
-use crate::{keyer, math, pb, BigDecimal, Pool};
-use substreams::store::{BigDecimalStoreGet, ProtoStoreGet, RawStoreGet};
-use substreams::{errors::Error, proto, store::StoreGet};
+use crate::{keyer, math, BigDecimal};
+use substreams::store::{BigDecimalStoreGet, RawStoreGet};
+use substreams::{errors::Error, store::StoreGet};
 
 pub fn get_pool_whitelist(
     tokens_whitelist_pools_store: &RawStoreGet,

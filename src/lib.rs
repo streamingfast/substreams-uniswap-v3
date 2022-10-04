@@ -14,7 +14,6 @@ mod utils;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
-use crate::helper::get_eth_price;
 use crate::keyer::native_pool_from_key;
 use crate::pb::entity::EntityChanges;
 use crate::pb::position_event::PositionEventType;
@@ -43,10 +42,12 @@ use substreams::pb::substreams::Clock;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store;
 use substreams::store::{
-    BigDecimalStoreGet, ProtoStoreGet, RawStoreGet, StoreAddBigFloat, StoreAddBigInt, StoreAppend,
-    StoreGet, StoreSet,
+    BigDecimalDelta, BigDecimalStoreGet, BigDecimalStoreSet, BigIntDelta, BigIntStoreSet,
+    ProtoDelta, ProtoStoreGet, ProtoStoreSet, RawStoreGet, RawStoreSet, StoreAddBigFloat,
+    StoreAddBigInt, StoreAppend, StoreGet, StoreSet,
 };
 use substreams::{log, proto, Hex};
+use substreams_ethereum::scalar::EthBigInt;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]
@@ -137,16 +138,10 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_pools(pools: Pools, output: StoreSet) {
+pub fn store_pools(pools: Pools, output: ProtoStoreSet<Pool>) {
     for pool in pools.pools {
-        output.set(
-            pool.log_ordinal,
-            keyer::pool_key(&pool.address),
-            &proto::encode(&pool).unwrap(),
-        );
+        output.set(pool.log_ordinal, keyer::pool_key(&pool.address), &pool);
 
-        // and issue occurs here, should we not set the key to index:token0:token1:fee?
-        // so we have all the pools
         output.set(
             pool.log_ordinal,
             keyer::pool_token_index_key(
@@ -154,15 +149,15 @@ pub fn store_pools(pools: Pools, output: StoreSet) {
                 &pool.token1.as_ref().unwrap().address,
                 &pool.fee_tier.to_string(),
             ),
-            &proto::encode(&pool).unwrap(),
+            &pool,
         );
     }
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_count(pools: Pools, output: StoreAddBigInt) {
+pub fn store_pool_count(pools: Pools, store: StoreAddBigInt) {
     for pool in pools.pools {
-        output.add(
+        store.add(
             pool.log_ordinal,
             keyer::factory_pool_count_key(),
             &BigInt::one(),
@@ -225,7 +220,7 @@ pub fn map_pool_sqrt_price(
                 pool_address: pool.address,
                 ordinal: log.ordinal(),
                 sqrt_price: event.sqrt_price_x96.to_string(),
-                tick: event.tick.get_big_int().to_string(),
+                tick: event.tick.to_string(),
             });
         } else if let Some(event) = Swap::match_and_decode(log) {
             log::info!(
@@ -237,7 +232,7 @@ pub fn map_pool_sqrt_price(
                 pool_address: pool.address,
                 ordinal: log.ordinal(),
                 sqrt_price: event.sqrt_price_x96.to_string(),
-                tick: event.tick.get_big_int().to_string(),
+                tick: event.tick.to_string(),
             });
         }
     }
@@ -245,14 +240,12 @@ pub fn map_pool_sqrt_price(
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: StoreSet) {
+pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, store: ProtoStoreSet<PoolSqrtPrice>) {
     for sqrt_price in sqrt_prices.pool_sqrt_prices {
-        log::info!("storing sqrt price {}", &sqrt_price.pool_address);
-        // fixme: probably need to have a similar key for like we have for a swap
-        output.set(
+        store.set(
             sqrt_price.ordinal,
             keyer::pool_sqrt_price_key(&sqrt_price.pool_address),
-            &proto::encode(&sqrt_price).unwrap(),
+            &sqrt_price,
         )
     }
 }
@@ -260,7 +253,7 @@ pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, output: StoreSet) {
 #[substreams::handlers::map]
 pub fn map_pool_liquidities(
     block: Block,
-    pools_store: RawStoreGet,
+    pools_store: ProtoStoreGet<Pool>,
 ) -> Result<PoolLiquidities, Error> {
     let mut pool_liquidities = vec![];
     for trx in block.transaction_traces {
@@ -278,9 +271,8 @@ pub fn map_pool_liquidities(
                     log::debug!("swap - trx_id: {}", Hex(&trx.hash).to_string());
                     match pools_store.get_last(&pool_key) {
                         None => continue,
-                        Some(pool_bytes) => {
-                            let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                            if !utils::should_handle_swap(&pool) {
+                        Some(pool) => {
+                            if !pool.should_handle_swap() {
                                 continue;
                             }
                             if let Some(pl) = utils::extract_pool_liquidity(
@@ -299,9 +291,8 @@ pub fn map_pool_liquidities(
                             log::info!("unknown pool");
                             continue;
                         }
-                        Some(pool_bytes) => {
-                            let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                            if !utils::should_handle_mint_and_burn(&pool) {
+                        Some(pool) => {
+                            if !pool.should_handle_mint_and_burn() {
                                 continue;
                             }
                             if let Some(pl) = utils::extract_pool_liquidity(
@@ -317,9 +308,8 @@ pub fn map_pool_liquidities(
                     log::debug!("burn - trx_id: {}", Hex(&trx.hash).to_string());
                     match pools_store.get_last(&pool_key) {
                         None => continue,
-                        Some(pool_bytes) => {
-                            let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                            if !utils::should_handle_mint_and_burn(&pool) {
+                        Some(pool) => {
+                            if !pool.should_handle_mint_and_burn() {
                                 continue;
                             }
                             if let Some(pl) = utils::extract_pool_liquidity(
@@ -339,12 +329,13 @@ pub fn map_pool_liquidities(
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, output: StoreSet) {
+pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, store: BigIntStoreSet) {
     for pool_liquidity in pool_liquidities.pool_liquidities {
-        output.set(
+        let big_int: BigInt = pool_liquidity.liquidity.try_into().unwrap();
+        store.set(
             0,
             keyer::pool_liquidity(&pool_liquidity.pool_address),
-            &Vec::from(pool_liquidity.liquidity),
+            &big_int,
         )
     }
 }
@@ -353,7 +344,7 @@ pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, output: StoreSe
 pub fn store_prices(
     pool_sqrt_prices: PoolSqrtPrices,
     pools_store: ProtoStoreGet<Pool>,
-    output: StoreSet,
+    store: RawStoreSet,
 ) {
     for sqrt_price_update in pool_sqrt_prices.pool_sqrt_prices {
         match pools_store.get_last(keyer::pool_key(&sqrt_price_update.pool_address)) {
@@ -380,7 +371,7 @@ pub fn store_prices(
                     price::sqrt_price_x96_to_token_prices(sqrt_price, &token0, &token1);
                 log::debug!("token prices: {} {}", tokens_price.0, tokens_price.1);
 
-                output.set(
+                store.set(
                     sqrt_price_update.ordinal,
                     keyer::prices_pool_token_key(
                         &pool.address,
@@ -389,7 +380,7 @@ pub fn store_prices(
                     ),
                     &Vec::from(tokens_price.0.to_string()),
                 );
-                output.set(
+                store.set(
                     sqrt_price_update.ordinal,
                     keyer::prices_pool_token_key(
                         &pool.address,
@@ -399,7 +390,7 @@ pub fn store_prices(
                     &Vec::from(tokens_price.1.to_string()),
                 );
 
-                output.set(
+                store.set(
                     sqrt_price_update.ordinal,
                     keyer::prices_token_pair(
                         &pool.token0.as_ref().unwrap().address,
@@ -407,7 +398,7 @@ pub fn store_prices(
                     ),
                     &Vec::from(tokens_price.0.to_string()),
                 );
-                output.set(
+                store.set(
                     sqrt_price_update.ordinal,
                     keyer::prices_token_pair(
                         &pool.token1.as_ref().unwrap().address,
@@ -438,23 +429,23 @@ pub fn map_swaps_mints_burns(block: Block, pools_store: RawStoreGet) -> Result<E
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                    if !utils::should_handle_swap(&pool) {
+                    if !pool.should_handle_swap() {
                         continue;
                     }
 
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
-                    let amount0 = &swap.amount0.get_big_int().to_decimals(token0.decimals);
-                    let amount1 = &swap.amount1.get_big_int().to_decimals(token1.decimals);
+                    let amount0 = &swap.amount0.to_decimal(token0.decimals);
+                    let amount1 = &swap.amount1.to_decimal(token1.decimals);
                     log::debug!("amount0: {}, amount1:{}", amount0, amount1);
 
                     events.push(Event {
                         log_ordinal: log.ordinal(),
                         log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
-                        token0: pool.token0.as_ref().unwrap().address.to_string(),
-                        token1: pool.token1.as_ref().unwrap().address.to_string(),
+                        token0: token0.address.clone(),
+                        token1: token1.address.clone(),
                         fee: pool.fee_tier.to_string(),
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
                         timestamp: block
@@ -491,17 +482,17 @@ pub fn map_swaps_mints_burns(block: Block, pools_store: RawStoreGet) -> Result<E
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                    if !utils::should_handle_mint_and_burn(&pool) {
+                    if !pool.should_handle_mint_and_burn() {
                         continue;
                     }
 
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
-                    let amount0_bi = BigInt::from_str(mint.amount0.to_string().as_str()).unwrap();
-                    let amount1_bi = BigInt::from_str(mint.amount1.to_string().as_str()).unwrap();
-                    let amount0 = &amount0_bi.to_decimals(token0.decimals);
-                    let amount1 = &amount1_bi.to_decimals(token1.decimals);
+                    let amount0_bi: EthBigInt = mint.amount0.try_into().unwrap();
+                    let amount1_bi: EthBigInt = mint.amount1.try_into().unwrap();
+                    let amount0 = &amount0_bi.to_decimal(token0.decimals);
+                    let amount1 = &amount1_bi.to_decimal(token1.decimals);
                     log::debug!(
                         "logOrdinal: {}, amount0: {}, amount1:{}",
                         log.ordinal(),
@@ -513,8 +504,8 @@ pub fn map_swaps_mints_burns(block: Block, pools_store: RawStoreGet) -> Result<E
                         log_ordinal: log.ordinal(),
                         log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
-                        token0: pool.token0.unwrap().address,
-                        token1: pool.token1.unwrap().address,
+                        token0: token0.address.clone(),
+                        token1: token1.address.clone(),
                         fee: pool.fee_tier.to_string(),
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
                         timestamp: block
@@ -551,25 +542,25 @@ pub fn map_swaps_mints_burns(block: Block, pools_store: RawStoreGet) -> Result<E
                 }
                 Some(pool_bytes) => {
                     let pool: Pool = proto::decode(&pool_bytes).unwrap();
-                    if !utils::should_handle_mint_and_burn(&pool) {
+                    if !pool.should_handle_mint_and_burn() {
                         continue;
                     }
 
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
-                    let amount0_bi = BigInt::from_str(burn.amount0.to_string().as_str()).unwrap();
-                    let amount1_bi = BigInt::from_str(burn.amount1.to_string().as_str()).unwrap();
-                    let amount0 = &amount0_bi.to_decimals(token0.decimals);
-                    let amount1 = &amount1_bi.to_decimals(token1.decimals);
+                    let amount0_bi: EthBigInt = burn.amount0.try_into().unwrap();
+                    let amount1_bi: EthBigInt = burn.amount1.try_into().unwrap();
+                    let amount0 = &amount0_bi.to_decimal(token0.decimals);
+                    let amount1 = &amount1_bi.to_decimal(token1.decimals);
                     log::debug!("amount0: {}, amount1:{}", amount0, amount1);
 
                     events.push(Event {
                         log_ordinal: log.ordinal(),
                         log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
-                        token0: pool.token0.as_ref().unwrap().address.to_string(),
-                        token1: pool.token1.as_ref().unwrap().address.to_string(),
+                        token0: token1.address.clone(),
+                        token1: token1.address.clone(),
                         fee: pool.fee_tier.to_string(),
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
                         timestamp: block
@@ -611,8 +602,8 @@ pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error>
             match event.r#type.unwrap() {
                 BurnEvent(burn) => {
                     log::debug!("handling burn for pool {}", event.pool_address);
-                    let amount0 = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
-                    let amount1 = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
+                    let amount0: BigDecimal = burn.amount_0.try_into().unwrap();
+                    let amount1: BigDecimal = burn.amount_1.try_into().unwrap();
                     event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
@@ -625,8 +616,8 @@ pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error>
                 }
                 MintEvent(mint) => {
                     log::debug!("handling mint for pool {}", event.pool_address);
-                    let amount0 = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
-                    let amount1 = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
+                    let amount0: BigDecimal = mint.amount_0.try_into().unwrap();
+                    let amount1: BigDecimal = mint.amount_1.try_into().unwrap();
                     event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
@@ -639,8 +630,8 @@ pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error>
                 }
                 SwapEvent(swap) => {
                     log::debug!("handling swap for pool {}", event.pool_address);
-                    let amount0 = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
-                    let amount1 = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+                    let amount0: BigDecimal = swap.amount_0.try_into().unwrap();
+                    let amount1: BigDecimal = swap.amount_1.try_into().unwrap();
                     event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
@@ -654,11 +645,14 @@ pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error>
             }
         }
     }
-    Ok(pb::uniswap::EventAmounts { event_amounts })
+    Ok(uniswap::EventAmounts { event_amounts })
 }
 
 #[substreams::handlers::map]
-pub fn map_transactions(block: Block, pools_store: RawStoreGet) -> Result<Transactions, Error> {
+pub fn map_transactions(
+    block: Block,
+    pools_store: ProtoStoreGet<Pool>,
+) -> Result<Transactions, Error> {
     let mut transactions: Transactions = Transactions {
         transactions: vec![],
     };
@@ -669,38 +663,18 @@ pub fn map_transactions(block: Block, pools_store: RawStoreGet) -> Result<Transa
 
         if let Some(_) = abi::pool::events::Burn::match_and_decode(log) {
             match pools_store.get_last(pool_key) {
-                None => {
-                    log::info!(
-                        "invalid burn. pool does not exist. pool address {} transaction {}",
-                        Hex(&log.address()).to_string(),
-                        Hex(&log.receipt.transaction.hash).to_string()
-                    );
-                    continue;
-                }
+                None => continue,
+
                 Some(_) => add_transaction = true,
             }
         } else if let Some(_) = abi::pool::events::Mint::match_and_decode(log) {
             match pools_store.get_last(pool_key) {
-                None => {
-                    log::info!(
-                        "invalid mint. pool does not exist. pool address {} transaction {}",
-                        Hex(&log.address()).to_string(),
-                        Hex(&log.receipt.transaction.hash).to_string()
-                    );
-                    continue;
-                }
+                None => continue,
                 Some(_) => add_transaction = true,
             }
         } else if let Some(_) = abi::pool::events::Swap::match_and_decode(log) {
             match pools_store.get_last(pool_key) {
-                None => {
-                    log::info!(
-                        "invalid swap. pool does not exist. pool address {} transaction {}",
-                        Hex(&log.address()).to_string(),
-                        Hex(&log.receipt.transaction.hash).to_string()
-                    );
-                    continue;
-                }
+                None => continue,
                 Some(_) => add_transaction = true,
             }
         } else if let Some(_) =
@@ -749,7 +723,7 @@ pub fn map_transactions(block: Block, pools_store: RawStoreGet) -> Result<Transa
 pub fn store_totals(
     clock: Clock,
     store_eth_prices: RawStoreGet,
-    total_value_locked_deltas: store::Deltas,
+    total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
     store: StoreAddBigFloat,
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
@@ -757,15 +731,16 @@ pub fn store_totals(
     store.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
 
     let mut pool_total_value_locked_eth_new_value: BigDecimal = BigDecimal::zero();
-    for delta in total_value_locked_deltas {
+    for delta in total_value_locked_deltas.deltas {
         if !delta.key.starts_with("pool:") {
             continue;
         }
         match delta.key.as_str().split(":").last().unwrap() {
             "eth" => {
-                let pool_total_value_locked_eth_old_value: BigDecimal =
-                    math::decimal_from_bytes(&delta.old_value);
-                pool_total_value_locked_eth_new_value = math::decimal_from_bytes(&delta.new_value);
+                let pool_total_value_locked_eth_old_value = delta.old_value;
+                // let pool_total_value_locked_eth_old_value: BigDecimal = math::decimal_from_bytes(&delta.old_value);
+                pool_total_value_locked_eth_new_value = delta.new_value;
+                // pool_total_value_locked_eth_new_value = math::decimal_from_bytes(&delta.new_value);
 
                 let pool_total_value_locked_eth_diff: BigDecimal =
                     pool_total_value_locked_eth_old_value
@@ -793,8 +768,8 @@ pub fn store_totals(
                 // value instead of summing it, what we do is calculate the difference
                 // and simply add/sub the difference and that mimics the same as setting
                 // the value
-                let total_value_locked_usd_old_value: BigDecimal =
-                    math::decimal_from_bytes(&delta.old_value);
+                let total_value_locked_usd_old_value: BigDecimal = delta.old_value;
+                // let total_value_locked_usd_old_value: BigDecimal = math::decimal_from_bytes(&delta.old_value);
                 let diff: BigDecimal = total_value_locked_usd
                     .clone()
                     .sub(total_value_locked_usd_old_value);
@@ -988,26 +963,26 @@ pub fn store_swaps_volume(
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_fee_growth_global_x128(pools: Pools, output: StoreSet) {
+pub fn store_pool_fee_growth_global_x128(pools: Pools, store: BigIntStoreSet) {
     for pool in pools.pools {
         log::info!(
             "pool address: {} trx_id:{}",
             pool.address,
             pool.transaction_id
         );
-        let (bd0, bd1) = rpc::fee_growth_global_x128_call(&pool.address);
-        log::debug!("big decimal0: {}", bd0);
-        log::debug!("big decimal1: {}", bd1);
+        let (big_int_1, big_int_2) = rpc::fee_growth_global_x128_call(&pool.address);
+        log::debug!("big decimal0: {}", big_int_1);
+        log::debug!("big decimal1: {}", big_int_2);
 
-        output.set(
+        store.set(
             pool.log_ordinal,
             keyer::pool_fee_growth_global_x128(&pool.address, "token0".to_string()),
-            &Vec::from(bd0.to_string().as_str()),
+            &big_int_1,
         );
-        output.set(
+        store.set(
             pool.log_ordinal,
             keyer::pool_fee_growth_global_x128(&pool.address, "token1".to_string()),
-            &Vec::from(bd1.to_string().as_str()),
+            &big_int_2,
         );
     }
 }
@@ -1055,7 +1030,7 @@ pub fn store_eth_prices(
     tokens_whitelist_pools_store: RawStoreGet,
     total_native_value_locked_store: BigDecimalStoreGet,
     pool_liquidities_store: RawStoreGet,
-    output: StoreSet,
+    store: RawStoreSet,
 ) {
     for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
         log::debug!(
@@ -1106,19 +1081,19 @@ pub fn store_eth_prices(
             token1_derived_eth_price
         );
 
-        output.set(
+        store.set(
             pool_sqrt_price.ordinal,
             keyer::bundle_eth_price(),
             &Vec::from(bundle_eth_price_usd.to_string()),
         );
 
-        output.set(
+        store.set(
             pool_sqrt_price.ordinal,
             keyer::token_eth_price(&token_0.address),
             &Vec::from(token0_derived_eth_price.to_string()),
         );
 
-        output.set(
+        store.set(
             pool_sqrt_price.ordinal,
             keyer::token_eth_price(&token_1.address),
             &Vec::from(token1_derived_eth_price.to_string()),
@@ -1171,10 +1146,10 @@ pub fn store_total_value_locked_by_tokens(events: Events, output: StoreAddBigFlo
 
 #[substreams::handlers::store]
 pub fn store_total_value_locked(
-    native_total_value_locked_deltas: store::Deltas,
+    native_total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
     pools_store: ProtoStoreGet<Pool>,
     eth_prices_store: RawStoreGet,
-    output: StoreSet,
+    output: RawStoreSet,
 ) {
     // fixme: @julien: what is the use for the pool aggregator here ?
     let mut pool_aggregator: HashMap<String, (u64, BigDecimal)> = HashMap::from([]);
@@ -1182,7 +1157,7 @@ pub fn store_total_value_locked(
     // fixme: are we sure we want to unwrap and fail here ? we can't even go over the first block..
     // let eth_price_usd = helper::get_eth_price(&eth_prices_store).unwrap();
 
-    for native_total_value_locked in native_total_value_locked_deltas {
+    for native_total_value_locked in native_total_value_locked_deltas.deltas {
         let eth_price_usd: BigDecimal = match &eth_prices_store.get_last(&keyer::bundle_eth_price())
         {
             None => continue,
@@ -1194,11 +1169,15 @@ pub fn store_total_value_locked(
             native_total_value_locked.key
         );
         if let Some(token_addr) = keyer::native_token_from_key(&native_total_value_locked.key) {
-            let value = math::decimal_from_bytes(&native_total_value_locked.new_value);
+            // let value = math::decimal_from_bytes(&native_total_value_locked.new_value);
+            let value = &native_total_value_locked.new_value;
             let token_derive_eth =
                 helper::get_token_eth_price(&eth_prices_store, &token_addr).unwrap();
 
-            let total_value_locked_usd = value.mul(token_derive_eth).mul(eth_price_usd.clone());
+            let total_value_locked_usd = value
+                .clone()
+                .mul(token_derive_eth)
+                .mul(eth_price_usd.clone());
 
             log::info!(
                 "token {} total value locked usd: {}",
@@ -1218,7 +1197,8 @@ pub fn store_total_value_locked(
             if pool.token0.as_ref().unwrap().address != token_addr {
                 continue;
             }
-            let value: BigDecimal = math::decimal_from_bytes(&native_total_value_locked.new_value);
+            // let value: BigDecimal = math::decimal_from_bytes(&native_total_value_locked.new_value);
+            let value: BigDecimal = native_total_value_locked.new_value;
             let token_derive_eth: BigDecimal =
                 helper::get_token_eth_price(&eth_prices_store, &token_addr).unwrap();
             let partial_pool_total_value_locked_eth = value.mul(token_derive_eth);
@@ -1310,8 +1290,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     price1: lower_tick_price1.to_string(),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: lower_tick_result.0.get_big_int().to_string(),
-                    fee_growth_outside_1x_128: lower_tick_result.1.get_big_int().to_string(),
+                    fee_growth_outside_0x_128: lower_tick_result.0.to_string(),
+                    fee_growth_outside_1x_128: lower_tick_result.1.to_string(),
                     log_ordinal: event.log_ordinal,
                     amount: burn.amount.clone(),
                     r#type: Lower as i32,
@@ -1341,8 +1321,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     price1: upper_upper_price1.to_string(),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: upper_tick_result.0.get_big_int().to_string(),
-                    fee_growth_outside_1x_128: upper_tick_result.1.get_big_int().to_string(),
+                    fee_growth_outside_0x_128: upper_tick_result.0.to_string(),
+                    fee_growth_outside_1x_128: upper_tick_result.1.to_string(),
                     log_ordinal: event.log_ordinal,
                     amount: burn.amount,
                     r#type: Upper as i32,
@@ -1379,8 +1359,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     price1: lower_tick_price1.to_string(),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: lower_tick_result.0.get_big_int().to_string(),
-                    fee_growth_outside_1x_128: lower_tick_result.1.get_big_int().to_string(),
+                    fee_growth_outside_0x_128: lower_tick_result.0.to_string(),
+                    fee_growth_outside_1x_128: lower_tick_result.1.to_string(),
                     log_ordinal: event.log_ordinal,
                     amount: mint.amount.clone(),
                     r#type: Lower as i32,
@@ -1410,8 +1390,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     price1: upper_tick_price1.to_string(),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: upper_tick_result.0.get_big_int().to_string(),
-                    fee_growth_outside_1x_128: upper_tick_result.1.get_big_int().to_string(),
+                    fee_growth_outside_0x_128: upper_tick_result.0.to_string(),
+                    fee_growth_outside_1x_128: upper_tick_result.1.to_string(),
                     log_ordinal: event.log_ordinal,
                     amount: mint.amount,
                     r#type: Upper as i32,
@@ -1428,7 +1408,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_ticks(ticks: Ticks, output: StoreSet) {
+pub fn store_ticks(ticks: Ticks, output: RawStoreSet) {
     for tick in ticks.ticks {
         output.set(
             tick.log_ordinal,
@@ -1441,7 +1421,7 @@ pub fn store_ticks(ticks: Ticks, output: StoreSet) {
 #[substreams::handlers::store]
 pub fn store_ticks_liquidities(ticks: Ticks, output: StoreAddBigInt) {
     for tick in ticks.ticks {
-        log::info!("tick id: {}", tick.id);
+        log::debug!("tick id: {}", tick.id);
         if tick.origin == Mint as i32 {
             if tick.r#type == Lower as i32 {
                 output.add(
@@ -1595,9 +1575,9 @@ pub fn map_all_positions(block: Block, store_pool: RawStoreGet) -> Result<Positi
 }
 
 #[substreams::handlers::store]
-pub fn store_all_positions(positions: Positions, output: StoreSet) {
+pub fn store_all_positions(positions: Positions, store: RawStoreSet) {
     for position in positions.positions {
-        output.set(
+        store.set(
             position.log_ordinal,
             keyer::all_position(
                 &position.id,
@@ -1664,10 +1644,8 @@ pub fn map_positions(block: Block, all_positions_store: RawStoreGet) -> Result<P
             if let Some(position_call_result) =
                 rpc::positions_call(&Hex(log.address()).to_string(), event.token_id)
             {
-                position.fee_growth_inside_0_last_x_128 =
-                    position_call_result.5.get_big_int().to_string();
-                position.fee_growth_inside_1_last_x_128 =
-                    position_call_result.6.get_big_int().to_string();
+                position.fee_growth_inside_0_last_x_128 = position_call_result.5.to_string();
+                position.fee_growth_inside_1_last_x_128 = position_call_result.6.to_string();
                 enriched_positions.insert(token_id.clone(), position);
                 if !ordered_positions.contains(&String::from(token_id.clone())) {
                     ordered_positions.push(String::from(token_id))
@@ -1733,7 +1711,7 @@ pub fn map_positions(block: Block, all_positions_store: RawStoreGet) -> Result<P
 
 // todo: maybe this can be omitted, if not used anywhere else
 #[substreams::handlers::store]
-pub fn store_positions(positions: Positions, store: StoreSet) {
+pub fn store_positions(positions: Positions, store: RawStoreSet) {
     for position in positions.positions {
         store.set(
             position.log_ordinal,
@@ -1746,8 +1724,8 @@ pub fn store_positions(positions: Positions, store: StoreSet) {
 #[substreams::handlers::store]
 pub fn store_position_changes(all_positions: Positions, store: StoreAddBigFloat) {
     for position in all_positions.positions {
-        match position.position_type {
-            x if x == IncreaseLiquidity as i32 => {
+        match position.convert_position_type() {
+            IncreaseLiquidity => {
                 store.add(
                     position.log_ordinal,
                     keyer::position_liquidity(&position.id),
@@ -1764,7 +1742,7 @@ pub fn store_position_changes(all_positions: Positions, store: StoreAddBigFloat)
                     &BigDecimal::from_str(position.amount1.as_str()).unwrap(),
                 );
             }
-            x if x == DecreaseLiquidity as i32 => {
+            DecreaseLiquidity => {
                 store.add(
                     position.log_ordinal,
                     keyer::position_liquidity(&position.id),
@@ -1783,7 +1761,7 @@ pub fn store_position_changes(all_positions: Positions, store: StoreAddBigFloat)
                     &BigDecimal::from_str(position.amount1.as_str()).unwrap(),
                 );
             }
-            x if x == Collect as i32 => {
+            Collect => {
                 store.add(
                     position.log_ordinal,
                     keyer::position_collected_fees_token(&position.id, "Token0"),
@@ -1941,7 +1919,7 @@ pub fn map_flashes(block: Block, pool_store: RawStoreGet) -> Result<Flashes, Err
 #[substreams::handlers::map]
 pub fn map_bundle_entities(
     block: Block,
-    derived_eth_prices_deltas: store::Deltas,
+    derived_eth_prices_deltas: store::Deltas<BigDecimalDelta>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
 
@@ -1960,10 +1938,10 @@ pub fn map_bundle_entities(
 #[substreams::handlers::map]
 pub fn map_factory_entities(
     block: Block,
-    pool_count_deltas: store::Deltas,
-    tx_count_deltas: store::Deltas,
-    swaps_volume_deltas: store::Deltas,
-    totals_deltas: store::Deltas,
+    pool_count_deltas: store::Deltas<BigIntDelta>,
+    tx_count_deltas: store::Deltas<BigIntDelta>,
+    swaps_volume_deltas: store::Deltas<BigDecimalDelta>,
+    totals_deltas: store::Deltas<BigDecimalDelta>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
 
@@ -1982,14 +1960,14 @@ pub fn map_factory_entities(
 #[substreams::handlers::map]
 pub fn map_pool_entities(
     pools_created: Pools,
-    pool_sqrt_price_deltas: store::Deltas,
-    pool_liquidities_store_deltas: store::Deltas,
-    total_value_locked_deltas: store::Deltas,
-    total_value_locked_by_tokens_deltas: store::Deltas,
-    pool_fee_growth_global_x128_deltas: store::Deltas,
-    price_deltas: store::Deltas,
-    tx_count_deltas: store::Deltas,
-    swaps_volume_deltas: store::Deltas,
+    pool_sqrt_price_deltas: store::Deltas<ProtoDelta<PoolSqrtPrice>>,
+    pool_liquidities_store_deltas: store::Deltas<BigIntDelta>,
+    total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
+    total_value_locked_by_tokens_deltas: store::Deltas<BigDecimalDelta>,
+    pool_fee_growth_global_x128_deltas: store::Deltas<BigIntDelta>,
+    price_deltas: store::Deltas<BigDecimalDelta>,
+    tx_count_deltas: store::Deltas<BigIntDelta>,
+    swaps_volume_deltas: store::Deltas<BigDecimalDelta>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::pools_created_pool_entity_change(pools_created, &mut entity_changes);
@@ -2018,11 +1996,11 @@ pub fn map_pool_entities(
 #[substreams::handlers::map]
 pub fn map_tokens_entities(
     pools_created: Pools,
-    swaps_volume_deltas: store::Deltas,
-    tx_count_deltas: store::Deltas,
-    total_value_locked_by_deltas: store::Deltas,
-    total_value_locked_deltas: store::Deltas,
-    derived_eth_prices_deltas: store::Deltas,
+    swaps_volume_deltas: store::Deltas<BigDecimalDelta>,
+    tx_count_deltas: store::Deltas<BigIntDelta>,
+    total_value_locked_by_deltas: store::Deltas<BigDecimalDelta>,
+    total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
+    derived_eth_prices_deltas: store::Deltas<BigDecimalDelta>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::tokens_created_token_entity_change(&mut entity_changes, pools_created);
@@ -2039,8 +2017,8 @@ pub fn map_tokens_entities(
 
 #[substreams::handlers::map]
 pub fn map_tick_entities(
-    ticks_deltas: store::Deltas,
-    ticks_liquidities_deltas: store::Deltas,
+    ticks_deltas: store::Deltas<ProtoDelta<Tick>>,
+    ticks_liquidities_deltas: store::Deltas<BigIntDelta>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::create_or_update_ticks_entity_change(&mut entity_changes, ticks_deltas);
@@ -2051,7 +2029,7 @@ pub fn map_tick_entities(
 #[substreams::handlers::map]
 pub fn map_position_entities(
     positions: Positions,
-    positions_changes_deltas: store::Deltas,
+    positions_changes_deltas: store::Deltas<BigDecimalDelta>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::position_create_entity_change(positions, &mut entity_changes);
@@ -2100,9 +2078,9 @@ pub fn map_flash_entities(flashes: Flashes) -> Result<EntityChanges, Error> {
 
 #[substreams::handlers::map]
 pub fn map_uniswap_day_data_entities(
-    tx_count_deltas: store::Deltas,
-    totals_deltas: store::Deltas,
-    volume_deltas: store::Deltas,
+    tx_count_deltas: store::Deltas<BigIntDelta>,
+    totals_deltas: store::Deltas<BigDecimalDelta>,
+    volume_deltas: store::Deltas<BigDecimalDelta>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::uniswap_day_data_tx_count_entity_change(&mut entity_changes, tx_count_deltas);
@@ -2136,6 +2114,7 @@ pub fn graph_out(
             tick_entities.entity_changes,
             position_entities.entity_changes,
             position_snapshot_entities.entity_changes,
+            flash_entities.entity_changes,
         ]
         .concat(),
     })

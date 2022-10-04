@@ -208,6 +208,7 @@ impl EntityChange {
     }
 }
 
+// TODO: replace this by sharing proto definition from substreams -> substreams.proto
 pub fn convert_i32_to_operation(operation: i32) -> Operation {
     return match operation {
         x if x == Operation::Unset as i32 => Operation::Unset,

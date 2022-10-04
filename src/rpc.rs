@@ -1,8 +1,7 @@
 use crate::{abi, eth, utils, Erc20Token};
 use ethabi::Uint;
-use std::str::FromStr;
 use substreams::log;
-use substreams::scalar::{BigDecimal, BigInt};
+use substreams::scalar::BigInt;
 use substreams_ethereum::pb::eth as ethpb;
 use substreams_ethereum::scalar::EthBigInt;
 
@@ -17,7 +16,7 @@ pub fn token_total_supply_call(token_address: &String) -> BigInt {
     return BigInt::from_signed_bytes_be(responses[0].raw.as_slice());
 }
 
-pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDecimal) {
+pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
     let rpc_calls: ethpb::rpc::RpcCalls =
         create_fee_growth_global_x128_calls(&hex::decode(pool_address).unwrap());
 
@@ -31,7 +30,7 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigDecimal, BigDec
     let fee_0: BigInt = BigInt::from_signed_bytes_be(responses[0].raw.as_slice());
     let fee_1: BigInt = BigInt::from_signed_bytes_be(responses[1].raw.as_slice());
 
-    return (fee_0.into(), fee_1.into());
+    return (fee_0, fee_1);
 }
 
 pub fn fee_growth_outside_x128_call(
