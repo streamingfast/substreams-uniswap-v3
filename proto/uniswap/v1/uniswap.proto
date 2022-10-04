@@ -124,7 +124,7 @@ message PoolLiquidities {
 
 message PoolLiquidity {
   string pool_address = 1;
-  string liquidity = 2;
+  string liquidity = 2; //BigDecimal
 
   // internals
   uint64 log_ordinal = 30;
