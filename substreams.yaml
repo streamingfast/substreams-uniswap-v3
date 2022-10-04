@@ -77,7 +77,7 @@ modules:
     kind: store
     updatePolicy: set
     initialBlock: 12369621
-    valueType: string
+    valueType: bigfloat
     inputs:
       - map: map_pool_sqrt_price
       - store: store_pools
@@ -95,7 +95,7 @@ modules:
     kind: store
     updatePolicy: set
     initialBlock: 12369621
-    valueType: string # this needs to be bigint --> todo: add policy changes to substreams' engine
+    valueType: bigint
     inputs:
       - map: map_pool_liquidities
 
@@ -173,7 +173,7 @@ modules:
     kind: store
     updatePolicy: set
     initialBlock: 12369621
-    valueType: string
+    valueType: bigfloat
     inputs:
       - map: map_pool_sqrt_price
       - store: store_pools
@@ -193,7 +193,7 @@ modules:
   - name: store_total_value_locked
     kind: store
     initialBlock: 12369621
-    updatePolicy: add
+    updatePolicy: set
     valueType: bigfloat
     inputs:
       - store: store_native_total_value_locked
@@ -248,14 +248,6 @@ modules:
       - store: store_all_positions
     output:
       type: proto:uniswap.types.v1.Positions
-
-  - name: store_positions
-    kind: store
-    initialBlock: 12369621
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Position
-    inputs:
-      - map: map_positions
 
   - name: store_position_changes
     kind: store

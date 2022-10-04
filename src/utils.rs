@@ -9,8 +9,8 @@ use crate::{
 use std::ops::{Add, Mul};
 use std::str;
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{RawStoreGet, StoreGet};
-use substreams::{hex, log, proto, Hex};
+use substreams::store::{ProtoStoreGet, StoreGet};
+use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
 pub const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
@@ -195,31 +195,32 @@ pub fn load_transaction(
     block_number: u64,
     timestamp: u64,
     log_ordinal: u64,
-    transaction: &TransactionTrace,
+    transaction_trace: &TransactionTrace,
 ) -> Transaction {
-    match transaction.clone().gas_price {
+    let mut transaction = Transaction {
+        id: Hex(&transaction_trace.hash).to_string(),
+        block_number,
+        timestamp,
+        gas_used: transaction_trace.gas_used,
+        gas_price: Default::default(),
+        log_ordinal,
+    };
+    transaction.gas_price = match transaction_trace.clone().gas_price {
         None => {
-            panic!(
-                "no gas price, trx hash: {}",
-                Hex(&transaction.hash).to_string()
-            )
+            log::debug!("gas price set as 0 at trx {}", Hex(&transaction_trace.hash));
+            "0".to_string()
         }
-        Some(_) => {
-            let gas_price: BigInt = transaction.clone().gas_price.unwrap().bytes.into();
-            return Transaction {
-                id: Hex(&transaction.hash).to_string(),
-                block_number,
-                timestamp,
-                gas_used: transaction.gas_used,
-                gas_price: gas_price.to_string(),
-                log_ordinal,
-            };
+        Some(gas_price) => {
+            let gas_price: BigInt = gas_price.bytes.into();
+            log::debug!("gas_price: {}", gas_price);
+            gas_price.to_string()
         }
-    }
+    };
+    transaction
 }
 
 pub fn get_position(
-    store_pool: &RawStoreGet,
+    store_pool: &ProtoStoreGet<Pool>,
     log_address: &String,
     transaction_hash: &Vec<u8>,
     position_type: PositionType,
@@ -239,11 +240,8 @@ pub fn get_position(
 
         let token0: String = Hex(&token_id_0_bytes.as_slice()).to_string();
         let token1: String = Hex(&token_id_1_bytes.as_slice()).to_string();
-        let mut pool: Pool = Pool {
-            ..Default::default()
-        };
 
-        match store_pool.get_last(keyer::pool_token_index_key(
+        let pool: Pool = match store_pool.get_last(keyer::pool_token_index_key(
             &token0,
             &token1,
             &fee.to_string(),
@@ -256,8 +254,8 @@ pub fn get_position(
                 );
                 return None;
             }
-            Some(pool_bytes) => pool = proto::decode(&pool_bytes).unwrap(),
-        }
+            Some(pool) => pool,
+        };
 
         let amount0 = &event
             .get_amount0()

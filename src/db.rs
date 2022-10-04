@@ -10,7 +10,9 @@ use crate::{
 use pb::entity::entity_change::Operation;
 use std::str::FromStr;
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{BigDecimalDelta, BigIntDelta, Deltas, ProtoDelta, RawStoreGet, StoreGet};
+use substreams::store::{
+    BigDecimalDelta, BigDecimalStoreGet, BigIntDelta, BigIntStoreGet, Deltas, ProtoDelta, StoreGet,
+};
 use substreams::Hex;
 
 // -------------------
@@ -720,8 +722,8 @@ pub fn transaction_entity_change(transactions: Transactions, entity_changes: &mu
 // --------------------
 pub fn swaps_mints_burns_created_entity_change(
     events: Events,
-    tx_count_store: RawStoreGet,
-    store_eth_prices: RawStoreGet,
+    tx_count_store: BigIntStoreGet,
+    store_eth_prices: BigDecimalStoreGet,
     entity_changes: &mut EntityChanges,
 ) {
     for event in events.events {
@@ -732,10 +734,7 @@ pub fn swaps_mints_burns_created_entity_change(
         if event.r#type.is_some() {
             let transaction_count: i32 =
                 match tx_count_store.get_last(keyer::factory_total_tx_count()) {
-                    Some(data) => String::from_utf8_lossy(data.as_slice())
-                        .to_string()
-                        .parse::<i32>()
-                        .unwrap(),
+                    Some(data) => data.into(),
                     None => 0,
                 };
 
@@ -743,38 +742,26 @@ pub fn swaps_mints_burns_created_entity_change(
 
             let token0_derived_eth_price =
                 match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
-                    None => {
-                        // initializePool has occurred beforehand so there should always be a price
-                        // maybe just ? instead of returning 1 and bubble up the error if there is one
-                        BigDecimal::from(0 as u64)
-                    }
-                    Some(derived_eth_price_bytes) => {
-                        BigDecimal::from_store_bytes(derived_eth_price_bytes)
-                    }
+                    // initializePool has occurred beforehand so there should always be a price
+                    // maybe just ? instead of returning 1 and bubble up the error if there is one
+                    None => BigDecimal::zero(),
+                    Some(price) => price,
                 };
 
             let token1_derived_eth_price: BigDecimal =
                 match store_eth_prices.get_last(keyer::token_eth_price(&event.token1)) {
-                    None => {
-                        // initializePool has occurred beforehand so there should always be a price
-                        // maybe just ? instead of returning 1 and bubble up the error if there is one
-                        BigDecimal::from(0 as u64)
-                    }
-                    Some(derived_eth_price_bytes) => {
-                        BigDecimal::from_store_bytes(derived_eth_price_bytes)
-                    }
+                    // initializePool has occurred beforehand so there should always be a price
+                    // maybe just ? instead of returning 1 and bubble up the error if there is one
+                    None => BigDecimal::zero(),
+                    Some(price) => price,
                 };
 
             let bundle_eth_price: BigDecimal =
                 match store_eth_prices.get_last(keyer::bundle_eth_price()) {
-                    None => {
-                        // initializePool has occurred beforehand so there should always be a price
-                        // maybe just ? instead of returning 1 and bubble up the error if there is one
-                        BigDecimal::from(1 as u64)
-                    }
-                    Some(bundle_eth_price_bytes) => {
-                        BigDecimal::from_store_bytes(bundle_eth_price_bytes)
-                    }
+                    // initializePool has occurred beforehand so there should always be a price
+                    // maybe just ? instead of returning 1 and bubble up the error if there is one
+                    None => BigDecimal::zero(),
+                    Some(price) => price,
                 };
 
             return match event.r#type.unwrap() {

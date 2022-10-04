@@ -1,9 +1,7 @@
 use crate::BigInt;
 use num_bigint::BigUint;
-use pad::PadStr;
 use std::borrow::Borrow;
-use std::ops::{Add, Div, Mul, Neg};
-use std::str::FromStr;
+use std::ops::{Add, Div, Mul};
 use substreams::scalar::BigDecimal;
 
 pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
@@ -41,18 +39,8 @@ pub fn safe_div(amount0: &BigDecimal, amount1: &BigDecimal) -> BigDecimal {
     };
 }
 
-// converts the string representation (in bytes) of a decimal
-pub fn decimal_from_bytes(price_bytes: &Vec<u8>) -> BigDecimal {
-    if price_bytes.len() == 0 {
-        return BigDecimal::zero();
-    }
-    let price_str = std::str::from_utf8(price_bytes.as_slice()).unwrap();
-    return BigDecimal::from_str(price_str).unwrap();
-}
-
 pub fn decimal_from_hex_be_bytes(price_bytes: &Vec<u8>) -> BigDecimal {
-    let big_uint_amount = BigUint::from_bytes_be(price_bytes.as_slice());
-    return BigDecimal::from_str(big_uint_amount.to_string().as_str()).unwrap();
+    BigUint::from_bytes_be(price_bytes.as_slice()).into()
 }
 
 pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
@@ -67,14 +55,4 @@ pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
     }
 
     return result;
-}
-
-pub fn divide_by_decimals(big_float_amount: BigDecimal, decimals: u64) -> BigDecimal {
-    let bd = BigDecimal::from_str(
-        "1".pad_to_width_with_char((decimals + 1) as usize, '0')
-            .as_str(),
-    )
-    .unwrap()
-    .with_prec(100);
-    return big_float_amount.div(bd);
 }

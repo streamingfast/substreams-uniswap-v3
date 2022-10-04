@@ -1,4 +1,3 @@
-use crate::utils;
 use std::str;
 use substreams::pb::substreams::StoreDelta;
 use substreams::scalar::{BigDecimal, BigInt};
