@@ -1,9 +1,12 @@
 use crate::pb::position_event::PositionEventType;
 use crate::uniswap::position::PositionType;
 use crate::PositionType::Unset;
-use crate::{BigInt, Collect, DecreaseLiquidity, IncreaseLiquidity, Pool, Position, Transfer};
+use crate::{
+    BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Position, Transfer,
+};
 use ethabi::Uint;
 use std::str::FromStr;
+use substreams::log;
 
 #[path = "./uniswap.types.v1.rs"]
 pub mod uniswap;
@@ -16,6 +19,18 @@ pub mod entity;
 
 pub mod change;
 pub mod helpers;
+
+impl Erc20Token {
+    pub fn log(&self) {
+        log::info!(
+            "token addr: {}, name: {}, symbol: {}, decimals: {}",
+            self.address,
+            self.decimals,
+            self.symbol,
+            self.name
+        );
+    }
+}
 
 impl Pool {
     pub fn should_handle_swap(&self) -> bool {

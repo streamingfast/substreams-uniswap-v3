@@ -68,39 +68,17 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
             let mut pool: Pool = Pool {
                 address: Hex(&log.data()[44..64]).to_string(),
                 transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                created_at_block_number: block.number.to_string(),
-                created_at_timestamp: block
-                    .header
-                    .as_ref()
-                    .unwrap()
-                    .timestamp
-                    .as_ref()
-                    .unwrap()
-                    .seconds
-                    .to_string(),
+                created_at_block_number: block.number,
+                created_at_timestamp: block.timestamp_seconds(),
                 fee_tier: event.fee.as_u32(),
-                tick_spacing: event.tick_spacing.i.into(),
+                tick_spacing: event.tick_spacing.get_big_int().into(),
                 log_ordinal: log.ordinal(),
                 ignore_pool: ignore,
                 ..Default::default()
             };
-            // check the validity of the token0 and token1
-            let mut token0 = Erc20Token {
-                address: "".to_string(),
-                name: "".to_string(),
-                symbol: "".to_string(),
-                decimals: 0,
-                total_supply: "".to_string(),
-                whitelist_pools: vec![],
-            };
-            let mut token1 = Erc20Token {
-                address: "".to_string(),
-                name: "".to_string(),
-                symbol: "".to_string(),
-                decimals: 0,
-                total_supply: "".to_string(),
-                whitelist_pools: vec![],
-            };
+
+            let mut token0: Erc20Token = Default::default();
+            let mut token1: Erc20Token = Default::default();
 
             let token0_address: String = Hex(&event.token0).to_string();
             match rpc::create_uniswap_token(&token0_address) {
@@ -695,14 +673,7 @@ pub fn map_transactions(
         if add_transaction {
             transactions.transactions.push(utils::load_transaction(
                 block.number,
-                block
-                    .header
-                    .as_ref()
-                    .unwrap()
-                    .timestamp
-                    .as_ref()
-                    .unwrap()
-                    .seconds as u64,
+                block.timestamp_seconds(),
                 log.ordinal(),
                 log.receipt.transaction,
             ));
@@ -1039,8 +1010,8 @@ pub fn store_eth_prices(
         let token_0 = pool.token0.as_ref().unwrap();
         let token_1 = pool.token1.as_ref().unwrap();
 
-        utils::log_token(token_0, 0);
-        utils::log_token(token_1, 1);
+        token_0.log();
+        token_1.log();
 
         let bundle_eth_price_usd =
             price::get_eth_price_in_usd(&prices_store, pool_sqrt_price.ordinal);

@@ -107,17 +107,6 @@ pub fn extract_pool_liquidity(
     None
 }
 
-pub fn log_token(token: &Erc20Token, index: u64) {
-    log::info!(
-        "token {} addr: {}, name: {}, symbol: {}, decimals: {}",
-        index,
-        token.address,
-        token.decimals,
-        token.symbol,
-        token.name
-    );
-}
-
 pub fn calculate_amount_usd(
     amount0: &BigDecimal,
     amount1: &BigDecimal,

@@ -26,8 +26,8 @@ message Pools {
 
 message Pool {
   string address = 1;
-  string created_at_timestamp = 3; // BigInt
-  string created_at_block_number = 4;  // BigInt
+  uint64 created_at_timestamp = 3; // BigInt
+  uint64 created_at_block_number = 4;  // BigInt
   ERC20Token token0 = 5;
   ERC20Token token1 = 6;
   uint32 fee_tier = 7;  // BigInt
