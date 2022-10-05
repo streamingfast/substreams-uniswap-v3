@@ -11,7 +11,8 @@ use pb::entity::entity_change::Operation;
 use std::str::FromStr;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    BigDecimalDelta, BigDecimalStoreGet, BigIntDelta, BigIntStoreGet, Deltas, ProtoDelta, StoreGet,
+    ArrayDelta, BigDecimalDelta, BigDecimalStoreGet, BigIntDelta, BigIntStoreGet, Deltas,
+    ProtoDelta, StoreGet,
 };
 use substreams::Hex;
 
@@ -466,6 +467,18 @@ pub fn derived_eth_prices_token_entity_change(
     }
 }
 
+pub fn whitelist_token_entity_change(
+    entity_changes: &mut EntityChanges,
+    deltas: Deltas<ArrayDelta<String>>,
+) {
+    for delta in deltas.deltas {
+        let token_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
+        entity_changes
+            .push_change("Token", token_address, delta.ordinal, Operation::Update)
+            .change_string_array("whitelistPools", delta.into());
+    }
+}
+
 fn add_token_entity_change(
     entity_changes: &mut EntityChanges,
     token: &Erc20Token,
@@ -492,7 +505,8 @@ fn add_token_entity_change(
         .change_bigdecimal("totalValueLocked", BigDecimal::zero().into())
         .change_bigdecimal("totalValueLockedUSD", BigDecimal::zero().into())
         .change_bigdecimal("totalValueLockedUSDUntracked", BigDecimal::zero().into())
-        .change_bigdecimal("derivedETH", BigDecimal::zero().into());
+        .change_bigdecimal("derivedETH", BigDecimal::zero().into())
+        .change_string_array("whitelistPools", token.whitelist_pools.clone().into());
 }
 
 // --------------------

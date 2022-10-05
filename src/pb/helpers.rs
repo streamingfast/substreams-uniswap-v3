@@ -1,9 +1,9 @@
 use crate::pb::change::{
-    BigDecimalChange, BigIntChange, BoolChange, BytesChange, Int32Change, StringChange,
+    BigDecimalChange, BigIntChange, BoolChange, BytesChange, Int32Change, StringArrayChange,
+    StringChange,
 };
 use crate::pb::entity::entity_change::Operation;
-use crate::pb::entity::value::Typed;
-use crate::pb::entity::{EntityChange, Field, Value};
+use crate::pb::entity::{value::Typed, Array, EntityChange, Field, Value};
 use crate::EntityChanges;
 use std::str;
 
@@ -205,6 +205,41 @@ impl EntityChange {
         }
 
         self
+    }
+
+    pub fn change_string_array(
+        &mut self,
+        name: &str,
+        change: StringArrayChange,
+    ) -> &mut EntityChange {
+        let operation: Operation = convert_i32_to_operation(self.operation);
+        match operation {
+            Operation::Unset => panic!("this should not happen"),
+            Operation::Update => self.fields.push(Field {
+                name: name.to_string(),
+                old_value: Some(str_vec_to_pb(change.old_value)),
+                new_value: Some(str_vec_to_pb(change.new_value)),
+            }),
+            Operation::Create => self.fields.push(Field {
+                name: name.to_string(),
+                old_value: None,
+                new_value: Some(str_vec_to_pb(change.new_value)),
+            }),
+            _ => {}
+        }
+
+        self
+    }
+}
+fn str_vec_to_pb(items: Vec<String>) -> Value {
+    let mut list: Vec<Value> = vec![];
+    for item in items.iter() {
+        list.push(Value {
+            typed: Some(Typed::String(item.clone())),
+        });
+    }
+    Value {
+        typed: Some(Typed::Array(Array { value: list })),
     }
 }
 

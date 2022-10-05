@@ -1,7 +1,7 @@
 use std::str;
 use substreams::pb::substreams::StoreDelta;
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{BigDecimalDelta, BigIntDelta};
+use substreams::store::{ArrayDelta, BigDecimalDelta, BigIntDelta};
 use substreams::Hex;
 
 #[derive(Debug)]
@@ -263,6 +263,31 @@ impl From<StoreDelta> for BoolChange {
         BoolChange {
             old_value: !delta.old_value.contains(&(0 as u8)),
             new_value: !delta.new_value.contains(&(0 as u8)),
+        }
+    }
+}
+
+// ---------- StringArrayChange ----------
+#[derive(Debug)]
+pub struct StringArrayChange {
+    pub old_value: Vec<String>,
+    pub new_value: Vec<String>,
+}
+
+impl From<ArrayDelta<String>> for StringArrayChange {
+    fn from(items: ArrayDelta<String>) -> Self {
+        StringArrayChange {
+            old_value: items.old_value,
+            new_value: items.new_value,
+        }
+    }
+}
+
+impl From<Vec<String>> for StringArrayChange {
+    fn from(new_value: Vec<String>) -> Self {
+        StringArrayChange {
+            old_value: vec![],
+            new_value,
         }
     }
 }

@@ -41,9 +41,9 @@ use substreams::pb::substreams::Clock;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store;
 use substreams::store::{
-    BigDecimalDelta, BigDecimalStoreGet, BigDecimalStoreSet, BigIntDelta, BigIntStoreGet,
-    BigIntStoreSet, ProtoDelta, ProtoStoreGet, ProtoStoreSet, RawStoreGet, StoreAddBigFloat,
-    StoreAddBigInt, StoreAppend, StoreGet, StoreSet,
+    Appender, ArrayDelta, BigDecimalDelta, BigDecimalStoreGet, BigDecimalStoreSet, BigIntDelta,
+    BigIntStoreGet, BigIntStoreSet, ProtoDelta, ProtoStoreGet, ProtoStoreSet, RawStoreGet,
+    StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet,
 };
 use substreams::{log, proto, Hex};
 use substreams_ethereum::scalar::EthBigInt;
@@ -189,15 +189,13 @@ pub fn map_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreAppend) {
+pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreAppend<String>) {
     for token in tokens.tokens {
-        for pools in token.whitelist_pools {
-            output_append.append(
-                1,
-                keyer::token_pool_whitelist(&token.address),
-                &format!("{};", pools.to_string()),
-            )
-        }
+        output_append.append_all(
+            1,
+            keyer::token_pool_whitelist(&token.address),
+            token.whitelist_pools,
+        );
     }
 }
 
@@ -1988,6 +1986,7 @@ pub fn map_tokens_entities(
     total_value_locked_by_deltas: store::Deltas<BigDecimalDelta>,
     total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
     derived_eth_prices_deltas: store::Deltas<BigDecimalDelta>,
+    tokens_whitelist_pools: store::Deltas<ArrayDelta<String>>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::tokens_created_token_entity_change(&mut entity_changes, pools_created);
@@ -1999,6 +1998,8 @@ pub fn map_tokens_entities(
     );
     db::total_value_locked_usd_token_entity_change(&mut entity_changes, total_value_locked_deltas);
     db::derived_eth_prices_token_entity_change(&mut entity_changes, derived_eth_prices_deltas);
+    db::whitelist_token_entity_change(&mut entity_changes, tokens_whitelist_pools);
+
     Ok(entity_changes)
 }
 

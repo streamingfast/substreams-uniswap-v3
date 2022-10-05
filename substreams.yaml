@@ -363,6 +363,8 @@ modules:
         mode: deltas
       - store: store_eth_prices
         mode: deltas
+      - store: store_tokens_whitelist_pools
+        mode: deltas
     output:
       type: proto:substreams.entity.v1.EntityChanges
 
