@@ -158,7 +158,7 @@ modules:
     kind: store
     initialBlock: 12369621
     updatePolicy: set
-    valueType: string # this needs to be bigint -> check store_pool_liquidities todo
+    valueType: bigint
     inputs:
       - map: map_pools_created
 
