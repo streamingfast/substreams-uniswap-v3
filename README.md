@@ -108,20 +108,6 @@ $ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases
         ]
       },
 [...]
-      {
-        "entity": "Bundle",
-        "id": "1",
-        "ordinal": "1",
-        "operation": "CREATE",
-        "fields": [
-          {
-            "name": "ethPriceUSD",
-            "newValue": {
-              "bigdecimal": "0"
-            }
-          }
-        ]
-      }
     ]
   }
 }
