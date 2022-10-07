@@ -452,3 +452,10 @@ modules:
       - map: map_swaps_mints_burns_entities
     output:
       type: proto:substreams.entity.v1.EntityChanges
+
+  - name: dummy_graph_out_store
+    kind: store
+    updatePolicy: set
+    valueType: string
+    inputs:
+      - map: graph_out

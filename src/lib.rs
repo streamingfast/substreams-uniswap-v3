@@ -2058,3 +2058,8 @@ pub fn graph_out(
         .concat(),
     })
 }
+
+#[substreams::handlers::store]
+pub fn dummy_graph_out_store(_entity_changes: EntityChanges) {
+    // Does nothing, used to bootstrap `graph_out` in full parallel mode
+}
