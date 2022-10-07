@@ -4,7 +4,6 @@ mod abi;
 mod db;
 mod eth;
 mod keyer;
-mod macros;
 mod math;
 mod pb;
 mod price;
