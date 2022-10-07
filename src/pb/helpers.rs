@@ -154,6 +154,7 @@ impl EntityChange {
         self
     }
 
+    #[allow(dead_code)]
     pub fn change_bytes(&mut self, name: &str, change: BytesChange) -> &mut EntityChange {
         let operation: Operation = convert_i32_to_operation(self.operation);
         match operation {
@@ -180,6 +181,7 @@ impl EntityChange {
         self
     }
 
+    #[allow(dead_code)]
     pub fn change_bool(&mut self, name: &str, change: BoolChange) -> &mut EntityChange {
         let operation: Operation = convert_i32_to_operation(self.operation);
 

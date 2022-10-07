@@ -36,6 +36,7 @@ use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Sub};
 use std::str::FromStr;
 use substreams::errors::Error;
+use substreams::hex;
 use substreams::pb::substreams::Clock;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store;
@@ -44,73 +45,56 @@ use substreams::store::{
     BigIntStoreGet, BigIntStoreSet, ProtoDelta, ProtoStoreGet, ProtoStoreSet, RawStoreGet,
     StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet,
 };
-use substreams::{log, proto, Hex};
+use substreams::{log, Hex};
 use substreams_ethereum::scalar::EthBigInt;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]
 pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
-    let mut pools = vec![];
-    for log in block.logs() {
-        if let Some(event) = abi::factory::events::PoolCreated::match_and_decode(log) {
-            log::info!("pool addr: {}", Hex(&event.pool));
+    use abi::factory::events::PoolCreated;
 
-            let mut ignore = false;
-            if log.address() != UNISWAP_V3_FACTORY
-                || Hex(&event.pool)
-                    .to_string()
-                    .eq("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248")
-            {
-                ignore = true;
-            }
+    Ok(Pools {
+        pools: block
+            .events::<PoolCreated>(&[&UNISWAP_V3_FACTORY])
+            .filter_map(|(event, log)| {
+                log::info!("pool addr: {}", Hex(&event.pool));
 
-            let mut pool: Pool = Pool {
-                address: Hex(&log.data()[44..64]).to_string(),
-                transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                created_at_block_number: block.number,
-                created_at_timestamp: block.timestamp_seconds(),
-                fee_tier: event.fee.as_u32(),
-                tick_spacing: event.tick_spacing.get_big_int().into(),
-                log_ordinal: log.ordinal(),
-                ignore_pool: ignore,
-                ..Default::default()
-            };
-
-            let mut token0: Erc20Token = Default::default();
-            let mut token1: Erc20Token = Default::default();
-
-            let token0_address: String = Hex(&event.token0).to_string();
-            match rpc::create_uniswap_token(&token0_address) {
-                None => {
-                    continue;
-                }
-                Some(token) => {
-                    token0 = token;
-                }
-            }
-
-            let token1_address: String = Hex(&event.token1).to_string();
-            match rpc::create_uniswap_token(&token1_address) {
-                None => {
-                    continue;
-                }
-                Some(token) => {
-                    token1 = token;
-                }
-            }
-
-            let token0_total_supply: BigInt = rpc::token_total_supply_call(&token0_address);
-            token0.total_supply = token0_total_supply.to_string();
-
-            let token1_total_supply: BigInt = rpc::token_total_supply_call(&token1_address);
-            token1.total_supply = token1_total_supply.to_string();
-
-            pool.token0 = Some(token0.clone());
-            pool.token1 = Some(token1.clone());
-            pools.push(pool);
-        }
-    }
-    Ok(Pools { pools })
+                Some(Pool {
+                    address: Hex(&log.data()[44..64]).to_string(),
+                    transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
+                    created_at_block_number: block.number,
+                    created_at_timestamp: block.timestamp_seconds(),
+                    fee_tier: event.fee.as_u32(),
+                    tick_spacing: event.tick_spacing.get_big_int().into(),
+                    log_ordinal: log.ordinal(),
+                    ignore_pool: event.pool == hex!("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248"),
+                    token0: Some(match rpc::create_uniswap_token(&event.token0) {
+                        Some(mut token) => {
+                            token.total_supply =
+                                rpc::token_total_supply_call(&event.token0).to_string();
+                            token
+                        }
+                        None => {
+                            // We were unable to create the uniswap token, so we discard this event entierly
+                            return None;
+                        }
+                    }),
+                    token1: Some(match rpc::create_uniswap_token(&event.token1) {
+                        Some(mut token) => {
+                            token.total_supply =
+                                rpc::token_total_supply_call(&event.token1).to_string();
+                            token
+                        }
+                        None => {
+                            // We were unable to create the uniswap token, so we discard this event entierly
+                            return None;
+                        }
+                    }),
+                    ..Default::default()
+                })
+            })
+            .collect(),
+    })
 }
 
 #[substreams::handlers::store]
@@ -143,26 +127,29 @@ pub fn store_pool_count(pools: Pools, store: StoreAddBigInt) {
 
 #[substreams::handlers::map]
 pub fn map_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Error> {
-    let mut erc20_tokens = Erc20Tokens { tokens: vec![] };
+    let mut tokens = vec![];
 
     for pool in pools.pools {
         let mut token0 = pool.token0.unwrap();
         let mut token1 = pool.token1.unwrap();
 
-        if WHITELIST_TOKENS.contains(&token0.address.as_str()) {
+        let token0_whitelisted = WHITELIST_TOKENS.contains(&token0.address.as_str());
+        let token1_whitelisted = WHITELIST_TOKENS.contains(&token1.address.as_str());
+
+        if token0_whitelisted {
             log::info!("adding pool: {} to token: {}", pool.address, token1.address);
             token1.whitelist_pools.push(pool.address.to_string());
-            erc20_tokens.tokens.push(token1.clone());
+            tokens.push(token1);
         }
 
-        if WHITELIST_TOKENS.contains(&token1.address.as_str()) {
+        if token1_whitelisted {
             log::info!("adding pool: {} to token: {}", pool.address, token0.address);
             token0.whitelist_pools.push(pool.address.to_string());
-            erc20_tokens.tokens.push(token0.clone());
+            tokens.push(token0);
         }
     }
 
-    Ok(erc20_tokens)
+    Ok(Erc20Tokens { tokens })
 }
 
 #[substreams::handlers::store]
@@ -210,6 +197,7 @@ pub fn map_pool_sqrt_price(
             });
         }
     }
+
     Ok(PoolSqrtPrices { pool_sqrt_prices })
 }
 
@@ -1570,7 +1558,6 @@ pub fn map_positions(
     let mut enriched_positions: HashMap<String, Position> = HashMap::new();
 
     for log in block.logs() {
-        let mut position: Position = Default::default();
         if log.address() != NON_FUNGIBLE_POSITION_MANAGER {
             continue;
         }
@@ -1588,8 +1575,7 @@ pub fn map_positions(
                         continue;
                     }
                     Some(pos) => {
-                        position = pos;
-                        enriched_positions.insert(token_id.clone(), position);
+                        enriched_positions.insert(token_id.clone(), pos);
                         if !ordered_positions.contains(&String::from(token_id.clone())) {
                             ordered_positions.push(String::from(token_id))
                         }
@@ -1598,7 +1584,7 @@ pub fn map_positions(
             }
         } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
             let token_id: String = event.token_id.to_string();
-            if !enriched_positions.contains_key(&token_id) {
+            let mut position = if !enriched_positions.contains_key(&token_id) {
                 match all_positions_store
                     .get_last(keyer::all_position(&token_id, &Collect.to_string()))
                 {
@@ -1606,15 +1592,13 @@ pub fn map_positions(
                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
                         continue;
                     }
-                    Some(pos) => {
-                        position = pos;
-                    }
+                    Some(pos) => pos,
                 }
             } else {
-                position = enriched_positions
+                enriched_positions
                     .remove(&event.token_id.to_string())
                     .unwrap()
-            }
+            };
 
             if let Some(position_call_result) =
                 rpc::positions_call(&Hex(log.address()).to_string(), event.token_id)
@@ -1640,8 +1624,7 @@ pub fn map_positions(
                         continue;
                     }
                     Some(pos) => {
-                        position = pos;
-                        enriched_positions.insert(token_id.clone(), position);
+                        enriched_positions.insert(token_id.clone(), pos);
                         if !ordered_positions.contains(&String::from(token_id.clone())) {
                             ordered_positions.push(String::from(token_id))
                         }
@@ -1650,7 +1633,7 @@ pub fn map_positions(
             }
         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
             let token_id: String = event.token_id.to_string();
-            if !enriched_positions.contains_key(&token_id) {
+            let mut position = if !enriched_positions.contains_key(&token_id) {
                 match all_positions_store
                     .get_last(keyer::all_position(&token_id, &Transfer.to_string()))
                 {
@@ -1658,13 +1641,12 @@ pub fn map_positions(
                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
                         continue;
                     }
-                    Some(pos) => {
-                        position = pos;
-                    }
+                    Some(pos) => pos,
                 }
             } else {
-                position = enriched_positions.remove(&token_id).unwrap();
-            }
+                enriched_positions.remove(&token_id).unwrap()
+            };
+
             position.owner = Hex(event.to.as_slice()).to_string();
             enriched_positions.insert(token_id.clone(), position);
             if !ordered_positions.contains(&String::from(token_id.clone())) {
@@ -2060,7 +2042,7 @@ pub fn graph_out(
     position_entities: EntityChanges,
     position_snapshot_entities: EntityChanges,
     flash_entities: EntityChanges,
-    swaps_mints_burns_entities: EntityChanges, // todo: recheck at block 12376408 if we still get the rpc issue
+    _swaps_mints_burns_entities: EntityChanges, // todo: recheck at block 12376408 if we still get the rpc issue
 ) -> Result<EntityChanges, Error> {
     Ok(EntityChanges {
         entity_changes: [

@@ -286,10 +286,6 @@ pub fn all_position(id: &String, event_type: &String) -> String {
     format!("position:{}:{}", id, event_type)
 }
 
-pub fn position(id: &String) -> String {
-    format!("position:{}", id)
-}
-
 // ------------------------------------------------
 //      store_positions_misc
 // ------------------------------------------------

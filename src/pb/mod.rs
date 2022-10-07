@@ -8,12 +8,18 @@ use ethabi::Uint;
 use std::str::FromStr;
 use substreams::log;
 
+#[allow(unused_imports)]
+#[allow(dead_code)]
 #[path = "./uniswap.types.v1.rs"]
 pub mod uniswap;
 
+#[allow(unused_imports)]
+#[allow(dead_code)]
 #[path = "./sf.ethereum.tokens.v1.rs"]
 pub mod tokens;
 
+#[allow(unused_imports)]
+#[allow(dead_code)]
 #[path = "./substreams.entity.v1.rs"]
 pub mod entity;
 

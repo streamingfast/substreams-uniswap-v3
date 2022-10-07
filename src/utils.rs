@@ -26,58 +26,59 @@ pub const _STABLE_COINS: [&str; 6] = [
     "4dd28568d05f09b02220b09c2cb307bfd837cb95",
 ];
 
+const DGD_TOKEN_ADDRESS: [u8; 20] = hex!("e0b7927c4af23765cb51314a0e0521a9645f0e2a");
+const AAVE_TOKEN_ADDRESS: [u8; 20] = hex!("7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9");
+const LIF_TOKEN_ADDRESS: [u8; 20] = hex!("eb9951021698b42e4399f9cbb6267aa35f82d59d");
+const SVD_TOKEN_ADDRESS: [u8; 20] = hex!("bdeb4b83251fb146687fa19d1c660f99411eefe3");
+const THEDAO_TOKEN_ADDRESS: [u8; 20] = hex!("bb9bc244d798123fde783fcc1c72d3bb8c189413");
+const HPB_TOKEN_ADDRESS: [u8; 20] = hex!("38c6a68304cdefb9bec48bbfaaba5c5b47818bb2");
+
 // hard-coded tokens which have various behaviours but for which a UniswapV3 valid pool
 // exists, some are tokens which were migrated to new addresses
-pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
-    return match token_address {
-        "e0b7927c4af23765cb51314a0e0521a9645f0e2a" => Some(Erc20Token {
-            // add DGD
-            address: "e0b7927c4af23765cb51314a0e0521a9645f0e2a".to_string(),
+pub fn get_static_uniswap_tokens(token_address: &[u8]) -> Option<Erc20Token> {
+    match token_address {
+        x if x == DGD_TOKEN_ADDRESS => Some(Erc20Token {
+            address: Hex(&DGD_TOKEN_ADDRESS).to_string(),
             name: "DGD".to_string(),
             symbol: "DGD".to_string(),
             decimals: 9,
             total_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
-        "7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9" => Some(Erc20Token {
-            // add AAVE
-            address: "7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9".to_string(),
+        x if x == AAVE_TOKEN_ADDRESS => Some(Erc20Token {
+            address: Hex(&AAVE_TOKEN_ADDRESS).to_string(),
             name: "Aave Token".to_string(),
             symbol: "AAVE".to_string(),
             decimals: 18,
             total_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
-        "eb9951021698b42e4399f9cbb6267aa35f82d59d" => Some(Erc20Token {
-            // add LIF
-            address: "eb9951021698b42e4399f9cbb6267aa35f82d59d".to_string(),
+        x if x == LIF_TOKEN_ADDRESS => Some(Erc20Token {
+            address: Hex(&LIF_TOKEN_ADDRESS).to_string(),
             name: "LIF".to_string(),
             symbol: "LIF".to_string(),
             decimals: 18,
             total_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
-        "bdeb4b83251fb146687fa19d1c660f99411eefe3" => Some(Erc20Token {
-            // add SVD
-            address: "bdeb4b83251fb146687fa19d1c660f99411eefe3".to_string(),
+        x if x == SVD_TOKEN_ADDRESS => Some(Erc20Token {
+            address: Hex(&SVD_TOKEN_ADDRESS).to_string(),
             name: "savedroid".to_string(),
             symbol: "SVD".to_string(),
             decimals: 18,
             total_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
-        "bb9bc244d798123fde783fcc1c72d3bb8c189413" => Some(Erc20Token {
-            // add TheDAO
-            address: "bb9bc244d798123fde783fcc1c72d3bb8c189413".to_string(),
+        x if x == THEDAO_TOKEN_ADDRESS => Some(Erc20Token {
+            address: Hex(&THEDAO_TOKEN_ADDRESS).to_string(),
             name: "TheDAO".to_string(),
             symbol: "TheDAO".to_string(),
             decimals: 16,
             total_supply: "".to_string(), // subgraph doesn't check the total supply
             whitelist_pools: vec![],
         }),
-        "38c6a68304cdefb9bec48bbfaaba5c5b47818bb2" => Some(Erc20Token {
-            // add HPB
-            address: "38c6a68304cdefb9bec48bbfaaba5c5b47818bb2".to_string(),
+        x if x == HPB_TOKEN_ADDRESS => Some(Erc20Token {
+            address: Hex(&HPB_TOKEN_ADDRESS).to_string(),
             name: "HPBCoin".to_string(),
             symbol: "HPB".to_string(),
             decimals: 18,
@@ -85,7 +86,7 @@ pub fn get_static_uniswap_tokens(token_address: &str) -> Option<Erc20Token> {
             whitelist_pools: vec![],
         }),
         _ => None,
-    };
+    }
 }
 
 pub fn extract_pool_liquidity(
