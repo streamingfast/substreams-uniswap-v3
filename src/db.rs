@@ -1,7 +1,6 @@
 use crate::pb::entity::EntityChange;
 
 use crate::pb::change::BigIntChange;
-use crate::pb::helpers::convert_i32_to_operation;
 use crate::uniswap::tick::Origin;
 use crate::{
     keyer, pb, utils, BurnEvent, EntityChanges, Erc20Token, Events, Flashes, MintEvent,
@@ -22,7 +21,6 @@ use substreams::Hex;
 pub fn created_bundle_entity_change(entity_changes: &mut EntityChanges) {
     entity_changes
         .push_change("Bundle", "1".to_string(), 1, Operation::Create)
-        // .change_string("id", "1".into());
         .change_bigdecimal("ethPriceUSD", BigDecimal::zero().into());
 }
 
@@ -213,7 +211,7 @@ pub fn pool_sqrt_price_entity_change(
                 "Pool",
                 pool_address,
                 delta.ordinal,
-                convert_i32_to_operation(delta.operation as i32),
+                Operation::from_i32(delta.operation as i32).unwrap(),
             )
             .change_bigint(
                 "sqrtPrice",

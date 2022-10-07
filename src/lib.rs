@@ -1,5 +1,3 @@
-extern crate core;
-
 mod abi;
 mod db;
 mod eth;
@@ -1882,6 +1880,7 @@ pub fn map_factory_entities(
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
 
+    // FIXME: Hard-coded start block, how could we pull that from the manifest?
     if block.number == 12369621 {
         db::factory_created_factory_entity_change(&mut entity_changes)
     }

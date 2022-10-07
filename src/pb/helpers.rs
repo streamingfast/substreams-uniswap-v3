@@ -46,9 +46,7 @@ impl EntityChange {
     }
 
     pub fn change_bigdecimal(&mut self, name: &str, change: BigDecimalChange) -> &mut EntityChange {
-        let operation: Operation = convert_i32_to_operation(self.operation);
-
-        match operation {
+        match Operation::from_i32(self.operation).unwrap() {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
                 name: name.to_string(),
@@ -73,9 +71,7 @@ impl EntityChange {
     }
 
     pub fn change_bigint(&mut self, name: &str, change: BigIntChange) -> &mut EntityChange {
-        let operation: Operation = convert_i32_to_operation(self.operation);
-
-        match operation {
+        match Operation::from_i32(self.operation).unwrap() {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
                 name: name.to_string(),
@@ -100,9 +96,7 @@ impl EntityChange {
     }
 
     pub fn change_int32(&mut self, name: &str, change: Int32Change) -> &mut EntityChange {
-        let operation: Operation = convert_i32_to_operation(self.operation);
-
-        match operation {
+        match Operation::from_i32(self.operation).unwrap() {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
                 name: name.to_string(),
@@ -128,9 +122,7 @@ impl EntityChange {
 
     // WARN: also here, check for nullability when the input string is empty in the Delta
     pub fn change_string(&mut self, name: &str, change: StringChange) -> &mut EntityChange {
-        let operation: Operation = convert_i32_to_operation(self.operation);
-
-        match operation {
+        match Operation::from_i32(self.operation).unwrap() {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
                 name: name.to_string(),
@@ -156,8 +148,7 @@ impl EntityChange {
 
     #[allow(dead_code)]
     pub fn change_bytes(&mut self, name: &str, change: BytesChange) -> &mut EntityChange {
-        let operation: Operation = convert_i32_to_operation(self.operation);
-        match operation {
+        match Operation::from_i32(self.operation).unwrap() {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
                 name: name.to_string(),
@@ -183,9 +174,7 @@ impl EntityChange {
 
     #[allow(dead_code)]
     pub fn change_bool(&mut self, name: &str, change: BoolChange) -> &mut EntityChange {
-        let operation: Operation = convert_i32_to_operation(self.operation);
-
-        match operation {
+        match Operation::from_i32(self.operation).unwrap() {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
                 name: name.to_string(),
@@ -214,8 +203,7 @@ impl EntityChange {
         name: &str,
         change: StringArrayChange,
     ) -> &mut EntityChange {
-        let operation: Operation = convert_i32_to_operation(self.operation);
-        match operation {
+        match Operation::from_i32(self.operation).unwrap() {
             Operation::Unset => panic!("this should not happen"),
             Operation::Update => self.fields.push(Field {
                 name: name.to_string(),
@@ -243,15 +231,4 @@ fn str_vec_to_pb(items: Vec<String>) -> Value {
     Value {
         typed: Some(Typed::Array(Array { value: list })),
     }
-}
-
-// TODO: replace this by sharing proto definition from substreams -> substreams.proto
-pub fn convert_i32_to_operation(operation: i32) -> Operation {
-    return match operation {
-        x if x == Operation::Unset as i32 => Operation::Unset,
-        x if x == Operation::Create as i32 => Operation::Create,
-        x if x == Operation::Update as i32 => Operation::Update,
-        x if x == Operation::Delete as i32 => Operation::Delete,
-        _ => panic!("unhandled operation: {}", operation),
-    };
 }
