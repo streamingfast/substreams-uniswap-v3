@@ -100,11 +100,20 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                 }
             }
 
-            let token0_total_supply: BigInt = rpc::token_total_supply_call(&token0_address);
-            token0.total_supply = token0_total_supply.to_string();
+            let total_supply_caller = abi::erc20::functions::TotalSupply{};
+            token0.total_supply = match total_supply_caller.call(event.token0) {
+                Some(total_supply) => total_supply.to_string(),
+                None => {
+                    return Err(Error::Unexpected("failed to get token0 total supply".to_string()));
+                }
+            };
 
-            let token1_total_supply: BigInt = rpc::token_total_supply_call(&token1_address);
-            token1.total_supply = token1_total_supply.to_string();
+            token1.total_supply = match total_supply_caller.call(event.token1) {
+                Some(total_supply) => total_supply.to_string(),
+                None => {
+                    return Err(Error::Unexpected("failed to get token1 total supply".to_string()));
+                }
+            };
 
             pool.token0 = Some(token0.clone());
             pool.token1 = Some(token1.clone());

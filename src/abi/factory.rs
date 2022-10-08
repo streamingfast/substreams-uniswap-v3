@@ -133,6 +133,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<u8>> for CreatePool {
+            fn output(data: &[u8]) -> Result<Vec<u8>, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct EnableFeeAmount {
@@ -217,6 +225,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -317,6 +328,14 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<EthBigInt> for FeeAmountTickSpacing {
+            fn output(data: &[u8]) -> Result<EthBigInt, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -447,6 +466,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<u8>> for GetPool {
+            fn output(data: &[u8]) -> Result<Vec<u8>, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct Owner {}
@@ -528,6 +555,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<u8>> for Owner {
+            fn output(data: &[u8]) -> Result<Vec<u8>, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct SetOwner {
@@ -583,6 +618,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
     }
