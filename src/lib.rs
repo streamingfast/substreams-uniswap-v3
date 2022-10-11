@@ -57,6 +57,9 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
             .filter_map(|(event, log)| {
                 log::info!("pool addr: {}", Hex(&event.pool));
 
+                //todo: question regarding the ignore_pool line. In the
+                // uniswap-v3 subgraph, they seem to bail out when they
+                // match the addr, should we do the same ?
                 Some(Pool {
                     address: Hex(&log.data()[44..64]).to_string(),
                     transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
@@ -73,7 +76,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                             token
                         }
                         None => {
-                            // We were unable to create the uniswap token, so we discard this event entierly
+                            // We were unable to create the uniswap token, so we discard this event entirely
                             return None;
                         }
                     }),
@@ -84,7 +87,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                             token
                         }
                         None => {
-                            // We were unable to create the uniswap token, so we discard this event entierly
+                            // We were unable to create the uniswap token, so we discard this event entirely
                             return None;
                         }
                     }),
@@ -174,31 +177,43 @@ pub fn map_pool_sqrt_price(
                 "log addr: {}",
                 Hex(&log.receipt.transaction.hash.as_slice()).to_string()
             );
-            let pool: Pool = pools_store.must_get_last(&keyer::pool_key(&pool_address));
-            pool_sqrt_prices.push(PoolSqrtPrice {
-                pool_address: pool.address,
-                ordinal: log.ordinal(),
-                sqrt_price: event.sqrt_price_x96.to_string(),
-                tick: event.tick.to_string(),
-            });
+            match pools_store.get_last(&keyer::pool_key(&pool_address)) {
+                None => {
+                    log::debug!("pool {} does not exist", pool_address);
+                    continue;
+                }
+                Some(pool) => {
+                    pool_sqrt_prices.push(PoolSqrtPrice {
+                        pool_address: pool.address,
+                        ordinal: log.ordinal(),
+                        sqrt_price: event.sqrt_price_x96.to_string(),
+                        tick: event.tick.to_string(),
+                    });
+                }
+            }
         } else if let Some(event) = Swap::match_and_decode(log) {
             log::info!(
                 "log addr: {}",
                 Hex(&log.receipt.transaction.hash.as_slice()).to_string()
             );
-            let pool: Pool = pools_store.must_get_last(&keyer::pool_key(&pool_address));
-            pool_sqrt_prices.push(PoolSqrtPrice {
-                pool_address: pool.address,
-                ordinal: log.ordinal(),
-                sqrt_price: event.sqrt_price_x96.to_string(),
-                tick: event.tick.to_string(),
-            });
+            match pools_store.get_last(&keyer::pool_key(&pool_address)) {
+                None => {
+                    log::debug!("pool {} does not exist", pool_address);
+                    continue;
+                }
+                Some(pool) => {
+                    pool_sqrt_prices.push(PoolSqrtPrice {
+                        pool_address: pool.address,
+                        ordinal: log.ordinal(),
+                        sqrt_price: event.sqrt_price_x96.to_string(),
+                        tick: event.tick.to_string(),
+                    });
+                }
+            }
         }
     }
-
     Ok(PoolSqrtPrices { pool_sqrt_prices })
 }
-
 #[substreams::handlers::store]
 pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, store: ProtoStoreSet<PoolSqrtPrice>) {
     for sqrt_price in sqrt_prices.pool_sqrt_prices {
