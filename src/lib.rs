@@ -10,7 +10,6 @@ mod utils;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
-use crate::keyer::native_pool_from_key;
 use crate::pb::entity::EntityChanges;
 use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
@@ -1072,9 +1071,9 @@ pub fn store_eth_prices(
 #[substreams::handlers::store]
 pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigFloat) {
     for event in events.events {
-        log::info!("trx_id: {}", event.transaction_id);
-        let mut amount0: BigDecimal = BigDecimal::from(0 as i32);
-        let mut amount1: BigDecimal = BigDecimal::from(0 as i32);
+        log::debug!("trx_id: {}", event.transaction_id);
+        let mut amount0: BigDecimal = BigDecimal::zero();
+        let mut amount1: BigDecimal = BigDecimal::zero();
 
         match event.r#type.unwrap() {
             BurnEvent(burn) => {
@@ -1162,7 +1161,7 @@ pub fn store_total_value_locked(
                 &total_value_locked_usd,
             );
         } else if let Some((pool_addr, token_addr)) =
-            native_pool_from_key(&native_total_value_locked.key)
+            keyer::native_pool_from_key(&native_total_value_locked.key)
         {
             let pool = pools_store.must_get_last(keyer::pool_key(&pool_addr));
             // we only want to use the token0
@@ -1251,6 +1250,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let lower_tick_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &lower_tick_price0);
 
+                //todo: implement the fee_growth_outside_x128_call mimicked from the smart contract
+                // to reduce the number of rpc calls to do
                 let lower_tick_result = rpc::fee_growth_outside_x128_call(
                     &event.pool_address,
                     &lower_tick_idx.to_string(),
@@ -1942,8 +1943,8 @@ pub fn map_pool_entities(
 //todo: when a pool is created, we also save the token
 // (id, name, symbol, decimals and total supply)
 // issue here is what if we have multiple pools with t1-t2, t1-t3, t1-t4, etc.
-// we will have t1 generate multiple entity changes for nothings since it has
-// already been emitted -- subgraph doesn't solve this either
+// we will have t1 generate multiple entity changes for nothing since it has
+// already been emitted -- subgraph doesn't solve this either (Optimization)
 #[substreams::handlers::map]
 pub fn map_tokens_entities(
     pools_created: Pools,
@@ -2056,7 +2057,7 @@ pub fn graph_out(
     position_entities: EntityChanges,
     position_snapshot_entities: EntityChanges,
     flash_entities: EntityChanges,
-    _swaps_mints_burns_entities: EntityChanges, // todo: recheck at block 12376408 if we still get the rpc issue
+    swaps_mints_burns_entities: EntityChanges,
 ) -> Result<EntityChanges, Error> {
     Ok(EntityChanges {
         entity_changes: [
@@ -2069,6 +2070,7 @@ pub fn graph_out(
             position_entities.entity_changes,
             position_snapshot_entities.entity_changes,
             flash_entities.entity_changes,
+            swaps_mints_burns_entities.entity_changes,
         ]
         .concat(),
     })
