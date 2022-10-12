@@ -38,9 +38,10 @@ use substreams::pb::substreams::Clock;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store;
 use substreams::store::{
-    Appender, ArrayDelta, BigDecimalDelta, BigDecimalStoreGet, BigDecimalStoreSet, BigIntDelta,
-    BigIntStoreGet, BigIntStoreSet, ProtoDelta, ProtoStoreGet, ProtoStoreSet, RawStoreGet,
-    StoreAddBigFloat, StoreAddBigInt, StoreAppend, StoreGet, StoreSet,
+    Appender, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigFloat,
+    StoreAddBigInt, StoreAppend, StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetI64,
+    StoreGetProto, StoreGetRaw, StoreSet, StoreSetBigDecimal, StoreSetBigInt, StoreSetI64,
+    StoreSetProto,
 };
 use substreams::{log, Hex};
 use substreams_ethereum::scalar::EthBigInt;
@@ -54,6 +55,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
         pools: block
             .events::<PoolCreated>(&[&UNISWAP_V3_FACTORY])
             .filter_map(|(event, log)| {
+                log::info!("asd");
                 log::info!("pool addr: {}", Hex(&event.pool));
 
                 //todo: question regarding the ignore_pool line. In the
@@ -98,7 +100,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_pools(pools: Pools, output: ProtoStoreSet<Pool>) {
+pub fn store_pools(pools: Pools, output: StoreSetProto<Pool>) {
     for pool in pools.pools {
         output.set(pool.log_ordinal, keyer::pool_key(&pool.address), &pool);
 
@@ -166,7 +168,7 @@ pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreApp
 #[substreams::handlers::map]
 pub fn map_pool_sqrt_price(
     block: Block,
-    pools_store: ProtoStoreGet<Pool>,
+    pools_store: StoreGetProto<Pool>,
 ) -> Result<PoolSqrtPrices, Error> {
     let mut pool_sqrt_prices = vec![];
     for log in block.logs() {
@@ -214,7 +216,7 @@ pub fn map_pool_sqrt_price(
     Ok(PoolSqrtPrices { pool_sqrt_prices })
 }
 #[substreams::handlers::store]
-pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, store: ProtoStoreSet<PoolSqrtPrice>) {
+pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, store: StoreSetProto<PoolSqrtPrice>) {
     for sqrt_price in sqrt_prices.pool_sqrt_prices {
         store.set(
             sqrt_price.ordinal,
@@ -227,7 +229,7 @@ pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, store: ProtoStoreSet<P
 #[substreams::handlers::map]
 pub fn map_pool_liquidities(
     block: Block,
-    pools_store: ProtoStoreGet<Pool>,
+    pools_store: StoreGetProto<Pool>,
 ) -> Result<PoolLiquidities, Error> {
     let mut pool_liquidities = vec![];
     for trx in block.transaction_traces {
@@ -303,7 +305,7 @@ pub fn map_pool_liquidities(
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, store: BigIntStoreSet) {
+pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, store: StoreSetBigInt) {
     for pool_liquidity in pool_liquidities.pool_liquidities {
         let big_int: BigInt = pool_liquidity.liquidity.try_into().unwrap();
         store.set(
@@ -317,8 +319,8 @@ pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, store: BigIntSt
 #[substreams::handlers::store]
 pub fn store_prices(
     pool_sqrt_prices: PoolSqrtPrices,
-    pools_store: ProtoStoreGet<Pool>,
-    store: BigDecimalStoreSet,
+    pools_store: StoreGetProto<Pool>,
+    store: StoreSetBigDecimal,
 ) {
     for sqrt_price_update in pool_sqrt_prices.pool_sqrt_prices {
         match pools_store.get_last(keyer::pool_key(&sqrt_price_update.pool_address)) {
@@ -384,7 +386,7 @@ pub fn store_prices(
 #[substreams::handlers::map]
 pub fn map_swaps_mints_burns(
     block: Block,
-    pools_store: ProtoStoreGet<Pool>,
+    pools_store: StoreGetProto<Pool>,
 ) -> Result<Events, Error> {
     let mut events = vec![];
     for log in block.logs() {
@@ -621,7 +623,7 @@ pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error>
 #[substreams::handlers::map]
 pub fn map_transactions(
     block: Block,
-    pools_store: ProtoStoreGet<Pool>,
+    pools_store: StoreGetProto<Pool>,
 ) -> Result<Transactions, Error> {
     let mut transactions: Transactions = Transactions {
         transactions: vec![],
@@ -685,8 +687,8 @@ pub fn map_transactions(
 #[substreams::handlers::store]
 pub fn store_totals(
     clock: Clock,
-    store_eth_prices: BigDecimalStoreGet,
-    total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
+    store_eth_prices: StoreGetBigDecimal,
+    total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
     store: StoreAddBigFloat,
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
@@ -775,9 +777,9 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
 pub fn store_swaps_volume(
     clock: Clock,
     events: Events,
-    store_pool: ProtoStoreGet<Pool>,
-    store_total_tx_counts: BigIntStoreGet,
-    store_eth_prices: BigDecimalStoreGet,
+    store_pool: StoreGetProto<Pool>,
+    store_total_tx_counts: StoreGetBigInt,
+    store_eth_prices: StoreGetBigDecimal,
     output: StoreAddBigFloat,
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
@@ -932,7 +934,7 @@ pub fn store_swaps_volume(
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_fee_growth_global_x128(pools: Pools, store: BigIntStoreSet) {
+pub fn store_pool_fee_growth_global_x128(pools: Pools, store: StoreSetBigInt) {
     for pool in pools.pools {
         log::info!(
             "pool address: {} trx_id:{}",
@@ -992,12 +994,12 @@ pub fn store_native_total_value_locked(
 #[substreams::handlers::store]
 pub fn store_eth_prices(
     pool_sqrt_prices: PoolSqrtPrices,
-    pools_store: ProtoStoreGet<Pool>,
-    prices_store: BigDecimalStoreGet,
-    tokens_whitelist_pools_store: RawStoreGet,
-    total_native_value_locked_store: BigDecimalStoreGet,
-    pool_liquidities_store: BigIntStoreGet,
-    store: BigDecimalStoreSet,
+    pools_store: StoreGetProto<Pool>,
+    prices_store: StoreGetBigDecimal,
+    tokens_whitelist_pools_store: StoreGetRaw,
+    total_native_value_locked_store: StoreGetBigDecimal,
+    pool_liquidities_store: StoreGetBigInt,
+    store: StoreSetBigDecimal,
 ) {
     for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
         log::debug!(
@@ -1115,10 +1117,10 @@ pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigFloa
 
 #[substreams::handlers::store]
 pub fn store_total_value_locked(
-    native_total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
-    pools_store: ProtoStoreGet<Pool>,
-    eth_prices_store: BigDecimalStoreGet,
-    store: BigDecimalStoreSet,
+    native_total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
+    pools_store: StoreGetProto<Pool>,
+    eth_prices_store: StoreGetBigDecimal,
+    store: StoreSetBigDecimal,
 ) {
     // fixme: @julien: what is the use for the pool aggregator here ?
     let mut pool_aggregator: HashMap<String, (u64, BigDecimal)> = HashMap::from([]);
@@ -1383,7 +1385,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_ticks(ticks: Ticks, output: ProtoStoreSet<Tick>) {
+pub fn store_ticks(ticks: Ticks, output: StoreSetProto<Tick>) {
     for tick in ticks.ticks {
         output.set(tick.log_ordinal, keyer::ticks(&tick.id), &tick);
     }
@@ -1442,7 +1444,7 @@ pub fn store_ticks_liquidities(ticks: Ticks, output: StoreAddBigInt) {
 #[substreams::handlers::map]
 pub fn map_all_positions(
     block: Block,
-    store_pool: ProtoStoreGet<Pool>,
+    store_pool: StoreGetProto<Pool>,
 ) -> Result<Positions, Error> {
     let mut positions: Positions = Positions { positions: vec![] };
 
@@ -1549,7 +1551,7 @@ pub fn map_all_positions(
 }
 
 #[substreams::handlers::store]
-pub fn store_all_positions(positions: Positions, store: ProtoStoreSet<Position>) {
+pub fn store_all_positions(positions: Positions, store: StoreSetProto<Position>) {
     for position in positions.positions {
         store.set(
             position.log_ordinal,
@@ -1565,7 +1567,7 @@ pub fn store_all_positions(positions: Positions, store: ProtoStoreSet<Position>)
 #[substreams::handlers::map]
 pub fn map_positions(
     block: Block,
-    all_positions_store: ProtoStoreGet<Position>,
+    all_positions_store: StoreGetProto<Position>,
 ) -> Result<Positions, Error> {
     let mut positions: Positions = Positions { positions: vec![] };
     let mut ordered_positions: Vec<String> = vec![];
@@ -1742,7 +1744,7 @@ pub fn store_position_changes(all_positions: Positions, store: StoreAddBigFloat)
 #[substreams::handlers::map]
 pub fn map_position_snapshots(
     positions: Positions,
-    position_changes_store: BigDecimalStoreGet,
+    position_changes_store: StoreGetBigDecimal,
 ) -> Result<SnapshotPositions, Error> {
     let mut snapshot_positions: SnapshotPositions = SnapshotPositions {
         snapshot_positions: vec![],
@@ -1837,7 +1839,7 @@ pub fn map_position_snapshots(
 }
 
 #[substreams::handlers::map]
-pub fn map_flashes(block: Block, pool_store: ProtoStoreGet<Pool>) -> Result<Flashes, Error> {
+pub fn map_flashes(block: Block, pool_store: StoreGetProto<Pool>) -> Result<Flashes, Error> {
     let mut out = Flashes { flashes: vec![] };
 
     for log in block.logs() {
@@ -1870,7 +1872,7 @@ pub fn map_flashes(block: Block, pool_store: ProtoStoreGet<Pool>) -> Result<Flas
 #[substreams::handlers::map]
 pub fn map_bundle_entities(
     block: Block,
-    derived_eth_prices_deltas: store::Deltas<BigDecimalDelta>,
+    derived_eth_prices_deltas: store::Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
 
@@ -1889,10 +1891,10 @@ pub fn map_bundle_entities(
 #[substreams::handlers::map]
 pub fn map_factory_entities(
     block: Block,
-    pool_count_deltas: store::Deltas<BigIntDelta>,
-    tx_count_deltas: store::Deltas<BigIntDelta>,
-    swaps_volume_deltas: store::Deltas<BigDecimalDelta>,
-    totals_deltas: store::Deltas<BigDecimalDelta>,
+    pool_count_deltas: store::Deltas<DeltaBigInt>,
+    tx_count_deltas: store::Deltas<DeltaBigInt>,
+    swaps_volume_deltas: store::Deltas<DeltaBigDecimal>,
+    totals_deltas: store::Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
 
@@ -1912,14 +1914,14 @@ pub fn map_factory_entities(
 #[substreams::handlers::map]
 pub fn map_pool_entities(
     pools_created: Pools,
-    pool_sqrt_price_deltas: store::Deltas<ProtoDelta<PoolSqrtPrice>>,
-    pool_liquidities_store_deltas: store::Deltas<BigIntDelta>,
-    total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
-    total_value_locked_by_tokens_deltas: store::Deltas<BigDecimalDelta>,
-    pool_fee_growth_global_x128_deltas: store::Deltas<BigIntDelta>,
-    price_deltas: store::Deltas<BigDecimalDelta>,
-    tx_count_deltas: store::Deltas<BigIntDelta>,
-    swaps_volume_deltas: store::Deltas<BigDecimalDelta>,
+    pool_sqrt_price_deltas: store::Deltas<DeltaProto<PoolSqrtPrice>>,
+    pool_liquidities_store_deltas: store::Deltas<DeltaBigInt>,
+    total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
+    total_value_locked_by_tokens_deltas: store::Deltas<DeltaBigDecimal>,
+    pool_fee_growth_global_x128_deltas: store::Deltas<DeltaBigInt>,
+    price_deltas: store::Deltas<DeltaBigDecimal>,
+    tx_count_deltas: store::Deltas<DeltaBigInt>,
+    swaps_volume_deltas: store::Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::pools_created_pool_entity_change(pools_created, &mut entity_changes);
@@ -1948,12 +1950,12 @@ pub fn map_pool_entities(
 #[substreams::handlers::map]
 pub fn map_tokens_entities(
     pools_created: Pools,
-    swaps_volume_deltas: store::Deltas<BigDecimalDelta>,
-    tx_count_deltas: store::Deltas<BigIntDelta>,
-    total_value_locked_by_deltas: store::Deltas<BigDecimalDelta>,
-    total_value_locked_deltas: store::Deltas<BigDecimalDelta>,
-    derived_eth_prices_deltas: store::Deltas<BigDecimalDelta>,
-    tokens_whitelist_pools: store::Deltas<ArrayDelta<String>>,
+    swaps_volume_deltas: store::Deltas<DeltaBigDecimal>,
+    tx_count_deltas: store::Deltas<DeltaBigInt>,
+    total_value_locked_by_deltas: store::Deltas<DeltaBigDecimal>,
+    total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
+    derived_eth_prices_deltas: store::Deltas<DeltaBigDecimal>,
+    tokens_whitelist_pools: store::Deltas<DeltaArray<String>>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::tokens_created_token_entity_change(&mut entity_changes, pools_created);
@@ -1972,8 +1974,8 @@ pub fn map_tokens_entities(
 
 #[substreams::handlers::map]
 pub fn map_tick_entities(
-    ticks_deltas: store::Deltas<ProtoDelta<Tick>>,
-    ticks_liquidities_deltas: store::Deltas<BigIntDelta>,
+    ticks_deltas: store::Deltas<DeltaProto<Tick>>,
+    ticks_liquidities_deltas: store::Deltas<DeltaBigInt>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::create_or_update_ticks_entity_change(&mut entity_changes, ticks_deltas);
@@ -1984,7 +1986,7 @@ pub fn map_tick_entities(
 #[substreams::handlers::map]
 pub fn map_position_entities(
     positions: Positions,
-    positions_changes_deltas: store::Deltas<BigDecimalDelta>,
+    positions_changes_deltas: store::Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::position_create_entity_change(positions, &mut entity_changes);
@@ -2011,8 +2013,8 @@ pub fn map_transaction_entities(transactions: Transactions) -> Result<EntityChan
 #[substreams::handlers::map]
 pub fn map_swaps_mints_burns_entities(
     events: Events,
-    tx_count_store: BigIntStoreGet,
-    store_eth_prices: BigDecimalStoreGet,
+    tx_count_store: StoreGetBigInt,
+    store_eth_prices: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::swaps_mints_burns_created_entity_change(
@@ -2033,9 +2035,9 @@ pub fn map_flash_entities(flashes: Flashes) -> Result<EntityChanges, Error> {
 
 #[substreams::handlers::map]
 pub fn map_uniswap_day_data_entities(
-    tx_count_deltas: store::Deltas<BigIntDelta>,
-    totals_deltas: store::Deltas<BigDecimalDelta>,
-    volume_deltas: store::Deltas<BigDecimalDelta>,
+    tx_count_deltas: store::Deltas<DeltaBigInt>,
+    totals_deltas: store::Deltas<DeltaBigDecimal>,
+    volume_deltas: store::Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::uniswap_day_data_tx_count_entity_change(&mut entity_changes, tx_count_deltas);

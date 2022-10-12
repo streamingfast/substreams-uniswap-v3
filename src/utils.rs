@@ -9,7 +9,7 @@ use crate::{
 use std::ops::{Add, Mul};
 use std::str;
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{ProtoStoreGet, StoreGet};
+use substreams::store::{StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
@@ -210,7 +210,7 @@ pub fn load_transaction(
 }
 
 pub fn get_position(
-    store_pool: &ProtoStoreGet<Pool>,
+    store_pool: &StoreGetProto<Pool>,
     log_address: &String,
     transaction_hash: &Vec<u8>,
     position_type: PositionType,

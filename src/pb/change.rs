@@ -1,7 +1,7 @@
 use std::str;
 use substreams::pb::substreams::StoreDelta;
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{ArrayDelta, BigDecimalDelta, BigIntDelta};
+use substreams::store::{DeltaArray, DeltaBigDecimal, DeltaBigInt};
 use substreams::Hex;
 
 #[derive(Debug)]
@@ -55,8 +55,8 @@ impl From<StoreDelta> for BigDecimalChange {
     }
 }
 
-impl From<BigDecimalDelta> for BigDecimalChange {
-    fn from(delta: BigDecimalDelta) -> Self {
+impl From<DeltaBigDecimal> for BigDecimalChange {
+    fn from(delta: DeltaBigDecimal) -> Self {
         BigDecimalChange {
             old_value: delta.old_value.to_string(),
             new_value: delta.new_value.to_string(),
@@ -161,8 +161,8 @@ impl From<(String, String)> for BigIntChange {
     }
 }
 
-impl From<BigIntDelta> for BigIntChange {
-    fn from(delta: BigIntDelta) -> Self {
+impl From<DeltaBigInt> for BigIntChange {
+    fn from(delta: DeltaBigInt) -> Self {
         BigIntChange {
             old_value: delta.old_value.to_string(),
             new_value: delta.new_value.to_string(),
@@ -274,8 +274,8 @@ pub struct StringArrayChange {
     pub new_value: Vec<String>,
 }
 
-impl From<ArrayDelta<String>> for StringArrayChange {
-    fn from(items: ArrayDelta<String>) -> Self {
+impl From<DeltaArray<String>> for StringArrayChange {
+    fn from(items: DeltaArray<String>) -> Self {
         StringArrayChange {
             old_value: items.old_value,
             new_value: items.new_value,

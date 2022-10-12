@@ -4,7 +4,7 @@ use std::str;
 use std::str::FromStr;
 use substreams::log;
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{BigDecimalStoreGet, BigIntStoreGet, ProtoStoreGet, RawStoreGet, StoreGet};
+use substreams::store::{StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetProto, StoreGetRaw};
 
 const USDC_WETH_03_POOL: &str = "8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -77,11 +77,11 @@ pub fn find_eth_per_token(
     log_ordinal: u64,
     pool_address: &String,
     token_address: &String,
-    pools_store: &ProtoStoreGet<Pool>,
-    pool_liquidities_store: &BigIntStoreGet,
-    tokens_whitelist_pools_store: &RawStoreGet,
-    total_native_value_locked_store: &BigDecimalStoreGet,
-    prices_store: &BigDecimalStoreGet,
+    pools_store: &StoreGetProto<Pool>,
+    pool_liquidities_store: &StoreGetBigInt,
+    tokens_whitelist_pools_store: &StoreGetRaw,
+    total_native_value_locked_store: &StoreGetBigDecimal,
+    prices_store: &StoreGetBigDecimal,
 ) -> BigDecimal {
     log::debug!(
         "finding ETH per token for {} in pool {}",
@@ -305,7 +305,7 @@ pub fn find_eth_per_token(
     return price_so_far;
 }
 
-pub fn get_eth_price_in_usd(prices_store: &BigDecimalStoreGet, ordinal: u64) -> BigDecimal {
+pub fn get_eth_price_in_usd(prices_store: &StoreGetBigDecimal, ordinal: u64) -> BigDecimal {
     // USDC is the token0 in this pool kinda same point as
     // mentioned earlier, token0 hard-coded is not clean
     let key = keyer::prices_pool_token_key(

@@ -10,8 +10,8 @@ use pb::entity::entity_change::Operation;
 use std::str::FromStr;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    ArrayDelta, BigDecimalDelta, BigDecimalStoreGet, BigIntDelta, BigIntStoreGet, Deltas,
-    ProtoDelta, StoreGet,
+    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
+    StoreGetBigInt,
 };
 use substreams::Hex;
 
@@ -26,7 +26,7 @@ pub fn created_bundle_entity_change(entity_changes: &mut EntityChanges) {
 
 pub fn bundle_store_eth_price_usd_bundle_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("bundle") {
@@ -67,7 +67,7 @@ pub fn factory_created_factory_entity_change(entity_changes: &mut EntityChanges)
 
 pub fn pool_created_factory_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigIntDelta>,
+    deltas: Deltas<DeltaBigInt>,
 ) {
     for delta in deltas.deltas {
         entity_changes
@@ -83,7 +83,7 @@ pub fn pool_created_factory_entity_change(
 
 pub fn tx_count_factory_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigIntDelta>,
+    deltas: Deltas<DeltaBigInt>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("factory:") {
@@ -102,7 +102,7 @@ pub fn tx_count_factory_entity_change(
 
 pub fn swap_volume_factory_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.as_str().starts_with("factory:") {
@@ -130,7 +130,7 @@ pub fn swap_volume_factory_entity_change(
 
 pub fn total_value_locked_factory_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("factory:") {
@@ -199,7 +199,7 @@ pub fn pools_created_pool_entity_change(pools: Pools, entity_changes: &mut Entit
 
 pub fn pool_sqrt_price_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<ProtoDelta<PoolSqrtPrice>>,
+    deltas: Deltas<DeltaProto<PoolSqrtPrice>>,
 ) {
     for delta in deltas.deltas {
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
@@ -223,7 +223,7 @@ pub fn pool_sqrt_price_entity_change(
 
 pub fn pool_liquidities_pool_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigIntDelta>,
+    deltas: Deltas<DeltaBigInt>,
 ) {
     for delta in deltas.deltas {
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
@@ -235,7 +235,7 @@ pub fn pool_liquidities_pool_entity_change(
 
 pub fn total_value_locked_pool_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("pool:") {
@@ -257,7 +257,7 @@ pub fn total_value_locked_pool_entity_change(
 
 pub fn total_value_locked_by_token_pool_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
@@ -275,7 +275,7 @@ pub fn total_value_locked_by_token_pool_entity_change(
 
 pub fn pool_fee_growth_global_x128_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigIntDelta>,
+    deltas: Deltas<DeltaBigInt>,
 ) {
     for delta in deltas.deltas {
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
@@ -293,7 +293,7 @@ pub fn pool_fee_growth_global_x128_entity_change(
 
 pub fn price_pool_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.as_str().starts_with("pool:") {
@@ -316,7 +316,7 @@ pub fn price_pool_entity_change(
 
 pub fn tx_count_pool_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigIntDelta>,
+    deltas: Deltas<DeltaBigInt>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("pool:") {
@@ -332,7 +332,7 @@ pub fn tx_count_pool_entity_change(
 
 pub fn swap_volume_pool_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.as_str().starts_with("swap") {
@@ -371,7 +371,7 @@ pub fn tokens_created_token_entity_change(entity_changes: &mut EntityChanges, po
 
 pub fn swap_volume_token_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.as_str().starts_with("token:") {
@@ -395,7 +395,7 @@ pub fn swap_volume_token_entity_change(
 
 pub fn tx_count_token_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigIntDelta>,
+    deltas: Deltas<DeltaBigInt>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("token:") {
@@ -411,7 +411,7 @@ pub fn tx_count_token_entity_change(
 
 pub fn total_value_locked_by_token_token_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         let token_address = delta.key.as_str().split(":").nth(2).unwrap().to_string();
@@ -424,7 +424,7 @@ pub fn total_value_locked_by_token_token_entity_change(
 
 pub fn total_value_locked_usd_token_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("token:") {
@@ -446,7 +446,7 @@ pub fn total_value_locked_usd_token_entity_change(
 
 pub fn derived_eth_prices_token_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("token:") {
@@ -467,7 +467,7 @@ pub fn derived_eth_prices_token_entity_change(
 
 pub fn whitelist_token_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<ArrayDelta<String>>,
+    deltas: Deltas<DeltaArray<String>>,
 ) {
     for delta in deltas.deltas {
         let token_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
@@ -512,7 +512,7 @@ fn add_token_entity_change(
 // --------------------
 pub fn create_or_update_ticks_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<ProtoDelta<Tick>>,
+    deltas: Deltas<DeltaProto<Tick>>,
 ) {
     for delta in deltas.deltas {
         let new_tick: Tick = delta.new_value;
@@ -531,7 +531,7 @@ pub fn create_or_update_ticks_entity_change(
 
 pub fn ticks_liquidities_tick_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigIntDelta>,
+    deltas: Deltas<DeltaBigInt>,
 ) {
     for delta in deltas.deltas {
         let tick_id = delta.key.as_str().split(":").nth(1).unwrap().to_string();
@@ -636,7 +636,7 @@ pub fn position_create_entity_change(positions: Positions, entity_changes: &mut 
 
 pub fn positions_changes_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         let position_id = delta.key.as_str().split(":").nth(1).unwrap().to_string();
@@ -734,8 +734,8 @@ pub fn transaction_entity_change(transactions: Transactions, entity_changes: &mu
 // --------------------
 pub fn swaps_mints_burns_created_entity_change(
     events: Events,
-    tx_count_store: BigIntStoreGet,
-    store_eth_prices: BigDecimalStoreGet,
+    tx_count_store: StoreGetBigInt,
+    store_eth_prices: StoreGetBigDecimal,
     entity_changes: &mut EntityChanges,
 ) {
     for event in events.events {
@@ -919,7 +919,7 @@ pub fn flashes_update_pool_fee_entity_change(flashes: Flashes, entity_changes: &
 // --------------------
 pub fn uniswap_day_data_tx_count_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigIntDelta>,
+    deltas: Deltas<DeltaBigInt>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("uniswap_day_data") {
@@ -952,7 +952,7 @@ pub fn uniswap_day_data_tx_count_entity_change(
 
 pub fn uniswap_day_data_totals_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("uniswap_day_data") {
@@ -981,7 +981,7 @@ pub fn uniswap_day_data_totals_entity_change(
 
 pub fn uniswap_day_data_volumes_entity_change(
     entity_changes: &mut EntityChanges,
-    deltas: Deltas<BigDecimalDelta>,
+    deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
         if !delta.key.starts_with("uniswap_day_data") {

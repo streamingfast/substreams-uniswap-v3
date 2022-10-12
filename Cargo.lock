@@ -413,9 +413,9 @@ dependencies = [
 
 [[package]]
 name = "itoa"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c8af84674fe1f223a982c933a0ee1086ac4d4052aa0fb8060c12c6ad838e754"
+checksum = "4217ad341ebadf8d8e724e264f13e593e0648f5b3e94b3896a5df283be015ecc"
 
 [[package]]
 name = "keccak"
@@ -437,9 +437,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.134"
+version = "0.2.135"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "329c933548736bc49fd575ee68c89e8be4d260064184389a5b77517cddd99ffb"
+checksum = "68783febc7782c6c5cb401fbda4de5a9898be1762314da0bb2c10ced61f18b0c"
 
 [[package]]
 name = "log"
@@ -557,9 +557,9 @@ checksum = "eb9f9e6e233e5c4a35559a617bf40a4ec447db2e84c20b55a6f83167b7e57872"
 
 [[package]]
 name = "prettyplease"
-version = "0.1.19"
+version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a49e86d2c26a24059894a3afa13fd17d063419b05dfb83f06d9c3566060c3f5a"
+checksum = "83fead41e178796ef8274dc612a7d8ce4c7e10ca35cd2c5b5ad24cac63aeb6c0"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -775,9 +775,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.85"
+version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e55a28e3aaef9d5ce0506d0a14dbba8054ddc7e499ef522dd8b26859ec9d4a44"
+checksum = "41feea4228a6f1cd09ec7a3593a682276702cd67b5273544757dae23c096f074"
 dependencies = [
  "itoa",
  "ryu",
@@ -831,9 +831,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "substreams"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c2a1fd6098a06c267b28b366471a82c5f58bc8659c9ecdb55aa01c978770e3"
+checksum = "98ae3a33631fd351856c4edb2e0f527fabf2aeb3f2705e192b700aaabaf50b0f"
 dependencies = [
  "bigdecimal",
  "hex",
@@ -851,9 +851,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e504242648ea402b80af76d2ff020eae3950e079de7ea06fcd4686690d5e956e"
+checksum = "4aa71d78e3f810fb6ca942bd80e56bae783e298c92e44d2d6c2fe6c9060fc5f1"
 dependencies = [
  "getrandom",
  "substreams",
@@ -864,9 +864,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum-abigen"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbd7cd5da19beca9d53263a3ad1b6b93ade1c9e66add6b24b827b8ac162b7d13"
+checksum = "f03514fae956dc3a41bc25b8c7c9752e8dd235c1070119363ed939de208a0222"
 dependencies = [
  "anyhow",
  "ethabi",
@@ -881,9 +881,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum-core"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56479c9aeb4675b512213aa11ca8f17499039d2a74f61e21ecb90aa7f76f47d4"
+checksum = "4399cb54c52917aeffb236375711969c9b27812f6cf1dac204b6e7061a14da57"
 dependencies = [
  "bigdecimal",
  "ethabi",
@@ -897,9 +897,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum-derive"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2d32fd6d3a9b292c24b54fdfc31f326a30f7ef4dbf8ea4179485ad4c2de2eac"
+checksum = "5d59a77c1c641fefdaea1d66d5f377e147824178625882ff1ac50a4963d9ab69"
 dependencies = [
  "ethabi",
  "heck",
@@ -912,9 +912,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-macro"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "668c1ddb935fe8b8fb761326237034ee9e47d76d7644e3371646b7347246fba1"
+checksum = "6ea3cb7a56e59250da4fa6b48b08d24a4b8d061b7f6b5ab0dea74396637c7f63"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -953,9 +953,9 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
 name = "syn"
-version = "1.0.101"
+version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e90cde112c4b9690b8cbe810cba9ddd8bc1d7472e2cae317b69e9438c1cba7d2"
+checksum = "3fcd952facd492f9be3ef0d0b7032a6e442ee9b361d4acc2b1d0c4aaa5f613a1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1040,9 +1040,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcc811dc4066ac62f84f11307873c4850cb653bfa9b1719cee2bd2204a4bc5dd"
+checksum = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3"
 
 [[package]]
 name = "unicode-width"

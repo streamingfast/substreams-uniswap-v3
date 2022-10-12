@@ -86,6 +86,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<[u8; 32usize]> for DomainSeparator {
+            fn output(data: &[u8]) -> Result<[u8; 32usize], String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct PermitTypehash {}
@@ -168,6 +176,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<[u8; 32usize]> for PermitTypehash {
+            fn output(data: &[u8]) -> Result<[u8; 32usize], String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct Weth9 {}
@@ -249,6 +265,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<u8>> for Weth9 {
+            fn output(data: &[u8]) -> Result<Vec<u8>, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct Approve {
@@ -313,6 +337,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -415,6 +442,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<ethabi::Uint> for BalanceOf {
+            fn output(data: &[u8]) -> Result<ethabi::Uint, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct BaseUri {}
@@ -494,6 +529,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<String> for BaseUri {
+            fn output(data: &[u8]) -> Result<String, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct Burn {
@@ -545,6 +588,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -680,6 +726,15 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<(ethabi::Uint, ethabi::Uint)>
+        for Collect {
+            fn output(data: &[u8]) -> Result<(ethabi::Uint, ethabi::Uint), String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -817,6 +872,15 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<u8>>
+        for CreateAndInitializePoolIfNecessary {
+            fn output(data: &[u8]) -> Result<Vec<u8>, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -957,6 +1021,15 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<(ethabi::Uint, ethabi::Uint)>
+        for DecreaseLiquidity {
+            fn output(data: &[u8]) -> Result<(ethabi::Uint, ethabi::Uint), String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct Factory {}
@@ -1037,6 +1110,14 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<u8>> for Factory {
+            fn output(data: &[u8]) -> Result<Vec<u8>, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -1136,6 +1217,14 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<u8>> for GetApproved {
+            fn output(data: &[u8]) -> Result<Vec<u8>, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -1288,6 +1377,18 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<
+            (ethabi::Uint, ethabi::Uint, ethabi::Uint),
+        > for IncreaseLiquidity {
+            fn output(
+                data: &[u8],
+            ) -> Result<(ethabi::Uint, ethabi::Uint, ethabi::Uint), String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct IsApprovedForAll {
@@ -1401,6 +1502,14 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<bool> for IsApprovedForAll {
+            fn output(data: &[u8]) -> Result<bool, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -1516,6 +1625,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<Vec<u8>>> for Multicall {
+            fn output(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct Name {}
@@ -1594,6 +1711,14 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<String> for Name {
+            fn output(data: &[u8]) -> Result<String, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -1693,6 +1818,14 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<Vec<u8>> for OwnerOf {
+            fn output(data: &[u8]) -> Result<Vec<u8>, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -1805,6 +1938,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -2012,6 +2148,47 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<
+            (
+                ethabi::Uint,
+                Vec<u8>,
+                Vec<u8>,
+                Vec<u8>,
+                ethabi::Uint,
+                EthBigInt,
+                EthBigInt,
+                ethabi::Uint,
+                ethabi::Uint,
+                ethabi::Uint,
+                ethabi::Uint,
+                ethabi::Uint,
+            ),
+        > for Positions {
+            fn output(
+                data: &[u8],
+            ) -> Result<
+                (
+                    ethabi::Uint,
+                    Vec<u8>,
+                    Vec<u8>,
+                    Vec<u8>,
+                    ethabi::Uint,
+                    EthBigInt,
+                    EthBigInt,
+                    ethabi::Uint,
+                    ethabi::Uint,
+                    ethabi::Uint,
+                    ethabi::Uint,
+                    ethabi::Uint,
+                ),
+                String,
+            > {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct SafeTransferFrom1 {
@@ -2089,6 +2266,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -2175,6 +2355,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -2286,6 +2469,9 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct SelfPermitAllowed {
@@ -2395,6 +2581,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -2506,6 +2695,9 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct SelfPermitIfNecessary {
@@ -2616,6 +2808,9 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct SetApprovalForAll {
@@ -2682,6 +2877,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -2787,6 +2985,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<bool> for SupportsInterface {
+            fn output(data: &[u8]) -> Result<bool, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct SweepToken {
@@ -2867,6 +3073,9 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct Symbol {}
@@ -2945,6 +3154,14 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<String> for Symbol {
+            fn output(data: &[u8]) -> Result<String, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -3042,6 +3259,14 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<ethabi::Uint> for TokenByIndex {
+            fn output(data: &[u8]) -> Result<ethabi::Uint, String> {
+                Self::output(data)
             }
         }
         #[derive(Debug, Clone, PartialEq)]
@@ -3153,6 +3378,15 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<ethabi::Uint>
+        for TokenOfOwnerByIndex {
+            fn output(data: &[u8]) -> Result<ethabi::Uint, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct TokenUri {
@@ -3250,6 +3484,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<String> for TokenUri {
+            fn output(data: &[u8]) -> Result<String, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct TotalSupply {}
@@ -3329,6 +3571,14 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
+        }
+        impl substreams_ethereum::rpc::RPCDecodable<ethabi::Uint> for TotalSupply {
+            fn output(data: &[u8]) -> Result<ethabi::Uint, String> {
+                Self::output(data)
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct TransferFrom {
@@ -3407,6 +3657,9 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct UniswapV3MintCallback {
@@ -3481,6 +3734,9 @@
             ) -> Result<Self, String> {
                 Self::decode(call)
             }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
+            }
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct UnwrapWeth9 {
@@ -3547,6 +3803,9 @@
                 call: &substreams_ethereum::pb::eth::v2::Call,
             ) -> Result<Self, String> {
                 Self::decode(call)
+            }
+            fn encode(&self) -> Vec<u8> {
+                self.encode()
             }
         }
     }
