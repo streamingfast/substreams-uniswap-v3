@@ -2,6 +2,7 @@
     /// Contract's functions.
     #[allow(dead_code)]
     #[allow(unused_variables)]
+    #[allow(unused_imports)]
     pub mod functions {
         use substreams_ethereum::scalar::EthBigInt;
         use super::INTERNAL_ERR;

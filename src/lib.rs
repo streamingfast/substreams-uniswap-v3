@@ -38,10 +38,9 @@ use substreams::pb::substreams::Clock;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store;
 use substreams::store::{
-    Appender, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigFloat,
-    StoreAddBigInt, StoreAppend, StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetI64,
-    StoreGetProto, StoreGetRaw, StoreSet, StoreSetBigDecimal, StoreSetBigInt, StoreSetI64,
-    StoreSetProto,
+    Appender, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAdd, StoreAddBigDecimal,
+    StoreAddBigInt, StoreAppend, StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetProto,
+    StoreGetRaw, StoreNew, StoreSet, StoreSetBigDecimal, StoreSetBigInt, StoreSetProto,
 };
 use substreams::{log, Hex};
 use substreams_ethereum::scalar::EthBigInt;
@@ -689,7 +688,7 @@ pub fn store_totals(
     clock: Clock,
     store_eth_prices: StoreGetBigDecimal,
     total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
-    store: StoreAddBigFloat,
+    store: StoreAddBigDecimal,
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
@@ -780,7 +779,7 @@ pub fn store_swaps_volume(
     store_pool: StoreGetProto<Pool>,
     store_total_tx_counts: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
-    output: StoreAddBigFloat,
+    output: StoreAddBigDecimal,
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
@@ -961,7 +960,7 @@ pub fn store_pool_fee_growth_global_x128(pools: Pools, store: StoreSetBigInt) {
 #[substreams::handlers::store]
 pub fn store_native_total_value_locked(
     event_amounts: uniswap::EventAmounts,
-    store: StoreAddBigFloat,
+    store: StoreAddBigDecimal,
 ) {
     for event_amount in event_amounts.event_amounts {
         let amount0: BigDecimal = event_amount.amount0_value.try_into().unwrap();
@@ -1071,7 +1070,7 @@ pub fn store_eth_prices(
 }
 
 #[substreams::handlers::store]
-pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigFloat) {
+pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigDecimal) {
     for event in events.events {
         log::debug!("trx_id: {}", event.transaction_id);
         let mut amount0: BigDecimal = BigDecimal::zero();
@@ -1683,7 +1682,7 @@ pub fn map_positions(
 }
 
 #[substreams::handlers::store]
-pub fn store_position_changes(all_positions: Positions, store: StoreAddBigFloat) {
+pub fn store_position_changes(all_positions: Positions, store: StoreAddBigDecimal) {
     for position in all_positions.positions {
         match position.convert_position_type() {
             IncreaseLiquidity => {
