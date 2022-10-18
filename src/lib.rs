@@ -58,6 +58,9 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                 log::info!("asd");
                 log::info!("pool addr: {}", Hex(&event.pool));
 
+                let token0_address: String = Hex(&event.token0).to_string();
+                let token1_address: String = Hex(&event.token1).to_string();
+
                 //todo: question regarding the ignore_pool line. In the
                 // uniswap-v3 subgraph, they seem to bail out when they
                 // match the addr, should we do the same ?
@@ -70,10 +73,11 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                     tick_spacing: event.tick_spacing.get_big_int().into(),
                     log_ordinal: log.ordinal(),
                     ignore_pool: event.pool == hex!("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248"),
-                    token0: Some(match rpc::create_uniswap_token(&event.token0) {
+                    token0: Some(match rpc::create_uniswap_token(&token0_address) {
                         Some(mut token) => {
-                            token.total_supply =
-                                rpc::token_total_supply_call(&event.token0).to_string();
+                            token.total_supply = rpc::token_supply_call(&token0_address)
+                                .expect("failed to get token0 total supply")
+                                .to_string();
                             token
                         }
                         None => {
@@ -81,10 +85,11 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                             return None;
                         }
                     }),
-                    token1: Some(match rpc::create_uniswap_token(&event.token1) {
+                    token1: Some(match rpc::create_uniswap_token(&token1_address) {
                         Some(mut token) => {
-                            token.total_supply =
-                                rpc::token_total_supply_call(&event.token1).to_string();
+                            token.total_supply = rpc::token_supply_call(&token1_address)
+                                .expect("failed to get token1 total supply")
+                                .to_string();
                             token
                         }
                         None => {

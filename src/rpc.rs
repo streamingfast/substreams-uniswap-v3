@@ -1,32 +1,53 @@
 use crate::{abi, eth, utils, Erc20Token};
 use ethabi::Uint;
+use prost::Message;
 use substreams::hex;
 use substreams::log;
 use substreams::scalar::BigInt;
 use substreams::Hex;
 use substreams_ethereum::pb::eth as ethpb;
+use substreams_ethereum::rpc::RpcBatch;
 use substreams_ethereum::scalar::EthBigInt;
 
-pub fn token_total_supply_call(token_address: &[u8]) -> BigInt {
-    let rpc_calls = create_token_total_supply_calls(token_address);
-    let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-
-    return BigInt::from_signed_bytes_be(responses[0].raw.as_slice());
-}
-
 pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
-    let rpc_calls: ethpb::rpc::RpcCalls =
-        create_fee_growth_global_x128_calls(&hex::decode(pool_address).unwrap());
-
-    let rpc_responses_unmarshalled: ethpb::rpc::RpcResponses =
-        substreams_ethereum::rpc::eth_call(&rpc_calls);
-    let responses = rpc_responses_unmarshalled.responses;
+    let responses = RpcBatch::new()
+        .add(
+            abi::pool::functions::FeeGrowthGlobal0X128 {},
+            hex::decode(pool_address).unwrap(),
+        )
+        .add(
+            abi::pool::functions::FeeGrowthGlobal1X128 {},
+            hex::decode(pool_address).unwrap(),
+        )
+        .execute()
+        .unwrap()
+        .responses;
 
     log::info!("bytes response.0: {:?}", responses[0].raw);
     log::info!("bytes response.1: {:?}", responses[1].raw);
 
-    let fee_0: BigInt = BigInt::from_signed_bytes_be(responses[0].raw.as_slice());
-    let fee_1: BigInt = BigInt::from_signed_bytes_be(responses[1].raw.as_slice());
+    let fee_0: BigInt =
+        match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal0X128>(&responses[0]) {
+            Some(data) => {
+                let mut v = [0u8; 256usize];
+                data.to_big_endian(&mut v);
+                BigInt::from_signed_bytes_be(&v)
+            }
+            None => {
+                panic!("Failed to decode fee growth global 1x128");
+            }
+        };
+    let fee_1: BigInt =
+        match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal1X128>(&responses[1]) {
+            Some(data) => {
+                let mut v = [0u8; 256usize];
+                data.to_big_endian(&mut v);
+                BigInt::from_signed_bytes_be(&v)
+            }
+            None => {
+                panic!("Failed to decode fee growth global 1x128");
+            }
+        };
 
     return (fee_0, fee_1);
 }
@@ -76,19 +97,36 @@ pub fn positions_call(
     return None;
 }
 
-pub fn create_uniswap_token(token_address: &[u8]) -> Option<Erc20Token> {
-    let rpc_calls = create_rpc_calls(token_address);
-    let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
+pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
+    let batch = RpcBatch::new();
+    let responses = batch
+        .add(
+            abi::erc20::functions::Decimals {},
+            hex::decode(token_address).unwrap(),
+        )
+        .add(
+            abi::erc20::functions::Name {},
+            hex::decode(token_address).unwrap(),
+        )
+        .add(
+            abi::erc20::functions::Symbol {},
+            hex::decode(token_address).unwrap(),
+        )
+        .execute()
+        .unwrap()
+        .responses;
 
-    let decimals = match eth::read_uint32(responses[0].raw.as_ref()) {
-        Ok(decoded_decimals) => decoded_decimals as u64,
-        Err(err) => match utils::get_static_uniswap_tokens(token_address) {
-            Some(token) => token.decimals,
+    let mut decimals: u64 = 0;
+    match RpcBatch::decode::<_, abi::erc20::functions::Decimals>(&responses[0]) {
+        Some(decoded_decimals) => {
+            decimals = decoded_decimals.as_u64();
+        }
+        None => match utils::get_static_uniswap_tokens(token_address.encode_to_vec().as_slice()) {
+            Some(token) => decimals = token.decimals,
             None => {
                 log::debug!(
-                    "{} is not a an ERC20 token contract decimal `eth_call` failed: {}",
+                    "{} is not a an ERC20 token contract decimal `eth_call` failed",
                     Hex(&token_address),
-                    err.msg,
                 );
 
                 return None;
@@ -97,20 +135,38 @@ pub fn create_uniswap_token(token_address: &[u8]) -> Option<Erc20Token> {
     };
     log::debug!("decoded_decimals ok");
 
-    let name = match eth::read_string(responses[1].raw.as_ref()) {
-        Ok(decoded_name) => decoded_name,
-        Err(_) => match utils::get_static_uniswap_tokens(token_address) {
-            Some(token) => token.name,
-            None => eth::read_string_from_bytes(responses[1].raw.as_ref()),
+    let mut name = "unknown".to_string();
+    match RpcBatch::decode::<_, abi::erc20::functions::Name>(&responses[1]) {
+        Some(decoded_name) => {
+            name = decoded_name;
+        }
+        None => match utils::get_static_uniswap_tokens(token_address.encode_to_vec().as_slice()) {
+            Some(token) => name = token.name,
+            None => {
+                log::debug!(
+                    "{} is not a an ERC20 token contract name `eth_call` failed",
+                    &token_address,
+                );
+                name = eth::read_string_from_bytes(responses[1].raw.as_ref());
+            }
         },
     };
     log::debug!("decoded_name ok");
 
-    let symbol = match eth::read_string(responses[2].raw.as_ref()) {
-        Ok(s) => s,
-        Err(_) => match utils::get_static_uniswap_tokens(token_address) {
-            Some(token) => token.symbol,
-            None => eth::read_string_from_bytes(responses[2].raw.as_ref()),
+    let mut symbol = "unknown".to_string();
+    match RpcBatch::decode::<_, abi::erc20::functions::Symbol>(&responses[2]) {
+        Some(decoded_symbol) => {
+            symbol = decoded_symbol;
+        }
+        None => match utils::get_static_uniswap_tokens(token_address.encode_to_vec().as_slice()) {
+            Some(token) => symbol = token.symbol,
+            None => {
+                log::debug!(
+                    "{} is not a an ERC20 token contract symbol `eth_call` failed",
+                    &token_address,
+                );
+                symbol = eth::read_string_from_bytes(responses[2].raw.as_ref());
+            }
         },
     };
     log::debug!("decoded_symbol ok");
@@ -125,54 +181,11 @@ pub fn create_uniswap_token(token_address: &[u8]) -> Option<Erc20Token> {
     });
 }
 
-fn create_rpc_calls(addr: &[u8]) -> ethpb::rpc::RpcCalls {
-    let decimals = hex!("313ce567").to_vec();
-    let name = hex!("06fdde03").to_vec();
-    let symbol = hex!("95d89b41").to_vec();
-
-    return ethpb::rpc::RpcCalls {
-        calls: vec![
-            ethpb::rpc::RpcCall {
-                to_addr: Vec::from(addr),
-                data: decimals,
-            },
-            ethpb::rpc::RpcCall {
-                to_addr: Vec::from(addr),
-                data: name,
-            },
-            ethpb::rpc::RpcCall {
-                to_addr: Vec::from(addr),
-                data: symbol,
-            },
-        ],
+pub fn token_total_supply_call(token_address: &String) -> Option<EthBigInt> {
+    let token_supply = abi::erc20::functions::TotalSupply {};
+    if let Some(token_supply_result) = token_supply.call(hex::decode(token_address).unwrap()) {
+        return Some(EthBigInt::try_from(token_supply_result).unwrap());
     };
-}
 
-fn create_fee_growth_global_x128_calls(addr: &[u8]) -> ethpb::rpc::RpcCalls {
-    let fee_growth_global_0_x128_data = hex!("f3058399").to_vec();
-    let fee_growth_global_1_x128_data = hex!("46141319").to_vec();
-
-    return ethpb::rpc::RpcCalls {
-        calls: vec![
-            ethpb::rpc::RpcCall {
-                to_addr: Vec::from(addr),
-                data: fee_growth_global_0_x128_data,
-            },
-            ethpb::rpc::RpcCall {
-                to_addr: Vec::from(addr),
-                data: fee_growth_global_1_x128_data,
-            },
-        ],
-    };
-}
-
-fn create_token_total_supply_calls(addr: &[u8]) -> ethpb::rpc::RpcCalls {
-    let token_total_supply_data = hex!("18160ddd").to_vec();
-
-    return ethpb::rpc::RpcCalls {
-        calls: vec![ethpb::rpc::RpcCall {
-            to_addr: Vec::from(addr),
-            data: token_total_supply_data,
-        }],
-    };
+    return None;
 }
