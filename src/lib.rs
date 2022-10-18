@@ -39,8 +39,9 @@ use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store;
 use substreams::store::{
     Appender, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAdd, StoreAddBigDecimal,
-    StoreAddBigInt, StoreAppend, StoreGet, StoreGetBigDecimal, StoreGetBigInt, StoreGetProto,
-    StoreGetRaw, StoreNew, StoreSet, StoreSetBigDecimal, StoreSetBigInt, StoreSetProto,
+    StoreAddBigInt, StoreAppend, StoreDelete, StoreGet, StoreGetBigDecimal, StoreGetBigInt,
+    StoreGetProto, StoreGetRaw, StoreNew, StoreSet, StoreSetBigDecimal, StoreSetBigInt,
+    StoreSetProto,
 };
 use substreams::{log, Hex};
 use substreams_ethereum::scalar::EthBigInt;
@@ -99,16 +100,16 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_pools(pools: Pools, output: StoreSetProto<Pool>) {
+pub fn store_pools(pools: Pools, store: StoreSetProto<Pool>) {
     for pool in pools.pools {
-        output.set(pool.log_ordinal, keyer::pool_key(&pool.address), &pool);
+        store.set(pool.log_ordinal, keyer::pool_key(&pool.address), &pool);
 
-        output.set(
+        store.set(
             pool.log_ordinal,
             keyer::pool_token_index_key(
-                &pool.token0.as_ref().unwrap().address,
-                &pool.token1.as_ref().unwrap().address,
-                &pool.fee_tier.to_string(),
+                &pool.token0_ref().address(),
+                &pool.token1_ref().address(),
+                pool.fee_tier,
             ),
             &pool,
         );
@@ -131,8 +132,8 @@ pub fn map_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Error> {
     let mut tokens = vec![];
 
     for pool in pools.pools {
-        let mut token0 = pool.token0.unwrap();
-        let mut token1 = pool.token1.unwrap();
+        let mut token0 = pool.token0();
+        let mut token1 = pool.token1();
 
         let token0_whitelisted = WHITELIST_TOKENS.contains(&token0.address.as_str());
         let token1_whitelisted = WHITELIST_TOKENS.contains(&token1.address.as_str());

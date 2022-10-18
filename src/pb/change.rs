@@ -199,6 +199,15 @@ impl From<String> for StringChange {
     }
 }
 
+impl From<&String> for StringChange {
+    fn from(new_value: &String) -> Self {
+        StringChange {
+            old_value: String::default(),
+            new_value: new_value.to_string(),
+        }
+    }
+}
+
 impl From<&str> for StringChange {
     fn from(new_value: &str) -> Self {
         StringChange {

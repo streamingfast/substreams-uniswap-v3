@@ -222,7 +222,7 @@ pub fn get_position(
     if let Some(positions_call_result) = rpc::positions_call(log_address, event.get_token_id()) {
         let token_id_0_bytes = positions_call_result.0;
         let token_id_1_bytes = positions_call_result.1;
-        let fee = positions_call_result.2;
+        let fee = positions_call_result.2.get_big_int();
         let tick_lower: BigInt = positions_call_result.3.into();
         let tick_upper: BigInt = positions_call_result.4.into();
         let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into();
@@ -231,28 +231,21 @@ pub fn get_position(
         let token0: String = Hex(&token_id_0_bytes.as_slice()).to_string();
         let token1: String = Hex(&token_id_1_bytes.as_slice()).to_string();
 
-        let pool: Pool = match store_pool.get_last(keyer::pool_token_index_key(
-            &token0,
-            &token1,
-            &fee.to_string(),
-        )) {
-            None => {
-                log::info!(
-                    "pool does not exist for token0 {} and token1 {}",
-                    token0,
-                    token1
-                );
-                return None;
-            }
-            Some(pool) => pool,
-        };
+        let pool: Pool =
+            match store_pool.get_last(keyer::pool_token_index_key(&token0, &token1, fee.into())) {
+                None => {
+                    log::info!(
+                        "pool does not exist for token0 {} and token1 {}",
+                        token0,
+                        token1
+                    );
+                    return None;
+                }
+                Some(pool) => pool,
+            };
 
-        let amount0 = &event
-            .get_amount0()
-            .to_decimal(pool.token0.unwrap().decimals);
-        let amount1 = &event
-            .get_amount1()
-            .to_decimal(pool.token1.unwrap().decimals);
+        let amount0 = &event.get_amount0().to_decimal(pool.token0_ref().decimals);
+        let amount1 = &event.get_amount1().to_decimal(pool.token1_ref().decimals);
 
         return Some(Position {
             id: event.get_token_id().to_string(),

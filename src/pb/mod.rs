@@ -52,6 +52,28 @@ impl Pool {
         }
         return true;
     }
+
+    pub fn token0_ref(&self) -> &Erc20Token {
+        self.token0.as_ref().unwrap()
+    }
+
+    pub fn token1_ref(&self) -> &Erc20Token {
+        self.token1.as_ref().unwrap()
+    }
+
+    pub fn token0(&self) -> Erc20Token {
+        self.clone().token0.unwrap()
+    }
+
+    pub fn token1(&self) -> Erc20Token {
+        self.clone().token1.unwrap()
+    }
+}
+
+impl Erc20Token {
+    pub fn address(&self) -> &String {
+        &self.address
+    }
 }
 
 impl Position {
