@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+anyhow = "1"
 ethabi = "17.0"
 wasm-bindgen = "0.2.79"
 prost = "0.11.0"

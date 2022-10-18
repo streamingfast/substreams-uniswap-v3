@@ -1,7 +1,6 @@
 use anyhow::{Ok, Result};
 use substreams_ethereum::Abigen;
 
-#[cfg(not(target_family = "windows"))]
 pub fn main() -> Result<(), anyhow::Error> {
     Abigen::new("pool", "abis/pool.json")?
         .generate()?
