@@ -1,11 +1,9 @@
 use crate::{abi, eth, utils, Erc20Token};
 use ethabi::Uint;
 use prost::Message;
-use substreams::hex;
 use substreams::log;
 use substreams::scalar::BigInt;
 use substreams::Hex;
-use substreams_ethereum::pb::eth as ethpb;
 use substreams_ethereum::rpc::RpcBatch;
 use substreams_ethereum::scalar::EthBigInt;
 
