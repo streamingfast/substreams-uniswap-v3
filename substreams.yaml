@@ -10,7 +10,7 @@ package:
 protobuf:
   files:
     - uniswap/v1/uniswap.proto
-    - substreams/entity/v1/deltas.proto
+    - https://raw.githubusercontent.com/streamingfast/substreams-entity-change/develop/proto/entity/v1/entity.proto
   importPaths:
     - ./proto
 

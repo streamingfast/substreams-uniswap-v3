@@ -1,12 +1,8 @@
-use crate::pb::entity::EntityChange;
-
-use crate::pb::change::BigIntChange;
 use crate::uniswap::tick::Origin;
 use crate::{
-    keyer, pb, utils, BurnEvent, EntityChanges, Erc20Token, Events, Flashes, MintEvent,
-    PoolSqrtPrice, Pools, Positions, SnapshotPositions, SwapEvent, Tick, Transactions,
+    keyer, utils, BurnEvent, Erc20Token, Events, Flashes, MintEvent, PoolSqrtPrice, Pools,
+    Positions, SnapshotPositions, SwapEvent, Tick, Transactions,
 };
-use pb::entity::entity_change::Operation;
 use std::str::FromStr;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
@@ -14,6 +10,8 @@ use substreams::store::{
     StoreGetBigInt,
 };
 use substreams::Hex;
+use substreams_entity_change::change::BigIntChange;
+use substreams_entity_change::pb::entity::{entity_change::Operation, EntityChange, EntityChanges};
 
 // -------------------
 //  Map Bundle Entities

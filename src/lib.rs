@@ -10,7 +10,6 @@ mod utils;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
-use crate::pb::entity::EntityChanges;
 use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
@@ -44,6 +43,7 @@ use substreams::store::{
     StoreSetBigDecimal, StoreSetBigInt, StoreSetProto,
 };
 use substreams::{log, Hex};
+use substreams_entity_change::pb::entity::EntityChanges;
 use substreams_ethereum::scalar::EthBigInt;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 

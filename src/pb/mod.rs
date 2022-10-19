@@ -18,14 +18,6 @@ pub mod uniswap;
 #[path = "./sf.ethereum.tokens.v1.rs"]
 pub mod tokens;
 
-#[allow(unused_imports)]
-#[allow(dead_code)]
-#[path = "./substreams.entity.v1.rs"]
-pub mod entity;
-
-pub mod change;
-pub mod helpers;
-
 impl Erc20Token {
     pub fn log(&self) {
         log::info!(
