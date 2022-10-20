@@ -7,10 +7,12 @@ package:
     These substream modules compose all the things to build up the Uniswap v3 substreams.
     See individual modules docs for help.
 
+imports:
+  entity: https://github.com/streamingfast/substreams-entity-change/raw/develop/substreams-entity-change-v0.1.0.spkg
+
 protobuf:
   files:
     - uniswap/v1/uniswap.proto
-    - https://raw.githubusercontent.com/streamingfast/substreams-entity-change/develop/proto/entity/v1/entity.proto
   importPaths:
     - ./proto
 

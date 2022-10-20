@@ -124,7 +124,7 @@ pub fn find_eth_per_token(
 
         let mut largest_eth_locked = BigDecimal::zero().with_prec(100);
         let minimum_eth_locked = BigDecimal::from_str("60").unwrap();
-        let mut eth_locked = BigDecimal::zero().with_prec(100);
+        let mut eth_locked: BigDecimal;
 
         for pool_address in whitelisted_pools.iter() {
             log::debug!("checking pool: {}", pool_address);

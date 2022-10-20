@@ -114,7 +114,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
         .unwrap()
         .responses;
 
-    let mut decimals: u64 = 0;
+    let decimals: u64;
     match RpcBatch::decode::<_, abi::erc20::functions::Decimals>(&responses[0]) {
         Some(decoded_decimals) => {
             decimals = decoded_decimals.as_u64();
@@ -133,7 +133,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     };
     log::debug!("decoded_decimals ok");
 
-    let mut name = "unknown".to_string();
+    let name: String;
     match RpcBatch::decode::<_, abi::erc20::functions::Name>(&responses[1]) {
         Some(decoded_name) => {
             name = decoded_name;
@@ -151,7 +151,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     };
     log::debug!("decoded_name ok");
 
-    let mut symbol = "unknown".to_string();
+    let symbol: String;
     match RpcBatch::decode::<_, abi::erc20::functions::Symbol>(&responses[2]) {
         Some(decoded_symbol) => {
             symbol = decoded_symbol;

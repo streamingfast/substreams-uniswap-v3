@@ -3,9 +3,10 @@ use crate::pb::PositionEvent;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::Transaction;
 use crate::{
-    keyer, math, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, WHITELIST_TOKENS,
+    keyer, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, WHITELIST_TOKENS,
 };
 
+use crate::uniswap::BigInt as PbBigInt;
 use std::ops::{Add, Mul};
 use std::str;
 use substreams::scalar::{BigDecimal, BigInt};
@@ -94,12 +95,12 @@ pub fn extract_pool_liquidity(
     pool_address: &Vec<u8>,
     storage_changes: &Vec<StorageChange>,
 ) -> Option<PoolLiquidity> {
-    for sc in storage_changes {
-        if pool_address.eq(&sc.address) {
-            if sc.key[sc.key.len() - 1] == 4 {
+    for storage_change in storage_changes {
+        if pool_address.eq(&storage_change.address) {
+            if storage_change.key[storage_change.key.len() - 1] == 4 {
                 return Some(PoolLiquidity {
                     pool_address: Hex(&pool_address).to_string(),
-                    liquidity: math::decimal_from_hex_be_bytes(&sc.new_value).to_string(),
+                    liquidity: Some(BigInt::from_signed_bytes_be(&storage_change.new_value).into()),
                     log_ordinal,
                 });
             }
@@ -196,14 +197,10 @@ pub fn load_transaction(
         log_ordinal,
     };
     transaction.gas_price = match transaction_trace.clone().gas_price {
-        None => {
-            log::debug!("gas price set as 0 at trx {}", Hex(&transaction_trace.hash));
-            "0".to_string()
-        }
+        None => None,
         Some(gas_price) => {
             let gas_price: BigInt = gas_price.bytes.into();
-            log::debug!("gas_price: {}", gas_price);
-            gas_price.to_string()
+            Some(gas_price.into())
         }
     };
     transaction
@@ -244,8 +241,8 @@ pub fn get_position(
                 Some(pool) => pool,
             };
 
-        let amount0 = &event.get_amount0().to_decimal(pool.token0_ref().decimals);
-        let amount1 = &event.get_amount1().to_decimal(pool.token1_ref().decimals);
+        let amount0 = event.get_amount0().to_decimal(pool.token0_ref().decimals);
+        let amount1 = event.get_amount1().to_decimal(pool.token1_ref().decimals);
 
         return Some(Position {
             id: event.get_token_id().to_string(),
@@ -256,11 +253,13 @@ pub fn get_position(
             tick_lower: format!("{}#{}", pool.address, tick_lower.to_string()),
             tick_upper: format!("{}#{}", pool.address, tick_upper.to_string()),
             transaction: Hex(&transaction_hash).to_string(),
-            fee_growth_inside_0_last_x_128: fee_growth_inside_0_last_x128.to_string(),
-            fee_growth_inside_1_last_x_128: fee_growth_inside_1_last_x128.to_string(),
-            liquidity: event.get_liquidity(),
-            amount0: amount0.to_string(),
-            amount1: amount1.to_string(),
+            fee_growth_inside_0_last_x_128: Some(fee_growth_inside_0_last_x128.into()),
+            fee_growth_inside_1_last_x_128: Some(fee_growth_inside_1_last_x128.into()),
+            liquidity: Some(PbBigInt {
+                value: event.get_liquidity(),
+            }),
+            amount0: Some(amount0.into()),
+            amount1: Some(amount1.into()),
             position_type: position_type as i32,
             log_ordinal,
             timestamp,

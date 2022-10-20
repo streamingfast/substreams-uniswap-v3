@@ -1,5 +1,4 @@
 use crate::BigInt;
-use num_bigint::BigUint;
 use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul};
 use substreams::scalar::BigDecimal;
@@ -37,10 +36,6 @@ pub fn safe_div(amount0: &BigDecimal, amount1: &BigDecimal) -> BigDecimal {
     } else {
         amount0.clone().div(amount1.clone())
     };
-}
-
-pub fn decimal_from_hex_be_bytes(price_bytes: &Vec<u8>) -> BigDecimal {
-    BigUint::from_bytes_be(price_bytes.as_slice()).into()
 }
 
 pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {

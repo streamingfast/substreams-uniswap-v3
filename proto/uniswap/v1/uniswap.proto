@@ -2,6 +2,14 @@ syntax = "proto3";
 
 package uniswap.types.v1;
 
+message BigInt {
+  string value = 1;
+}
+
+message BigDecimal {
+  string value = 1;
+}
+
 message ERC20Tokens {
   repeated ERC20Token tokens = 1;
 }
@@ -17,7 +25,7 @@ message ERC20Token {
 
 message Liquidity {
   string pool_address = 1;
-  string value = 2; // BigDecimal
+  BigDecimal value = 2;
 }
 
 message Pools {
@@ -26,11 +34,11 @@ message Pools {
 
 message Pool {
   string address = 1;
-  uint64 created_at_timestamp = 3; // BigInt
-  uint64 created_at_block_number = 4;  // BigInt
+  uint64 created_at_timestamp = 3;
+  uint64 created_at_block_number = 4;
   ERC20Token token0 = 5;
   ERC20Token token1 = 6;
-  uint32 fee_tier = 7;  // BigInt
+  BigInt fee_tier = 7;
 
   // internals
   int32 tick_spacing = 30;
@@ -46,8 +54,8 @@ message PoolSqrtPrices {
 message PoolSqrtPrice {
   string pool_address = 1;
   uint64 ordinal = 2;
-  string sqrt_price = 3; //BigInt
-  string tick = 4; // BigInt
+  BigInt sqrt_price = 3;
+  BigInt tick = 4;
 }
 
 message Events {
@@ -75,32 +83,32 @@ message Swap {
   string sender = 1;
   string recipient = 2;
   string origin = 3;
-  string amount_0 = 4;
-  string amount_1 = 5;
-  string sqrt_price = 6;
-  string liquidity = 7;
-  int32 tick = 8;
+  BigDecimal amount_0 = 4;
+  BigDecimal amount_1 = 5;
+  BigInt sqrt_price = 6;
+  BigInt liquidity = 7;
+  BigInt tick = 8;
 }
 
 message Burn {
   string owner = 1;
   string origin = 2;
-  string amount = 3;
-  string amount_0 = 4;
-  string amount_1 = 5;
-  int32 tick_lower = 6;
-  int32 tick_upper = 7;
+  BigInt amount = 3;
+  BigDecimal amount_0 = 4;
+  BigDecimal amount_1 = 5;
+  BigInt tick_lower = 6;
+  BigInt tick_upper = 7;
 }
 
 message Mint {
   string owner = 1;
   string sender = 2;
   string origin = 3;
-  string amount_0 = 4;
-  string amount_1 = 5;
-  int32 tick_lower = 6;
-  int32 tick_upper = 7;
-  string amount = 8;
+  BigDecimal amount_0 = 4;
+  BigDecimal amount_1 = 5;
+  BigInt tick_lower = 6;
+  BigInt tick_upper = 7;
+  BigInt amount = 8;
 }
 
 message EventAmounts {
@@ -110,9 +118,9 @@ message EventAmounts {
 message EventAmount {
   string pool_address = 1;
   string token0_addr = 2;
-  string amount0_value = 3;
+  BigDecimal amount0_value = 3;
   string token1_addr = 4;
-  string amount1_value = 5;
+  BigDecimal amount1_value = 5;
 
   // internals
   uint64 log_ordinal = 30;
@@ -124,7 +132,7 @@ message PoolLiquidities {
 
 message PoolLiquidity {
   string pool_address = 1;
-  string liquidity = 2; //BigDecimal
+  BigInt liquidity = 2;
 
   // internals
   uint64 log_ordinal = 30;
@@ -137,17 +145,17 @@ message Ticks {
 message Tick {
   string id = 1;
   string pool_address = 2;
-  string idx = 3; //BigInt
-  string price0 = 4; //BigDecimal
-  string price1 = 5; //BigDecimal
+  BigInt idx = 3;
+  BigDecimal price0 = 4;
+  BigDecimal price1 = 5;
   uint64 created_at_timestamp = 6;
   uint64 created_at_block_number = 7;
-  string fee_growth_outside_0X_128 = 8; //BigInt
-  string fee_growth_outside_1X_128 = 9; //BigInt
+  BigInt fee_growth_outside_0X_128 = 8;
+  BigInt fee_growth_outside_1X_128 = 9;
 
   // internals
   uint64 log_ordinal = 10;
-  string amount = 11; //BigInt
+  BigInt amount = 11;
   enum Type {
     TYPE_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
     LOWER = 1;
@@ -177,8 +185,8 @@ message Flashes {
 
 message Flash {
   string pool_address = 1;
-  string fee_growth_global_0X_128 = 2;
-  string fee_growth_global_1X_128 = 3;
+  BigInt fee_growth_global_0X_128 = 2;
+  BigInt fee_growth_global_1X_128 = 3;
   uint64 log_ordinal = 4;
 }
 
@@ -189,10 +197,10 @@ message Transactions {
 
 message Transaction {
   string id = 1;
-  uint64 block_number = 2; //BigInt
-  uint64 timestamp = 3; //BigInt
-  uint64 gas_used = 4; // BigInt
-  string gas_price = 5; //BigInt
+  uint64 block_number = 2;
+  uint64 timestamp = 3;
+  uint64 gas_used = 4;
+  BigInt gas_price = 5;
 
   // internals
   uint64 log_ordinal = 6;
@@ -211,11 +219,11 @@ message Position {
   string tick_lower = 6;
   string tick_upper = 7;
   string transaction = 8;
-  string fee_growth_inside_0_last_X_128 = 9;
-  string fee_growth_inside_1_last_X_128 = 10;
-  string liquidity = 11;
-  string amount0 = 12;
-  string amount1 = 13;
+  BigInt fee_growth_inside_0_last_X_128 = 9;
+  BigInt fee_growth_inside_1_last_X_128 = 10;
+  BigInt liquidity = 11;
+  BigDecimal amount0 = 12;
+  BigDecimal amount1 = 13;
 
   // internals
   enum PositionType {
@@ -242,16 +250,16 @@ message SnapshotPosition {
   string position = 4;
   uint64 block_number = 5;
   uint64 timestamp = 6;
-  string liquidity = 7;
-  string deposited_token0 = 8;
-  string deposited_token1 = 9;
-  string withdrawn_token0 = 10;
-  string withdrawn_token1 = 11;
-  string collected_fees_token0 = 12;
-  string collected_fees_token1 = 13;
+  BigDecimal liquidity = 7;
+  BigDecimal deposited_token0 = 8;
+  BigDecimal deposited_token1 = 9;
+  BigDecimal withdrawn_token0 = 10;
+  BigDecimal withdrawn_token1 = 11;
+  BigDecimal collected_fees_token0 = 12;
+  BigDecimal collected_fees_token1 = 13;
   string transaction = 14;
-  string fee_growth_inside_0_last_X_128 = 15;
-  string fee_growth_inside_1_last_X_128 = 16;
+  BigInt fee_growth_inside_0_last_X_128 = 15;
+  BigInt fee_growth_inside_1_last_X_128 = 16;
 
   // internal
   uint64 log_ordinal = 17;

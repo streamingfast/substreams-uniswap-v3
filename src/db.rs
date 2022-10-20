@@ -10,16 +10,16 @@ use substreams::store::{
     StoreGetBigInt,
 };
 use substreams::Hex;
-use substreams_entity_change::change::BigIntChange;
 use substreams_entity_change::pb::entity::{entity_change::Operation, EntityChange, EntityChanges};
 
 // -------------------
 //  Map Bundle Entities
 // -------------------
 pub fn created_bundle_entity_change(entity_changes: &mut EntityChanges) {
+    let bd = BigDecimal::from(10 as i32);
     entity_changes
-        .push_change("Bundle", "1".to_string(), 1, Operation::Create)
-        .change_bigdecimal("ethPriceUSD", BigDecimal::zero().into());
+        .push_change("Bundle", "1", 1, Operation::Create)
+        .change("ethPriceUSD", bd);
 }
 
 pub fn bundle_store_eth_price_usd_bundle_entity_change(
@@ -32,8 +32,8 @@ pub fn bundle_store_eth_price_usd_bundle_entity_change(
         }
 
         entity_changes
-            .push_change("Bundle", "1".to_string(), delta.ordinal, Operation::Update)
-            .change_bigdecimal("ethPriceUSD", delta.into());
+            .push_change("Bundle", "1", delta.ordinal, Operation::Update)
+            .change("ethPriceUSD", delta);
     }
 }
 
@@ -44,23 +44,23 @@ pub fn factory_created_factory_entity_change(entity_changes: &mut EntityChanges)
     entity_changes
         .push_change(
             "Factory",
-            Hex(utils::UNISWAP_V3_FACTORY).to_string(),
+            Hex(utils::UNISWAP_V3_FACTORY).to_string().as_str(),
             1,
             Operation::Create,
         )
-        .change_string("id", Hex(utils::UNISWAP_V3_FACTORY).into())
-        .change_bigint("poolCount", BigInt::zero().into())
-        .change_bigint("txCount", BigInt::zero().into())
-        .change_bigdecimal("totalVolumeUSD", BigDecimal::zero().into())
-        .change_bigdecimal("totalVolumeETH", BigDecimal::zero().into())
-        .change_bigdecimal("totalFeesUSD", BigDecimal::zero().into())
-        .change_bigdecimal("totalFeesETH", BigDecimal::zero().into())
-        .change_bigdecimal("untrackedVolumeUSD", BigDecimal::zero().into())
-        .change_bigdecimal("totalValueLockedUSD", BigDecimal::zero().into())
-        .change_bigdecimal("totalValueLockedETH", BigDecimal::zero().into())
-        .change_bigdecimal("totalValueLockedUSDUntracked", BigDecimal::zero().into())
-        .change_bigdecimal("totalValueLockedETHUntracked", BigDecimal::zero().into())
-        .change_string("owner", Hex(utils::ZERO_ADDRESS).into());
+        .change("id", Hex(utils::UNISWAP_V3_FACTORY).to_string())
+        .change("poolCount", BigInt::zero())
+        .change("txCount", BigInt::zero())
+        .change("totalVolumeUSD", BigDecimal::zero())
+        .change("totalVolumeETH", BigDecimal::zero())
+        .change("totalFeesUSD", BigDecimal::zero())
+        .change("totalFeesETH", BigDecimal::zero())
+        .change("untrackedVolumeUSD", BigDecimal::zero())
+        .change("totalValueLockedUSD", BigDecimal::zero())
+        .change("totalValueLockedETH", BigDecimal::zero())
+        .change("totalValueLockedUSDUntracked", BigDecimal::zero())
+        .change("totalValueLockedETHUntracked", BigDecimal::zero())
+        .change("owner", Hex(utils::ZERO_ADDRESS).to_string());
 }
 
 pub fn pool_created_factory_entity_change(
@@ -71,11 +71,11 @@ pub fn pool_created_factory_entity_change(
         entity_changes
             .push_change(
                 "Factory",
-                Hex(utils::UNISWAP_V3_FACTORY).to_string(),
+                Hex(utils::UNISWAP_V3_FACTORY).to_string().as_str(),
                 delta.ordinal,
                 Operation::Update,
             )
-            .change_bigint("poolCount", delta.into());
+            .change("poolCount", delta);
     }
 }
 
@@ -90,11 +90,11 @@ pub fn tx_count_factory_entity_change(
         entity_changes
             .push_change(
                 "Factory",
-                Hex(utils::UNISWAP_V3_FACTORY).to_string(),
+                Hex(utils::UNISWAP_V3_FACTORY).to_string().as_str(),
                 delta.ordinal,
                 Operation::Update,
             )
-            .change_bigint("txCount", delta.into());
+            .change("txCount", delta);
     }
 }
 
@@ -118,11 +118,11 @@ pub fn swap_volume_factory_entity_change(
         entity_changes
             .push_change(
                 "Factory",
-                Hex(utils::UNISWAP_V3_FACTORY).to_string(),
+                Hex(utils::UNISWAP_V3_FACTORY).to_string().as_str(),
                 delta.ordinal,
                 Operation::Update,
             )
-            .change_bigdecimal(name, delta.into());
+            .change(name, delta);
     }
 }
 
@@ -143,11 +143,11 @@ pub fn total_value_locked_factory_entity_change(
         entity_changes
             .push_change(
                 "Factory",
-                Hex(utils::UNISWAP_V3_FACTORY).to_string(),
+                Hex(utils::UNISWAP_V3_FACTORY).to_string().as_str(),
                 delta.ordinal,
                 Operation::Update,
             )
-            .change_bigdecimal(name, delta.into());
+            .change(name, delta);
     }
 }
 
@@ -159,39 +159,45 @@ pub fn pools_created_pool_entity_change(pools: Pools, entity_changes: &mut Entit
         entity_changes
             .push_change(
                 "Pool",
-                pool.address.clone(),
+                pool.address.clone().as_str(),
                 pool.log_ordinal,
                 Operation::Create,
             )
-            .change_string("id", pool.address.into())
-            .change_bigint("createdAtTimestamp", pool.created_at_timestamp.into())
-            .change_bigint("createdAtBlockNumber", pool.created_at_block_number.into())
-            .change_string("token0", pool.token0.unwrap().address.into())
-            .change_string("token1", pool.token1.unwrap().address.into())
-            .change_bigint("feeTier", pool.fee_tier.into())
-            .change_bigint("liquidity", BigInt::zero().into())
-            .change_bigint("sqrtPrice", BigInt::zero().into())
-            .change_bigint("feeGrowthGlobal0X128", BigInt::zero().into())
-            .change_bigint("feeGrowthGlobal1X128", BigInt::zero().into())
-            .change_bigdecimal("token0Price", BigDecimal::zero().into())
-            .change_bigdecimal("token1Price", BigDecimal::zero().into())
-            .change_bigint("tick", BigInt::zero().into())
-            .change_bigint("observationIndex", BigInt::zero().into())
-            .change_bigdecimal("volumeToken0", BigDecimal::zero().into())
-            .change_bigdecimal("volumeToken1", BigDecimal::zero().into())
-            .change_bigdecimal("volumeUSD", BigDecimal::zero().into())
-            .change_bigdecimal("untrackedVolumeUSD", BigDecimal::zero().into())
-            .change_bigdecimal("feesUSD", BigDecimal::zero().into())
-            .change_bigint("txCount", BigInt::zero().into())
-            .change_bigdecimal("collectedFeesToken0", BigDecimal::zero().into())
-            .change_bigdecimal("collectedFeesToken1", BigDecimal::zero().into())
-            .change_bigdecimal("collectedFeesUSD", BigDecimal::zero().into())
-            .change_bigdecimal("totalValueLockedToken0", BigDecimal::zero().into())
-            .change_bigdecimal("totalValueLockedToken1", BigDecimal::zero().into())
-            .change_bigdecimal("totalValueLockedETH", BigDecimal::zero().into())
-            .change_bigdecimal("totalValueLockedUSD", BigDecimal::zero().into())
-            .change_bigdecimal("totalValueLockedUSDUntracked", BigDecimal::zero().into())
-            .change_bigint("liquidityProviderCount", BigInt::zero().into());
+            .change("id", pool.address)
+            .change(
+                "createdAtTimestamp",
+                BigInt::from(pool.created_at_timestamp),
+            )
+            .change(
+                "createdAtBlockNumber",
+                BigInt::from(pool.created_at_block_number),
+            )
+            .change("token0", pool.token0.unwrap().address)
+            .change("token1", pool.token1.unwrap().address)
+            .change("feeTier", BigInt::from(pool.fee_tier.unwrap()))
+            .change("liquidity", BigInt::zero())
+            .change("sqrtPrice", BigInt::zero())
+            .change("feeGrowthGlobal0X128", BigInt::zero())
+            .change("feeGrowthGlobal1X128", BigInt::zero())
+            .change("token0Price", BigDecimal::zero())
+            .change("token1Price", BigDecimal::zero())
+            .change("tick", BigInt::zero())
+            .change("observationIndex", BigInt::zero())
+            .change("volumeToken0", BigDecimal::zero())
+            .change("volumeToken1", BigDecimal::zero())
+            .change("volumeUSD", BigDecimal::zero())
+            .change("untrackedVolumeUSD", BigDecimal::zero())
+            .change("feesUSD", BigDecimal::zero())
+            .change("txCount", BigInt::zero())
+            .change("collectedFeesToken0", BigDecimal::zero())
+            .change("collectedFeesToken1", BigDecimal::zero())
+            .change("collectedFeesUSD", BigDecimal::zero())
+            .change("totalValueLockedToken0", BigDecimal::zero())
+            .change("totalValueLockedToken1", BigDecimal::zero())
+            .change("totalValueLockedETH", BigDecimal::zero())
+            .change("totalValueLockedUSD", BigDecimal::zero())
+            .change("totalValueLockedUSDUntracked", BigDecimal::zero())
+            .change("liquidityProviderCount", BigInt::zero());
     }
 }
 
@@ -201,21 +207,34 @@ pub fn pool_sqrt_price_entity_change(
 ) {
     for delta in deltas.deltas {
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
-        let old_value = delta.old_value;
-        let new_value = delta.new_value;
 
         entity_changes
             .push_change(
                 "Pool",
-                pool_address,
+                pool_address.as_str(),
                 delta.ordinal,
                 Operation::from_i32(delta.operation as i32).unwrap(),
             )
-            .change_bigint(
+            .change(
                 "sqrtPrice",
-                (old_value.sqrt_price, new_value.sqrt_price).into(),
+                DeltaBigInt {
+                    operation: delta.operation,
+                    ordinal: 0,
+                    key: "".to_string(),
+                    old_value: delta.old_value.sqrt_price(),
+                    new_value: delta.new_value.sqrt_price(),
+                },
             )
-            .change_bigint("tick", (old_value.tick, new_value.tick).into());
+            .change(
+                "tick",
+                DeltaBigInt {
+                    operation: delta.operation,
+                    ordinal: 0,
+                    key: "".to_string(),
+                    old_value: delta.old_value.tick(),
+                    new_value: delta.new_value.tick(),
+                },
+            );
     }
 }
 
@@ -226,8 +245,13 @@ pub fn pool_liquidities_pool_entity_change(
     for delta in deltas.deltas {
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
         entity_changes
-            .push_change("Pool", pool_address, delta.ordinal, Operation::Update)
-            .change_bigint("liquidity", delta.into());
+            .push_change(
+                "Pool",
+                pool_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change("liquidity", delta);
     }
 }
 
@@ -248,8 +272,13 @@ pub fn total_value_locked_pool_entity_change(
         };
 
         entity_changes
-            .push_change("Pool", pool_address, delta.ordinal, Operation::Update)
-            .change_bigdecimal(name, delta.into());
+            .push_change(
+                "Pool",
+                pool_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change(name, delta);
     }
 }
 
@@ -266,8 +295,13 @@ pub fn total_value_locked_by_token_pool_entity_change(
         };
 
         entity_changes
-            .push_change("Pool", pool_address, delta.ordinal, Operation::Update)
-            .change_bigdecimal(name, delta.into());
+            .push_change(
+                "Pool",
+                pool_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change(name, delta);
     }
 }
 
@@ -284,8 +318,13 @@ pub fn pool_fee_growth_global_x128_entity_change(
         };
 
         entity_changes
-            .push_change("Pool", pool_address, delta.ordinal, Operation::Update)
-            .change_bigint(name, delta.into());
+            .push_change(
+                "Pool",
+                pool_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change(name, delta);
     }
 }
 
@@ -307,8 +346,13 @@ pub fn price_pool_entity_change(
         };
 
         entity_changes
-            .push_change("Pool", pool_address, delta.ordinal, Operation::Update)
-            .change_bigdecimal(name, delta.into());
+            .push_change(
+                "Pool",
+                pool_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change(name, delta);
     }
 }
 
@@ -323,8 +367,13 @@ pub fn tx_count_pool_entity_change(
 
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string(); // TODO: put in keyer
         entity_changes
-            .push_change("Pool", pool_address, delta.ordinal, Operation::Update)
-            .change_bigint("txCount", delta.into());
+            .push_change(
+                "Pool",
+                pool_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change("txCount", delta);
     }
 }
 
@@ -349,8 +398,13 @@ pub fn swap_volume_pool_entity_change(
         };
 
         entity_changes
-            .push_change("Pool", pool_address, delta.ordinal, Operation::Update)
-            .change_bigdecimal(name, delta.into());
+            .push_change(
+                "Pool",
+                pool_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change(name, delta);
     }
 }
 
@@ -386,8 +440,13 @@ pub fn swap_volume_token_entity_change(
         };
 
         entity_changes
-            .push_change("Token", token_address, delta.ordinal, Operation::Update)
-            .change_bigdecimal(name, delta.into());
+            .push_change(
+                "Token",
+                token_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change(name, delta);
     }
 }
 
@@ -402,8 +461,13 @@ pub fn tx_count_token_entity_change(
 
         let token_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
         entity_changes
-            .push_change("Token", token_address, delta.ordinal, Operation::Update)
-            .change_bigint("txCount", delta.into());
+            .push_change(
+                "Token",
+                token_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change("txCount", delta);
     }
 }
 
@@ -415,8 +479,13 @@ pub fn total_value_locked_by_token_token_entity_change(
         let token_address = delta.key.as_str().split(":").nth(2).unwrap().to_string();
 
         entity_changes
-            .push_change("Token", token_address, delta.ordinal, Operation::Update)
-            .change_bigdecimal("totalValueLocked", delta.into());
+            .push_change(
+                "Token",
+                token_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change("totalValueLocked", delta);
     }
 }
 
@@ -437,8 +506,13 @@ pub fn total_value_locked_usd_token_entity_change(
         };
 
         entity_changes
-            .push_change("Token", token_address, delta.ordinal, Operation::Update)
-            .change_bigdecimal(name, delta.into());
+            .push_change(
+                "Token",
+                token_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change(name, delta);
     }
 }
 
@@ -458,8 +532,13 @@ pub fn derived_eth_prices_token_entity_change(
         };
 
         entity_changes
-            .push_change("Token", token_address, delta.ordinal, Operation::Update)
-            .change_bigdecimal(name, delta.into());
+            .push_change(
+                "Token",
+                token_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change(name, delta);
     }
 }
 
@@ -470,8 +549,13 @@ pub fn whitelist_token_entity_change(
     for delta in deltas.deltas {
         let token_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
         entity_changes
-            .push_change("Token", token_address, delta.ordinal, Operation::Update)
-            .change_string_array("whitelistPools", delta.into());
+            .push_change(
+                "Token",
+                token_address.as_str(),
+                delta.ordinal,
+                Operation::Update,
+            )
+            .change("whitelistPools", delta);
     }
 }
 
@@ -483,26 +567,29 @@ fn add_token_entity_change(
     entity_changes
         .push_change(
             "Token",
-            token.address.clone(),
+            token.address.clone().as_str(),
             log_ordinal,
             Operation::Create,
         )
-        .change_string("id", token.address.clone().into())
-        .change_string("symbol", token.symbol.clone().into())
-        .change_string("name", token.name.clone().into())
-        .change_bigint("decimals", token.decimals.into())
-        .change_bigint("totalSupply", token.total_supply.clone().into())
-        .change_bigdecimal("volume", BigDecimal::zero().into())
-        .change_bigdecimal("volumeUSD", BigDecimal::zero().into())
-        .change_bigdecimal("untrackedVolumeUSD", BigDecimal::zero().into())
-        .change_bigdecimal("feesUSD", BigDecimal::zero().into())
-        .change_bigint("txCount", BigInt::zero().into())
-        .change_bigint("poolCount", BigInt::zero().into())
-        .change_bigdecimal("totalValueLocked", BigDecimal::zero().into())
-        .change_bigdecimal("totalValueLockedUSD", BigDecimal::zero().into())
-        .change_bigdecimal("totalValueLockedUSDUntracked", BigDecimal::zero().into())
-        .change_bigdecimal("derivedETH", BigDecimal::zero().into())
-        .change_string_array("whitelistPools", token.whitelist_pools.clone().into());
+        .change("id", token.address.clone())
+        .change("symbol", token.symbol.clone())
+        .change("name", token.name.clone())
+        .change("decimals", BigInt::from(token.decimals))
+        .change(
+            "totalSupply",
+            BigInt::from_str(token.total_supply.clone().as_str()).unwrap(),
+        )
+        .change("volume", BigDecimal::zero())
+        .change("volumeUSD", BigDecimal::zero())
+        .change("untrackedVolumeUSD", BigDecimal::zero())
+        .change("feesUSD", BigDecimal::zero())
+        .change("txCount", BigInt::zero())
+        .change("poolCount", BigInt::zero())
+        .change("totalValueLocked", BigDecimal::zero())
+        .change("totalValueLockedUSD", BigDecimal::zero())
+        .change("totalValueLockedUSDUntracked", BigDecimal::zero())
+        .change("derivedETH", BigDecimal::zero())
+        .change("whitelistPools", token.whitelist_pools.clone());
 }
 
 // --------------------
@@ -541,55 +628,80 @@ pub fn ticks_liquidities_tick_entity_change(
         };
 
         entity_changes
-            .push_change("Tick", tick_id, delta.ordinal, Operation::Update)
-            .change_bigint(name, delta.into());
+            .push_change("Tick", tick_id.as_str(), delta.ordinal, Operation::Update)
+            .change(name, delta);
     }
 }
 
 fn create_tick_entity_change(entity_changes: &mut EntityChanges, tick: Tick) {
     entity_changes
-        .push_change("Tick", tick.id.clone(), tick.log_ordinal, Operation::Create)
-        .change_string("id", tick.id.into())
-        .change_string("poolAddress", tick.pool_address.clone().into())
-        .change_bigint("tickIdx", tick.idx.into())
-        .change_string("pool", tick.pool_address.into())
-        .change_bigint("liquidityGross", BigInt::zero().into())
-        .change_bigint("liquidityNet", BigInt::zero().into())
-        .change_bigdecimal("price0", tick.price0.into())
-        .change_bigdecimal("price1", tick.price1.into())
-        .change_bigdecimal("volumeToken0", BigDecimal::zero().into())
-        .change_bigdecimal("volumeToken1", BigDecimal::zero().into())
-        .change_bigdecimal("volumeUSD", BigDecimal::zero().into())
-        .change_bigdecimal("untrackedVolumeUSD", BigDecimal::zero().into())
-        .change_bigdecimal("feesUSD", BigDecimal::zero().into())
-        .change_bigdecimal("collectedFeesToken0", BigDecimal::zero().into())
-        .change_bigdecimal("collectedFeesToken1", BigDecimal::zero().into())
-        .change_bigdecimal("collectedFeesUSD", BigDecimal::zero().into())
-        .change_bigint("createdAtTimestamp", tick.created_at_timestamp.into())
-        .change_bigint("createdAtBlockNumber", tick.created_at_block_number.into())
-        .change_bigint(
-            "liquidityProviderCount",
-            tick.created_at_block_number.into(),
+        .push_change(
+            "Tick",
+            tick.id.clone().as_str(),
+            tick.log_ordinal,
+            Operation::Create,
         )
-        .change_bigint("feeGrowthOutside0X128", tick.created_at_block_number.into())
-        .change_bigint("feeGrowthOutside1X128", tick.created_at_block_number.into());
+        .change("id", tick.id)
+        .change("poolAddress", tick.pool_address.clone())
+        .change("tickIdx", BigInt::from(tick.idx.unwrap()))
+        .change("pool", tick.pool_address)
+        .change("liquidityGross", BigInt::zero())
+        .change("liquidityNet", BigInt::zero())
+        .change("price0", BigDecimal::from(tick.price0.unwrap()))
+        .change("price1", BigDecimal::from(tick.price1.unwrap()))
+        .change("volumeToken0", BigDecimal::zero())
+        .change("volumeToken1", BigDecimal::zero())
+        .change("volumeUSD", BigDecimal::zero())
+        .change("untrackedVolumeUSD", BigDecimal::zero())
+        .change("feesUSD", BigDecimal::zero())
+        .change("collectedFeesToken0", BigDecimal::zero())
+        .change("collectedFeesToken1", BigDecimal::zero())
+        .change("collectedFeesUSD", BigDecimal::zero())
+        .change(
+            "createdAtTimestamp",
+            BigInt::from(tick.created_at_timestamp),
+        )
+        .change(
+            "createdAtBlockNumber",
+            BigInt::from(tick.created_at_block_number),
+        )
+        .change("liquidityProviderCount", BigInt::zero())
+        .change(
+            "feeGrowthOutside0X128",
+            BigInt::from(tick.created_at_block_number),
+        )
+        .change(
+            "feeGrowthOutside1X128",
+            BigInt::from(tick.created_at_block_number),
+        );
 }
 
 fn update_tick_entity_change(entity_changes: &mut EntityChanges, old_tick: Tick, new_tick: Tick) {
     entity_changes
-        .push_change("Tick", new_tick.id, new_tick.log_ordinal, Operation::Update)
-        .change_bigint(
+        .push_change(
+            "Tick",
+            new_tick.id.as_str(),
+            new_tick.log_ordinal,
+            Operation::Update,
+        )
+        .change(
             "feeGrowthOutside0X128",
-            BigIntChange {
-                old_value: old_tick.fee_growth_outside_0x_128,
-                new_value: new_tick.fee_growth_outside_0x_128,
+            DeltaBigInt {
+                operation: substreams::pb::substreams::store_delta::Operation::Update,
+                ordinal: new_tick.log_ordinal,
+                key: "".to_string(),
+                old_value: BigInt::from(old_tick.fee_growth_outside_0x_128.unwrap()),
+                new_value: BigInt::from(new_tick.fee_growth_outside_0x_128.unwrap()),
             },
         )
-        .change_bigint(
+        .change(
             "feeGrowthOutside1X128",
-            BigIntChange {
-                old_value: old_tick.fee_growth_outside_1x_128,
-                new_value: new_tick.fee_growth_outside_1x_128,
+            DeltaBigInt {
+                operation: substreams::pb::substreams::store_delta::Operation::Update,
+                ordinal: new_tick.log_ordinal,
+                key: "".to_string(),
+                old_value: BigInt::from(old_tick.fee_growth_outside_1x_128.unwrap()),
+                new_value: BigInt::from(new_tick.fee_growth_outside_1x_128.unwrap()),
             },
         );
 }
@@ -602,32 +714,32 @@ pub fn position_create_entity_change(positions: Positions, entity_changes: &mut 
         entity_changes
             .push_change(
                 "Position",
-                position.id.clone(),
+                position.id.clone().as_str(),
                 position.log_ordinal,
                 Operation::Create,
             )
-            .change_string("id", position.id.into())
-            .change_string("owner", position.owner.into()) // string works
-            .change_string("pool", position.pool.into())
-            .change_string("token0", position.token0.into())
-            .change_string("token1", position.token1.into())
-            .change_string("tickLower", position.tick_lower.into())
-            .change_string("tickUpper", position.tick_upper.into())
-            .change_bigdecimal("liquidity", BigDecimal::zero().into())
-            .change_bigdecimal("depositedToken0", BigDecimal::zero().into())
-            .change_bigdecimal("depositedToken1", BigDecimal::zero().into())
-            .change_bigdecimal("withdrawnToken0", BigDecimal::zero().into())
-            .change_bigdecimal("withdrawnToken1", BigDecimal::zero().into())
-            .change_bigdecimal("collectedFeesToken0", BigDecimal::zero().into())
-            .change_bigdecimal("collectedFeesToken1", BigDecimal::zero().into())
-            .change_string("transaction", position.transaction.into())
-            .change_bigint(
+            .change("id", position.id)
+            .change("owner", position.owner)
+            .change("pool", position.pool)
+            .change("token0", position.token0)
+            .change("token1", position.token1)
+            .change("tickLower", position.tick_lower)
+            .change("tickUpper", position.tick_upper)
+            .change("liquidity", BigDecimal::zero())
+            .change("depositedToken0", BigDecimal::zero())
+            .change("depositedToken1", BigDecimal::zero())
+            .change("withdrawnToken0", BigDecimal::zero())
+            .change("withdrawnToken1", BigDecimal::zero())
+            .change("collectedFeesToken0", BigDecimal::zero())
+            .change("collectedFeesToken1", BigDecimal::zero())
+            .change("transaction", position.transaction)
+            .change(
                 "feeGrowthInside0LastX128",
-                position.fee_growth_inside_0_last_x_128.into(),
+                BigInt::from(position.fee_growth_inside_0_last_x_128.unwrap()),
             )
-            .change_bigint(
+            .change(
                 "feeGrowthInside1LastX128",
-                position.fee_growth_inside_1_last_x_128.into(),
+                BigInt::from(position.fee_growth_inside_1_last_x_128.unwrap()),
             );
     }
 }
@@ -639,8 +751,12 @@ pub fn positions_changes_entity_change(
     for delta in deltas.deltas {
         let position_id = delta.key.as_str().split(":").nth(1).unwrap().to_string();
 
-        let mut entity_change =
-            EntityChange::new("Position", position_id, delta.ordinal, Operation::Update);
+        let mut entity_change = EntityChange::new(
+            "Position",
+            position_id.as_str(),
+            delta.ordinal,
+            Operation::Update,
+        );
 
         let name = match delta.key.as_str().split(":").last().unwrap() {
             "liquidity" => "liquidity",
@@ -653,11 +769,9 @@ pub fn positions_changes_entity_change(
             _ => continue,
         };
 
-        entity_changes.entity_changes.push(
-            entity_change
-                .change_bigdecimal(name, delta.into())
-                .to_owned(),
-        );
+        entity_changes
+            .entity_changes
+            .push(entity_change.change(name, delta).to_owned());
     }
 }
 
@@ -672,37 +786,52 @@ pub fn snapshot_position_entity_change(
         entity_changes
             .push_change(
                 "PositionSnapshot",
-                snapshot_position.id.clone(),
+                snapshot_position.id.clone().as_str(),
                 snapshot_position.log_ordinal,
                 Operation::Create,
             )
-            .change_string("id", snapshot_position.id.into())
-            .change_string("owner", snapshot_position.owner.into()) // string works
-            .change_string("pool", snapshot_position.pool.into())
-            .change_string("position", snapshot_position.position.into())
-            .change_bigint("blockNumber", snapshot_position.block_number.into())
-            .change_bigint("timestamp", snapshot_position.timestamp.into())
-            .change_bigdecimal("liquidity", snapshot_position.liquidity.into())
-            .change_bigdecimal("depositedToken0", snapshot_position.deposited_token0.into())
-            .change_bigdecimal("depositedToken1", snapshot_position.deposited_token1.into())
-            .change_bigdecimal("withdrawnToken0", snapshot_position.withdrawn_token0.into())
-            .change_bigdecimal("withdrawnToken1", snapshot_position.withdrawn_token1.into())
-            .change_bigdecimal(
+            .change("id", snapshot_position.id)
+            .change("owner", snapshot_position.owner)
+            .change("pool", snapshot_position.pool)
+            .change("position", snapshot_position.position)
+            .change("blockNumber", BigInt::from(snapshot_position.block_number))
+            .change("timestamp", BigInt::from(snapshot_position.timestamp))
+            .change(
+                "liquidity",
+                BigDecimal::from(snapshot_position.liquidity.unwrap()),
+            )
+            .change(
+                "depositedToken0",
+                BigDecimal::from(snapshot_position.deposited_token0.unwrap()),
+            )
+            .change(
+                "depositedToken1",
+                BigDecimal::from(snapshot_position.deposited_token1.unwrap()),
+            )
+            .change(
+                "withdrawnToken0",
+                BigDecimal::from(snapshot_position.withdrawn_token0.unwrap()),
+            )
+            .change(
+                "withdrawnToken1",
+                BigDecimal::from(snapshot_position.withdrawn_token1.unwrap()),
+            )
+            .change(
                 "collectedFeesToken0",
-                snapshot_position.collected_fees_token0.into(),
+                BigDecimal::from(snapshot_position.collected_fees_token0.unwrap()),
             )
-            .change_bigdecimal(
+            .change(
                 "collectedFeesToken1",
-                snapshot_position.collected_fees_token1.into(),
+                BigDecimal::from(snapshot_position.collected_fees_token1.unwrap()),
             )
-            .change_string("transaction", snapshot_position.transaction.into())
-            .change_bigint(
+            .change("transaction", snapshot_position.transaction)
+            .change(
                 "feeGrowthInside0LastX128",
-                snapshot_position.fee_growth_inside_0_last_x_128.into(),
+                BigInt::from(snapshot_position.fee_growth_inside_0_last_x_128.unwrap()),
             )
-            .change_bigint(
+            .change(
                 "feeGrowthInside1LastX128",
-                snapshot_position.fee_growth_inside_1_last_x_128.into(),
+                BigInt::from(snapshot_position.fee_growth_inside_1_last_x_128.unwrap()),
             );
     }
 }
@@ -715,15 +844,15 @@ pub fn transaction_entity_change(transactions: Transactions, entity_changes: &mu
         entity_changes
             .push_change(
                 "Transaction",
-                transaction.id.clone(),
+                transaction.id.clone().as_str(),
                 transaction.log_ordinal,
                 Operation::Create,
             )
-            .change_string("id", transaction.id.into())
-            .change_bigint("blockNumber", transaction.block_number.into())
-            .change_bigint("timestamp", transaction.timestamp.into())
-            .change_bigint("gasUsed", transaction.gas_used.into())
-            .change_bigint("gasPrice", transaction.gas_price.into());
+            .change("id", transaction.id)
+            .change("blockNumber", BigInt::from(transaction.block_number))
+            .change("timestamp", BigInt::from(transaction.timestamp))
+            .change("gasUsed", BigInt::from(transaction.gas_used))
+            .change("gasPrice", BigInt::from(transaction.gas_price.unwrap()));
     }
 }
 
@@ -744,7 +873,7 @@ pub fn swaps_mints_burns_created_entity_change(
         if event.r#type.is_some() {
             let transaction_count: i32 =
                 match tx_count_store.get_last(keyer::factory_total_tx_count()) {
-                    Some(data) => data.into(),
+                    Some(data) => data.to_u64() as i32,
                     None => 0,
                 };
 
@@ -776,8 +905,8 @@ pub fn swaps_mints_burns_created_entity_change(
 
             return match event.r#type.unwrap() {
                 SwapEvent(swap) => {
-                    let amount0: BigDecimal = BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
-                    let amount1: BigDecimal = BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+                    let amount0: BigDecimal = BigDecimal::from(swap.amount_0.unwrap());
+                    let amount1: BigDecimal = BigDecimal::from(swap.amount_1.unwrap());
 
                     let amount_usd: BigDecimal = utils::calculate_amount_usd(
                         &amount0,
@@ -790,30 +919,30 @@ pub fn swaps_mints_burns_created_entity_change(
                     entity_changes
                         .push_change(
                             "Swap",
-                            transaction_id.clone(),
+                            transaction_id.clone().as_str(),
                             event.log_ordinal,
                             Operation::Create,
                         )
-                        .change_string("id", transaction_id.into())
-                        .change_string("transaction", event.transaction_id.into())
-                        .change_bigint("timestamp", event.timestamp.into())
-                        .change_string("pool", event.pool_address.into())
-                        .change_string("token0", event.token0.into())
-                        .change_string("token1", event.token1.into())
-                        .change_bytes("sender", swap.sender.into()) // this as change_string()
-                        .change_bytes("recipient", swap.recipient.into()) // this as change_string()
-                        .change_bytes("origin", swap.origin.into()) // this as change_string()
-                        .change_bigdecimal("amount0", swap.amount_0.into())
-                        .change_bigdecimal("amount1", swap.amount_1.into())
-                        .change_bigdecimal("amountUSD", amount_usd.into())
-                        .change_bigint("sqrtPriceX96", swap.sqrt_price.into())
-                        .change_bigint("tick", swap.tick.into())
-                        .change_bigint("logIndex", event.log_ordinal.into());
+                        .change("id", transaction_id)
+                        .change("transaction", event.transaction_id)
+                        .change("timestamp", BigInt::from(event.timestamp))
+                        .change("pool", event.pool_address)
+                        .change("token0", event.token0)
+                        .change("token1", event.token1)
+                        .change("sender", swap.sender) // this as change_string()
+                        .change("recipient", swap.recipient) // this as change_string()
+                        .change("origin", swap.origin) // this as change_string()
+                        .change("amount0", amount0)
+                        .change("amount1", amount1)
+                        .change("amountUSD", amount_usd)
+                        .change("sqrtPriceX96", BigInt::from(swap.sqrt_price.unwrap()))
+                        .change("tick", BigInt::from(swap.tick.unwrap()))
+                        .change("logIndex", BigInt::from(event.log_ordinal));
                     // not sure if log index is good
                 }
                 MintEvent(mint) => {
-                    let amount0: BigDecimal = BigDecimal::from_str(mint.amount_0.as_str()).unwrap();
-                    let amount1: BigDecimal = BigDecimal::from_str(mint.amount_1.as_str()).unwrap();
+                    let amount0: BigDecimal = BigDecimal::from(mint.amount_0.unwrap());
+                    let amount1: BigDecimal = BigDecimal::from(mint.amount_1.unwrap());
 
                     let amount_usd: BigDecimal = utils::calculate_amount_usd(
                         &amount0,
@@ -826,31 +955,31 @@ pub fn swaps_mints_burns_created_entity_change(
                     entity_changes
                         .push_change(
                             "Mint",
-                            transaction_id.clone(),
+                            transaction_id.clone().as_str(),
                             event.log_ordinal,
                             Operation::Create,
                         )
-                        .change_string("id", transaction_id.into())
-                        .change_string("transaction", event.transaction_id.into())
-                        .change_bigint("timestamp", event.timestamp.into())
-                        .change_string("pool", event.pool_address.into())
-                        .change_string("token0", event.token0.into())
-                        .change_string("token1", event.token1.into())
-                        .change_bytes("owner", mint.owner.into())
-                        .change_bytes("sender", mint.sender.into())
-                        .change_bytes("origin", mint.origin.into())
-                        .change_bigint("amount", mint.amount.into())
-                        .change_bigdecimal("amount0", mint.amount_0.into())
-                        .change_bigdecimal("amount1", mint.amount_1.into())
-                        .change_bigdecimal("amountUSD", amount_usd.into())
-                        .change_bigint("tickLower", mint.tick_lower.into())
-                        .change_bigint("tickUpper", mint.tick_upper.into())
-                        .change_bigint("logIndex", event.log_ordinal.into());
+                        .change("id", transaction_id)
+                        .change("transaction", event.transaction_id)
+                        .change("timestamp", BigInt::from(event.timestamp))
+                        .change("pool", event.pool_address)
+                        .change("token0", event.token0)
+                        .change("token1", event.token1)
+                        .change("owner", mint.owner)
+                        .change("sender", mint.sender)
+                        .change("origin", mint.origin)
+                        .change("amount", BigInt::from(mint.amount.unwrap()))
+                        .change("amount0", amount0)
+                        .change("amount1", amount1)
+                        .change("amountUSD", amount_usd)
+                        .change("tickLower", BigInt::from(mint.tick_lower.unwrap()))
+                        .change("tickUpper", BigInt::from(mint.tick_upper.unwrap()))
+                        .change("logIndex", BigInt::from(event.log_ordinal));
                     // not sure if log index is good
                 }
                 BurnEvent(burn) => {
-                    let amount0: BigDecimal = BigDecimal::from_str(burn.amount_0.as_str()).unwrap();
-                    let amount1: BigDecimal = BigDecimal::from_str(burn.amount_1.as_str()).unwrap();
+                    let amount0: BigDecimal = BigDecimal::from(burn.amount_0.unwrap());
+                    let amount1: BigDecimal = BigDecimal::from(burn.amount_1.unwrap());
 
                     let amount_usd: BigDecimal = utils::calculate_amount_usd(
                         &amount0,
@@ -863,25 +992,25 @@ pub fn swaps_mints_burns_created_entity_change(
                     entity_changes
                         .push_change(
                             "Burn",
-                            transaction_id.clone(),
+                            transaction_id.clone().as_str(),
                             event.log_ordinal,
                             Operation::Create,
                         )
-                        .change_string("id", transaction_id.into())
-                        .change_string("transaction", event.transaction_id.into())
-                        .change_string("pool", event.pool_address.into())
-                        .change_string("token0", event.token0.into())
-                        .change_string("token1", event.token1.into())
-                        .change_bigint("timestamp", event.timestamp.into())
-                        .change_bytes("owner", burn.owner.into())
-                        .change_bytes("origin", burn.origin.into())
-                        .change_bigint("amount", burn.amount.into())
-                        .change_bigdecimal("amount0", burn.amount_0.into())
-                        .change_bigdecimal("amount1", burn.amount_1.into())
-                        .change_bigdecimal("amountUSD", amount_usd.into())
-                        .change_bigint("tickLower", burn.tick_lower.into())
-                        .change_bigint("tickUpper", burn.tick_upper.into())
-                        .change_bigint("logIndex", event.log_ordinal.into());
+                        .change("id", transaction_id)
+                        .change("transaction", event.transaction_id)
+                        .change("pool", event.pool_address)
+                        .change("token0", event.token0)
+                        .change("token1", event.token1)
+                        .change("timestamp", BigInt::from(event.timestamp))
+                        .change("owner", burn.owner)
+                        .change("origin", burn.origin)
+                        .change("amount", BigInt::from(burn.amount.unwrap()))
+                        .change("amount0", amount0)
+                        .change("amount1", amount1)
+                        .change("amountUSD", amount_usd)
+                        .change("tickLower", BigInt::from(burn.tick_lower.unwrap()))
+                        .change("tickUpper", BigInt::from(burn.tick_upper.unwrap()))
+                        .change("logIndex", BigInt::from(event.log_ordinal));
                     // not sure if log index is good
                 }
             };
@@ -897,17 +1026,17 @@ pub fn flashes_update_pool_fee_entity_change(flashes: Flashes, entity_changes: &
         entity_changes
             .push_change(
                 "Pool",
-                flash.pool_address,
+                flash.pool_address.as_str(),
                 flash.log_ordinal,
                 Operation::Update,
             )
-            .change_bigint(
+            .change(
                 "feeGrowthGlobal0X128",
-                flash.fee_growth_global_0x_128.into(),
+                BigInt::from(flash.fee_growth_global_0x_128.unwrap()),
             )
-            .change_bigint(
+            .change(
                 "feeGrowthGlobal1X128",
-                flash.fee_growth_global_1x_128.into(),
+                BigInt::from(flash.fee_growth_global_1x_128.unwrap()),
             );
     }
 }
@@ -937,14 +1066,14 @@ pub fn uniswap_day_data_tx_count_entity_change(
         entity_changes
             .push_change(
                 "UniswapDayData",
-                day_id.to_string(),
+                day_id.to_string().as_str(),
                 delta.ordinal,
                 Operation::Update,
             )
-            .change_string("id", day_id.into())
-            .change_int32("date", day_start_timestamp.into())
-            .change_bigdecimal("volumeUSDUntracked", BigDecimal::zero().into())
-            .change_bigint("txCount", delta.into());
+            .change("id", day_id.to_string())
+            .change("date", day_start_timestamp)
+            .change("volumeUSDUntracked", BigDecimal::zero())
+            .change("txCount", delta);
     }
 }
 
@@ -969,11 +1098,11 @@ pub fn uniswap_day_data_totals_entity_change(
         entity_changes
             .push_change(
                 "UniswapDayData",
-                day_id.to_string(),
+                day_id.to_string().as_str(),
                 delta.ordinal,
                 Operation::Update,
             )
-            .change_bigdecimal("tvlUSD", delta.into());
+            .change("tvlUSD", delta);
     }
 }
 
@@ -1005,10 +1134,10 @@ pub fn uniswap_day_data_volumes_entity_change(
         entity_changes
             .push_change(
                 "UniswapDayData",
-                day_id.to_string(),
+                day_id.to_string().as_str(),
                 delta.ordinal,
                 Operation::Update,
             )
-            .change_bigdecimal(name, delta.into());
+            .change(name, delta);
     }
 }

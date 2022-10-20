@@ -30,7 +30,6 @@ use crate::uniswap::{
 use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY};
 use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Sub};
-use std::str::FromStr;
 use substreams::errors::Error;
 use substreams::hex;
 use substreams::pb::substreams::Clock;
@@ -69,7 +68,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                     transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
                     created_at_block_number: block.number,
                     created_at_timestamp: block.timestamp_seconds(),
-                    fee_tier: event.fee.as_u32(),
+                    fee_tier: Some(event.fee.as_u32().into()),
                     tick_spacing: event.tick_spacing.get_big_int().into(),
                     log_ordinal: log.ordinal(),
                     ignore_pool: event.pool == hex!("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248"),
@@ -114,7 +113,7 @@ pub fn store_pools(pools: Pools, store: StoreSetProto<Pool>) {
             keyer::pool_token_index_key(
                 &pool.token0_ref().address(),
                 &pool.token1_ref().address(),
-                pool.fee_tier,
+                pool.fee_tier.as_ref().unwrap().into(),
             ),
             &pool,
         );
@@ -192,8 +191,8 @@ pub fn map_pool_sqrt_price(
                     pool_sqrt_prices.push(PoolSqrtPrice {
                         pool_address: pool.address,
                         ordinal: log.ordinal(),
-                        sqrt_price: event.sqrt_price_x96.to_string(),
-                        tick: event.tick.to_string(),
+                        sqrt_price: Some(event.sqrt_price_x96.into()),
+                        tick: Some(event.tick.into()),
                     });
                 }
             }
@@ -211,8 +210,8 @@ pub fn map_pool_sqrt_price(
                     pool_sqrt_prices.push(PoolSqrtPrice {
                         pool_address: pool.address,
                         ordinal: log.ordinal(),
-                        sqrt_price: event.sqrt_price_x96.to_string(),
-                        tick: event.tick.to_string(),
+                        sqrt_price: Some(event.sqrt_price_x96.into()),
+                        tick: Some(event.tick.into()),
                     });
                 }
             }
@@ -312,7 +311,7 @@ pub fn map_pool_liquidities(
 #[substreams::handlers::store]
 pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, store: StoreSetBigInt) {
     for pool_liquidity in pool_liquidities.pool_liquidities {
-        let big_int: BigInt = pool_liquidity.liquidity.try_into().unwrap();
+        let big_int: BigInt = pool_liquidity.liquidity.unwrap().into();
         store.set(
             0,
             keyer::pool_liquidity(&pool_liquidity.pool_address),
@@ -336,7 +335,7 @@ pub fn store_prices(
             Some(pool) => {
                 let token0 = pool.token0.as_ref().unwrap();
                 let token1 = pool.token1.as_ref().unwrap();
-                log::info!(
+                log::debug!(
                     "pool addr: {}, pool trx_id: {}, token 0 addr: {}, token 1 addr: {}",
                     pool.address,
                     pool.transaction_id,
@@ -344,9 +343,8 @@ pub fn store_prices(
                     token1.address
                 );
 
-                let sqrt_price =
-                    BigDecimal::from_str(sqrt_price_update.sqrt_price.as_str()).unwrap();
-                log::info!("sqrtPrice: {}", sqrt_price.to_string());
+                let sqrt_price = BigDecimal::from(sqrt_price_update.sqrt_price.unwrap());
+                log::debug!("sqrtPrice: {}", sqrt_price.to_string());
 
                 let tokens_price: (BigDecimal, BigDecimal) =
                     price::sqrt_price_x96_to_token_prices(sqrt_price, &token0, &token1);
@@ -415,8 +413,8 @@ pub fn map_swaps_mints_burns(
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
-                    let amount0 = &swap.amount0.to_decimal(token0.decimals);
-                    let amount1 = &swap.amount1.to_decimal(token1.decimals);
+                    let amount0 = swap.amount0.to_decimal(token0.decimals);
+                    let amount1 = swap.amount1.to_decimal(token1.decimals);
                     log::debug!("amount0: {}, amount1:{}", amount0, amount1);
 
                     events.push(Event {
@@ -425,7 +423,7 @@ pub fn map_swaps_mints_burns(
                         pool_address: pool.address.to_string(),
                         token0: token0.address.clone(),
                         token1: token1.address.clone(),
-                        fee: pool.fee_tier.to_string(),
+                        fee: pool.fee_tier.unwrap().value,
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
                         timestamp: block
                             .header
@@ -440,11 +438,15 @@ pub fn map_swaps_mints_burns(
                             sender: Hex(&swap.sender).to_string(),
                             recipient: Hex(&swap.recipient).to_string(),
                             origin: Hex(&log.receipt.transaction.from).to_string(),
-                            amount_0: amount0.to_string(),
-                            amount_1: amount1.to_string(),
-                            sqrt_price: swap.sqrt_price_x96.to_string(),
-                            liquidity: swap.liquidity.to_string(),
-                            tick: swap.tick.get_big_int().into(),
+                            amount_0: Some(uniswap::BigDecimal {
+                                value: amount0.to_string(),
+                            }),
+                            amount_1: Some(uniswap::BigDecimal {
+                                value: amount1.to_string(),
+                            }),
+                            sqrt_price: Some(swap.sqrt_price_x96.into()),
+                            liquidity: Some(swap.liquidity.into()),
+                            tick: Some(swap.tick.into()),
                         })),
                     });
                 }
@@ -469,8 +471,8 @@ pub fn map_swaps_mints_burns(
 
                     let amount0_bi: EthBigInt = mint.amount0.try_into().unwrap();
                     let amount1_bi: EthBigInt = mint.amount1.try_into().unwrap();
-                    let amount0 = &amount0_bi.to_decimal(token0.decimals);
-                    let amount1 = &amount1_bi.to_decimal(token1.decimals);
+                    let amount0 = amount0_bi.to_decimal(token0.decimals);
+                    let amount1 = amount1_bi.to_decimal(token1.decimals);
                     log::debug!(
                         "logOrdinal: {}, amount0: {}, amount1:{}",
                         log.ordinal(),
@@ -484,7 +486,7 @@ pub fn map_swaps_mints_burns(
                         pool_address: pool.address.to_string(),
                         token0: token0.address.clone(),
                         token1: token1.address.clone(),
-                        fee: pool.fee_tier.to_string(),
+                        fee: pool.fee_tier.unwrap().value,
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
                         timestamp: block
                             .header
@@ -499,11 +501,15 @@ pub fn map_swaps_mints_burns(
                             owner: Hex(&mint.owner).to_string(),
                             sender: Hex(&mint.sender).to_string(),
                             origin: Hex(&log.receipt.transaction.from).to_string(),
-                            amount: mint.amount.to_string(),
-                            amount_0: amount0.to_string(),
-                            amount_1: amount1.to_string(),
-                            tick_lower: mint.tick_lower.get_big_int().into(),
-                            tick_upper: mint.tick_upper.get_big_int().into(),
+                            amount: Some(mint.amount.into()),
+                            amount_0: Some(uniswap::BigDecimal {
+                                value: amount0.to_string(),
+                            }),
+                            amount_1: Some(uniswap::BigDecimal {
+                                value: amount1.to_string(),
+                            }),
+                            tick_lower: Some(mint.tick_lower.into()),
+                            tick_upper: Some(mint.tick_upper.into()),
                         })),
                     });
                 }
@@ -528,8 +534,8 @@ pub fn map_swaps_mints_burns(
 
                     let amount0_bi: EthBigInt = burn.amount0.try_into().unwrap();
                     let amount1_bi: EthBigInt = burn.amount1.try_into().unwrap();
-                    let amount0 = &amount0_bi.to_decimal(token0.decimals);
-                    let amount1 = &amount1_bi.to_decimal(token1.decimals);
+                    let amount0 = amount0_bi.to_decimal(token0.decimals);
+                    let amount1 = amount1_bi.to_decimal(token1.decimals);
                     log::debug!("amount0: {}, amount1:{}", amount0, amount1);
 
                     events.push(Event {
@@ -538,7 +544,7 @@ pub fn map_swaps_mints_burns(
                         pool_address: pool.address.to_string(),
                         token0: token1.address.clone(),
                         token1: token1.address.clone(),
-                        fee: pool.fee_tier.to_string(),
+                        fee: pool.fee_tier.unwrap().value,
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
                         timestamp: block
                             .header
@@ -552,11 +558,11 @@ pub fn map_swaps_mints_burns(
                         r#type: Some(BurnEvent(uniswap::Burn {
                             owner: Hex(&burn.owner).to_string(),
                             origin: Hex(&log.receipt.transaction.from).to_string(),
-                            amount: burn.amount.to_string(),
-                            amount_0: amount0.to_string(),
-                            amount_1: amount1.to_string(),
-                            tick_lower: burn.tick_lower.get_big_int().into(),
-                            tick_upper: burn.tick_upper.get_big_int().into(),
+                            amount: Some(burn.amount.into()),
+                            amount_0: Some(amount0.into()),
+                            amount_1: Some(amount1.into()),
+                            tick_lower: Some(burn.tick_lower.into()),
+                            tick_upper: Some(burn.tick_upper.into()),
                         })),
                     });
                 }
@@ -579,43 +585,43 @@ pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error>
             match event.r#type.unwrap() {
                 BurnEvent(burn) => {
                     log::debug!("handling burn for pool {}", event.pool_address);
-                    let amount0: BigDecimal = burn.amount_0.try_into().unwrap();
-                    let amount1: BigDecimal = burn.amount_1.try_into().unwrap();
+                    let amount0: BigDecimal = burn.amount_0.unwrap().into();
+                    let amount1: BigDecimal = burn.amount_1.unwrap().into();
                     event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         token0_addr: event.token0,
-                        amount0_value: amount0.neg().to_string(),
+                        amount0_value: Some(amount0.neg().into()),
                         token1_addr: event.token1,
-                        amount1_value: amount1.neg().to_string(),
+                        amount1_value: Some(amount1.neg().into()),
                         ..Default::default()
                     });
                 }
                 MintEvent(mint) => {
                     log::debug!("handling mint for pool {}", event.pool_address);
-                    let amount0: BigDecimal = mint.amount_0.try_into().unwrap();
-                    let amount1: BigDecimal = mint.amount_1.try_into().unwrap();
+                    let amount0: BigDecimal = mint.amount_0.unwrap().into();
+                    let amount1: BigDecimal = mint.amount_1.unwrap().into();
                     event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         token0_addr: event.token0,
-                        amount0_value: amount0.to_string(),
+                        amount0_value: Some(amount0.into()),
                         token1_addr: event.token1,
-                        amount1_value: amount1.to_string(),
+                        amount1_value: Some(amount1.into()),
                         ..Default::default()
                     });
                 }
                 SwapEvent(swap) => {
                     log::debug!("handling swap for pool {}", event.pool_address);
-                    let amount0: BigDecimal = swap.amount_0.try_into().unwrap();
-                    let amount1: BigDecimal = swap.amount_1.try_into().unwrap();
+                    let amount0: BigDecimal = swap.amount_0.unwrap().into();
+                    let amount1: BigDecimal = swap.amount_1.unwrap().into();
                     event_amounts.push(EventAmount {
                         pool_address: event.pool_address,
                         log_ordinal: event.log_ordinal,
                         token0_addr: event.token0,
-                        amount0_value: amount0.to_string(),
+                        amount0_value: Some(amount0.into()),
                         token1_addr: event.token1,
-                        amount1_value: amount1.to_string(),
+                        amount1_value: Some(amount1.into()),
                         ..Default::default()
                     });
                 }
@@ -820,14 +826,12 @@ pub fn store_swaps_volume(
                             Some(price) => price,
                         };
 
-                    let mut amount0_abs: BigDecimal =
-                        BigDecimal::from_str(swap.amount_0.as_str()).unwrap();
+                    let mut amount0_abs: BigDecimal = BigDecimal::from(swap.amount_0.unwrap());
                     if amount0_abs.lt(&BigDecimal::from(0 as u64)) {
                         amount0_abs = amount0_abs.mul(BigDecimal::from(-1 as i64))
                     }
 
-                    let mut amount1_abs: BigDecimal =
-                        BigDecimal::from_str(swap.amount_1.as_str()).unwrap();
+                    let mut amount1_abs: BigDecimal = BigDecimal::from(swap.amount_1.unwrap());
                     if amount1_abs.lt(&BigDecimal::from(0 as u64)) {
                         amount1_abs = amount1_abs.mul(BigDecimal::from(-1 as i64))
                     }
@@ -858,7 +862,7 @@ pub fn store_swaps_volume(
                         .add(amount1_abs.clone())
                         .div(BigDecimal::from(2 as i32));
 
-                    let fee_tier: BigDecimal = BigDecimal::from(pool.fee_tier);
+                    let fee_tier: BigDecimal = BigDecimal::from(pool.fee_tier.unwrap());
                     let fee_usd: BigDecimal = amount_total_usd_tracked
                         .clone()
                         .mul(fee_tier.clone())
@@ -969,8 +973,8 @@ pub fn store_native_total_value_locked(
     store: StoreAddBigDecimal,
 ) {
     for event_amount in event_amounts.event_amounts {
-        let amount0: BigDecimal = event_amount.amount0_value.try_into().unwrap();
-        let amount1: BigDecimal = event_amount.amount1_value.try_into().unwrap();
+        let amount0: BigDecimal = event_amount.amount0_value.unwrap().into();
+        let amount1: BigDecimal = event_amount.amount1_value.unwrap().into();
         store.add_many(
             event_amount.log_ordinal,
             &vec![
@@ -1010,7 +1014,7 @@ pub fn store_eth_prices(
         log::debug!(
             "handling pool price update - addr: {} price: {}",
             pool_sqrt_price.pool_address,
-            pool_sqrt_price.sqrt_price
+            pool_sqrt_price.sqrt_price.unwrap().value
         );
         let pool = pools_store.must_get_last(&keyer::pool_key(&pool_sqrt_price.pool_address));
         let token_0 = pool.token0.as_ref().unwrap();
@@ -1079,23 +1083,23 @@ pub fn store_eth_prices(
 pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigDecimal) {
     for event in events.events {
         log::debug!("trx_id: {}", event.transaction_id);
-        let mut amount0: BigDecimal = BigDecimal::zero();
-        let mut amount1: BigDecimal = BigDecimal::zero();
+        let mut amount0: BigDecimal;
+        let mut amount1: BigDecimal;
 
         match event.r#type.unwrap() {
             BurnEvent(burn) => {
-                amount0 = burn.amount_0.try_into().unwrap();
+                amount0 = burn.amount_0.unwrap().into();
                 amount0 = amount0.neg();
-                amount1 = burn.amount_1.try_into().unwrap();
+                amount1 = burn.amount_1.unwrap().into();
                 amount1 = amount1.neg();
             }
             MintEvent(mint) => {
-                amount0 = mint.amount_0.try_into().unwrap();
-                amount1 = mint.amount_1.try_into().unwrap();
+                amount0 = mint.amount_0.unwrap().into();
+                amount1 = mint.amount_1.unwrap().into();
             }
             SwapEvent(swap) => {
-                amount0 = swap.amount_0.try_into().unwrap();
-                amount1 = swap.amount_1.try_into().unwrap();
+                amount0 = swap.amount_0.unwrap().into();
+                amount1 = swap.amount_1.unwrap().into();
             }
         }
 
@@ -1247,9 +1251,12 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
         match event.r#type.unwrap() {
             BurnEvent(burn) => {
                 log::debug!("burn event transaction_id: {}", event.transaction_id);
-                let lower_tick_id: String =
-                    format!("{}#{}", &event.pool_address, burn.tick_lower.to_string());
-                let lower_tick_idx: BigInt = burn.tick_lower.try_into().unwrap();
+                let lower_tick_id: String = format!(
+                    "{}#{}",
+                    &event.pool_address,
+                    burn.tick_lower.as_ref().unwrap().value
+                );
+                let lower_tick_idx: BigInt = burn.tick_lower.unwrap().into();
                 let lower_tick_price0 = math::big_decimal_exponated(
                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
                     lower_tick_idx.clone(),
@@ -1267,22 +1274,25 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let tick_lower: Tick = Tick {
                     id: lower_tick_id,
                     pool_address: event.pool_address.to_string(),
-                    idx: burn.tick_lower.to_string(),
-                    price0: lower_tick_price0.to_string(),
-                    price1: lower_tick_price1.to_string(),
+                    idx: Some(lower_tick_idx.into()),
+                    price0: Some(lower_tick_price0.into()),
+                    price1: Some(lower_tick_price1.into()),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: lower_tick_result.0.to_string(),
-                    fee_growth_outside_1x_128: lower_tick_result.1.to_string(),
+                    fee_growth_outside_0x_128: Some(lower_tick_result.0.into()),
+                    fee_growth_outside_1x_128: Some(lower_tick_result.1.into()),
                     log_ordinal: event.log_ordinal,
                     amount: burn.amount.clone(),
                     r#type: Lower as i32,
                     origin: Burn as i32,
                 };
 
-                let upper_tick_id: String =
-                    format!("{}#{}", &event.pool_address, burn.tick_upper.to_string());
-                let upper_tick_idx: BigInt = burn.tick_upper.try_into().unwrap();
+                let upper_tick_id: String = format!(
+                    "{}#{}",
+                    &event.pool_address,
+                    burn.tick_upper.as_ref().unwrap().value
+                );
+                let upper_tick_idx: BigInt = burn.tick_upper.unwrap().into();
                 let upper_tick_price0 = math::big_decimal_exponated(
                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
                     upper_tick_idx.clone(),
@@ -1298,13 +1308,13 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let tick_upper: Tick = Tick {
                     id: upper_tick_id,
                     pool_address: event.pool_address.to_string(),
-                    idx: burn.tick_upper.to_string(),
-                    price0: upper_tick_price0.to_string(),
-                    price1: upper_upper_price1.to_string(),
+                    idx: Some(upper_tick_idx.into()),
+                    price0: Some(upper_tick_price0.into()),
+                    price1: Some(upper_upper_price1.into()),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: upper_tick_result.0.to_string(),
-                    fee_growth_outside_1x_128: upper_tick_result.1.to_string(),
+                    fee_growth_outside_0x_128: Some(upper_tick_result.0.into()),
+                    fee_growth_outside_1x_128: Some(upper_tick_result.1.into()),
                     log_ordinal: event.log_ordinal,
                     amount: burn.amount,
                     r#type: Upper as i32,
@@ -1316,9 +1326,12 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
             }
             MintEvent(mint) => {
                 log::debug!("mint event transaction_id: {}", event.transaction_id);
-                let lower_tick_id: String =
-                    format!("{}#{}", &event.pool_address, mint.tick_lower.to_string());
-                let lower_tick_idx: BigInt = mint.tick_lower.try_into().unwrap();
+                let lower_tick_id: String = format!(
+                    "{}#{}",
+                    &event.pool_address,
+                    mint.tick_lower.as_ref().unwrap().value
+                );
+                let lower_tick_idx: BigInt = mint.tick_lower.unwrap().into();
                 let lower_tick_price0 = math::big_decimal_exponated(
                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
                     lower_tick_idx.clone(),
@@ -1336,22 +1349,25 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let tick_lower: Tick = Tick {
                     id: lower_tick_id,
                     pool_address: event.pool_address.to_string(),
-                    idx: mint.tick_lower.to_string(),
-                    price0: lower_tick_price0.to_string(),
-                    price1: lower_tick_price1.to_string(),
+                    idx: Some(lower_tick_idx.into()),
+                    price0: Some(lower_tick_price0.into()),
+                    price1: Some(lower_tick_price1.into()),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: lower_tick_result.0.to_string(),
-                    fee_growth_outside_1x_128: lower_tick_result.1.to_string(),
+                    fee_growth_outside_0x_128: Some(lower_tick_result.0.into()),
+                    fee_growth_outside_1x_128: Some(lower_tick_result.1.into()),
                     log_ordinal: event.log_ordinal,
                     amount: mint.amount.clone(),
                     r#type: Lower as i32,
                     origin: Mint as i32,
                 };
 
-                let upper_tick_id: String =
-                    format!("{}#{}", &event.pool_address, mint.tick_upper.to_string());
-                let upper_tick_idx: BigInt = mint.tick_upper.try_into().unwrap();
+                let upper_tick_id: String = format!(
+                    "{}#{}",
+                    &event.pool_address,
+                    mint.tick_upper.as_ref().unwrap().value
+                );
+                let upper_tick_idx: BigInt = mint.tick_upper.unwrap().into();
                 let upper_tick_price0 = math::big_decimal_exponated(
                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
                     upper_tick_idx.clone(),
@@ -1367,13 +1383,13 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let tick_upper: Tick = Tick {
                     id: upper_tick_id,
                     pool_address: event.pool_address.to_string(),
-                    idx: mint.tick_upper.to_string(),
-                    price0: upper_tick_price0.to_string(),
-                    price1: upper_tick_price1.to_string(),
+                    idx: Some(upper_tick_idx.into()),
+                    price0: Some(upper_tick_price0.into()),
+                    price1: Some(upper_tick_price1.into()),
                     created_at_timestamp: event.timestamp,
                     created_at_block_number: event.created_at_block_number,
-                    fee_growth_outside_0x_128: upper_tick_result.0.to_string(),
-                    fee_growth_outside_1x_128: upper_tick_result.1.to_string(),
+                    fee_growth_outside_0x_128: Some(upper_tick_result.0.into()),
+                    fee_growth_outside_1x_128: Some(upper_tick_result.1.into()),
                     log_ordinal: event.log_ordinal,
                     amount: mint.amount,
                     r#type: Upper as i32,
@@ -1405,42 +1421,42 @@ pub fn store_ticks_liquidities(ticks: Ticks, output: StoreAddBigInt) {
                 output.add(
                     tick.log_ordinal,
                     keyer::tick_liquidities_net(&tick.id),
-                    &BigInt::from_str(tick.amount.as_str()).unwrap(),
+                    &BigInt::from(tick.amount.as_ref().unwrap()),
                 );
             } else {
                 // upper
                 output.add(
                     tick.log_ordinal,
                     keyer::tick_liquidities_net(&tick.id),
-                    &BigInt::from_str(tick.amount.as_str()).unwrap().neg(),
+                    &BigInt::from(tick.amount.as_ref().unwrap()).neg(),
                 );
             }
 
             output.add(
                 tick.log_ordinal,
                 keyer::tick_liquidities_gross(&tick.id),
-                &BigInt::from_str(tick.amount.as_str()).unwrap(),
+                &BigInt::from(tick.amount.unwrap()),
             );
         } else if tick.origin == Burn as i32 {
             if tick.r#type == Lower as i32 {
                 output.add(
                     tick.log_ordinal,
                     keyer::tick_liquidities_net(&tick.id),
-                    &BigInt::from_str(tick.amount.as_str()).unwrap().neg(),
+                    &BigInt::from(tick.amount.as_ref().unwrap()).neg(),
                 );
             } else {
                 // upper
                 output.add(
                     tick.log_ordinal,
                     keyer::tick_liquidities_net(&tick.id),
-                    &BigInt::from_str(tick.amount.as_str()).unwrap(),
+                    &BigInt::from(tick.amount.as_ref().unwrap()),
                 );
             }
 
             output.add(
                 tick.log_ordinal,
                 keyer::tick_liquidities_gross(&tick.id),
-                &BigInt::from_str(tick.amount.as_str()).unwrap().neg(),
+                &BigInt::from(tick.amount.unwrap()).neg(),
             );
         }
     }
@@ -1624,8 +1640,8 @@ pub fn map_positions(
             if let Some(position_call_result) =
                 rpc::positions_call(&Hex(log.address()).to_string(), event.token_id)
             {
-                position.fee_growth_inside_0_last_x_128 = position_call_result.5.to_string();
-                position.fee_growth_inside_1_last_x_128 = position_call_result.6.to_string();
+                position.fee_growth_inside_0_last_x_128 = Some(position_call_result.5.into());
+                position.fee_growth_inside_1_last_x_128 = Some(position_call_result.6.into());
                 enriched_positions.insert(token_id.clone(), position);
                 if !ordered_positions.contains(&String::from(token_id.clone())) {
                     ordered_positions.push(String::from(token_id))
@@ -1695,48 +1711,46 @@ pub fn store_position_changes(all_positions: Positions, store: StoreAddBigDecima
                 store.add(
                     position.log_ordinal,
                     keyer::position_liquidity(&position.id),
-                    &BigDecimal::from_str(position.liquidity.as_str()).unwrap(),
+                    &BigDecimal::from(position.liquidity.unwrap()),
                 );
                 store.add(
                     position.log_ordinal,
                     keyer::position_deposited_token(&position.id, "Token0"),
-                    &BigDecimal::from_str(position.amount0.as_str()).unwrap(),
+                    &BigDecimal::from(position.amount0.unwrap()),
                 );
                 store.add(
                     position.log_ordinal,
                     keyer::position_deposited_token(&position.id, "Token1"),
-                    &BigDecimal::from_str(position.amount1.as_str()).unwrap(),
+                    &BigDecimal::from(position.amount1.unwrap()),
                 );
             }
             DecreaseLiquidity => {
                 store.add(
                     position.log_ordinal,
                     keyer::position_liquidity(&position.id),
-                    &BigDecimal::from_str(position.liquidity.as_str())
-                        .unwrap()
-                        .neg(),
+                    &BigDecimal::from(position.liquidity.unwrap()).neg(),
                 );
                 store.add(
                     position.log_ordinal,
                     keyer::position_withdrawn_token(&position.id, "Token0"),
-                    &BigDecimal::from_str(position.amount0.as_str()).unwrap(),
+                    &BigDecimal::from(position.amount0.unwrap()),
                 );
                 store.add(
                     position.log_ordinal,
                     keyer::position_withdrawn_token(&position.id, "Token1"),
-                    &BigDecimal::from_str(position.amount1.as_str()).unwrap(),
+                    &BigDecimal::from(position.amount1.unwrap()),
                 );
             }
             Collect => {
                 store.add(
                     position.log_ordinal,
                     keyer::position_collected_fees_token(&position.id, "Token0"),
-                    &BigDecimal::from_str(position.amount0.as_str()).unwrap(),
+                    &BigDecimal::from(position.amount0.unwrap()),
                 );
                 store.add(
                     position.log_ordinal,
                     keyer::position_collected_fees_token(&position.id, "Token1"),
-                    &BigDecimal::from_str(position.amount1.as_str()).unwrap(),
+                    &BigDecimal::from(position.amount1.unwrap()),
                 );
             }
             _ => {}
@@ -1764,75 +1778,69 @@ pub fn map_position_snapshots(
             block_number: position.block_number,
             timestamp: position.timestamp,
             transaction: position.transaction,
-            liquidity: "".to_string(),
-            deposited_token0: "".to_string(),
-            deposited_token1: "".to_string(),
-            withdrawn_token0: "".to_string(),
-            withdrawn_token1: "".to_string(),
-            collected_fees_token0: "".to_string(),
-            collected_fees_token1: "".to_string(),
             fee_growth_inside_0_last_x_128: position.fee_growth_inside_0_last_x_128,
             fee_growth_inside_1_last_x_128: position.fee_growth_inside_1_last_x_128,
             log_ordinal: position.log_ordinal,
+            ..Default::default()
         };
 
         match position_changes_store.get_last(keyer::position_liquidity(&position.id)) {
-            Some(liquidity) => snapshot_position.liquidity = liquidity.to_string(),
-            _ => snapshot_position.liquidity = "0".to_string(),
+            Some(liquidity) => snapshot_position.liquidity = Some(liquidity.into()),
+            _ => snapshot_position.liquidity = None,
         }
 
         match position_changes_store
             .get_last(keyer::position_deposited_token(&position.id, "Token0"))
         {
             Some(deposited_token0) => {
-                snapshot_position.deposited_token0 = deposited_token0.to_string();
+                snapshot_position.deposited_token0 = Some(deposited_token0.into());
             }
-            _ => snapshot_position.deposited_token0 = "0".to_string(),
+            _ => snapshot_position.deposited_token0 = None,
         }
 
         match position_changes_store
             .get_last(keyer::position_deposited_token(&position.id, "Token1"))
         {
             Some(deposited_token1) => {
-                snapshot_position.deposited_token1 = deposited_token1.to_string();
+                snapshot_position.deposited_token1 = Some(deposited_token1.into());
             }
-            _ => snapshot_position.deposited_token1 = "0".to_string(),
+            _ => snapshot_position.deposited_token1 = None,
         }
 
         match position_changes_store
             .get_last(keyer::position_withdrawn_token(&position.id, "Token0"))
         {
             Some(withdrawn_token0) => {
-                snapshot_position.withdrawn_token0 = withdrawn_token0.to_string();
+                snapshot_position.withdrawn_token0 = Some(withdrawn_token0.into());
             }
-            _ => snapshot_position.withdrawn_token0 = "0".to_string(),
+            _ => snapshot_position.withdrawn_token0 = None,
         }
 
         match position_changes_store
             .get_last(keyer::position_withdrawn_token(&position.id, "Token1"))
         {
             Some(withdrawn_token1) => {
-                snapshot_position.withdrawn_token1 = withdrawn_token1.to_string();
+                snapshot_position.withdrawn_token1 = Some(withdrawn_token1.into());
             }
-            _ => snapshot_position.withdrawn_token1 = "0".to_string(),
+            _ => snapshot_position.withdrawn_token1 = None,
         }
 
         match position_changes_store
             .get_last(keyer::position_collected_fees_token(&position.id, "Token0"))
         {
             Some(collected_fees_token0) => {
-                snapshot_position.collected_fees_token0 = collected_fees_token0.to_string();
+                snapshot_position.collected_fees_token0 = Some(collected_fees_token0.into());
             }
-            _ => snapshot_position.collected_fees_token0 = "0".to_string(),
+            _ => snapshot_position.collected_fees_token0 = None,
         }
 
         match position_changes_store
             .get_last(keyer::position_collected_fees_token(&position.id, "Token1"))
         {
             Some(collected_fees_token1) => {
-                snapshot_position.collected_fees_token1 = collected_fees_token1.to_string();
+                snapshot_position.collected_fees_token1 = Some(collected_fees_token1.into());
             }
-            _ => snapshot_position.collected_fees_token1 = "0".to_string(),
+            _ => snapshot_position.collected_fees_token1 = None,
         }
 
         snapshot_positions
@@ -1862,8 +1870,8 @@ pub fn map_flashes(block: Block, pool_store: StoreGetProto<Pool>) -> Result<Flas
 
                     out.flashes.push(Flash {
                         pool_address,
-                        fee_growth_global_0x_128: fee_growth_global_0x_128.to_string(),
-                        fee_growth_global_1x_128: fee_growth_global_1x_128.to_string(),
+                        fee_growth_global_0x_128: Some(fee_growth_global_0x_128.into()),
+                        fee_growth_global_1x_128: Some(fee_growth_global_1x_128.into()),
                         log_ordinal: log.ordinal(),
                     });
                 }

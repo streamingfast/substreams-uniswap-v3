@@ -1,12 +1,15 @@
 use crate::pb::position_event::PositionEventType;
 use crate::uniswap::position::PositionType;
+use crate::uniswap::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
 use crate::PositionType::Unset;
 use crate::{
-    BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Position, Transfer,
+    BigInt, Collect, DecreaseLiquidity, Erc20Token, EthBigInt, IncreaseLiquidity, Pool,
+    PoolSqrtPrice, Position, Transfer,
 };
 use ethabi::Uint;
 use std::str::FromStr;
 use substreams::log;
+use substreams::scalar::BigDecimal;
 
 #[allow(unused_imports)]
 #[allow(dead_code)]
@@ -27,6 +30,121 @@ impl Erc20Token {
             self.symbol,
             self.name
         );
+    }
+}
+
+impl From<PbBigInt> for BigDecimal {
+    fn from(bi: PbBigInt) -> Self {
+        let big_int: BigInt = bi.into();
+        BigDecimal::from(big_int)
+    }
+}
+
+impl Into<PbBigInt> for EthBigInt {
+    fn into(self) -> PbBigInt {
+        PbBigInt {
+            value: self.to_string(),
+        }
+    }
+}
+
+impl From<PbBigInt> for BigInt {
+    fn from(bi: PbBigInt) -> Self {
+        BigInt::from_str(bi.value.as_str()).unwrap()
+    }
+}
+
+impl From<&PbBigInt> for BigInt {
+    fn from(bi: &PbBigInt) -> Self {
+        BigInt::from_str(bi.value.as_str()).unwrap()
+    }
+}
+
+impl Into<PbBigInt> for &BigInt {
+    fn into(self) -> PbBigInt {
+        PbBigInt {
+            value: self.to_string(),
+        }
+    }
+}
+
+impl Into<PbBigInt> for BigInt {
+    fn into(self) -> PbBigInt {
+        PbBigInt {
+            value: self.to_string(),
+        }
+    }
+}
+
+impl Into<PbBigInt> for Uint {
+    fn into(self) -> PbBigInt {
+        PbBigInt {
+            value: self.to_string(),
+        }
+    }
+}
+
+impl From<PbBigInt> for u32 {
+    fn from(bi: PbBigInt) -> Self {
+        u32::from_str(bi.value.as_str()).unwrap()
+    }
+}
+
+impl From<&PbBigInt> for u32 {
+    fn from(bi: &PbBigInt) -> Self {
+        u32::from_str(bi.value.as_str()).unwrap()
+    }
+}
+
+impl Into<PbBigInt> for u32 {
+    fn into(self) -> PbBigInt {
+        PbBigInt {
+            value: self.to_string(),
+        }
+    }
+}
+
+impl From<PbBigDecimal> for BigDecimal {
+    fn from(bd: PbBigDecimal) -> Self {
+        BigDecimal::from_str(bd.value.as_str()).unwrap()
+    }
+}
+
+impl From<&PbBigDecimal> for BigDecimal {
+    fn from(bd: &PbBigDecimal) -> Self {
+        BigDecimal::from_str(bd.value.as_str()).unwrap()
+    }
+}
+
+impl From<BigDecimal> for PbBigDecimal {
+    fn from(bd: BigDecimal) -> Self {
+        PbBigDecimal {
+            value: bd.to_string(),
+        }
+    }
+}
+
+impl From<&BigDecimal> for PbBigDecimal {
+    fn from(bd: &BigDecimal) -> Self {
+        PbBigDecimal {
+            value: bd.to_string(),
+        }
+    }
+}
+
+impl PoolSqrtPrice {
+    pub fn sqrt_price(&self) -> BigInt {
+        return match &self.sqrt_price {
+            None => BigInt::zero(),
+            Some(value) => BigInt::from(value),
+        };
+    }
+
+    pub fn tick(&self) -> BigInt {
+        return match &self.tick {
+            None => BigInt::zero(),
+            Some(value) => BigInt::from(value),
+        };
     }
 }
 
