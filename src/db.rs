@@ -1115,14 +1115,7 @@ pub fn uniswap_day_data_volumes_entity_change(
             continue;
         }
 
-        let day_id: i64 = delta
-            .key
-            .as_str()
-            .split(":")
-            .nth(1)
-            .unwrap()
-            .parse::<i64>()
-            .unwrap();
+        let day_id = delta.key.as_str().split(":").nth(1).unwrap();
 
         let name = match delta.key.as_str().split(":").last().unwrap() {
             "volumeETH" => "volumeETH",
@@ -1132,12 +1125,7 @@ pub fn uniswap_day_data_volumes_entity_change(
         };
 
         entity_changes
-            .push_change(
-                "UniswapDayData",
-                day_id.to_string().as_str(),
-                delta.ordinal,
-                Operation::Update,
-            )
+            .push_change("UniswapDayData", day_id, delta.ordinal, Operation::Update)
             .change(name, delta);
     }
 }
