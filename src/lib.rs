@@ -43,7 +43,6 @@ use substreams::store::{
 };
 use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::EntityChanges;
-use substreams_ethereum::scalar::EthBigInt;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]
@@ -68,8 +67,8 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                     transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
                     created_at_block_number: block.number,
                     created_at_timestamp: block.timestamp_seconds(),
-                    fee_tier: Some(event.fee.as_u32().into()),
-                    tick_spacing: event.tick_spacing.get_big_int().into(),
+                    fee_tier: Some(event.fee.into()),
+                    tick_spacing: event.tick_spacing.into(),
                     log_ordinal: log.ordinal(),
                     ignore_pool: event.pool == hex!("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248"),
                     token0: Some(match rpc::create_uniswap_token(&token0_address) {
@@ -425,14 +424,7 @@ pub fn map_swaps_mints_burns(
                         token1: token1.address.clone(),
                         fee: pool.fee_tier.unwrap().value,
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        timestamp: block
-                            .header
-                            .as_ref()
-                            .unwrap()
-                            .timestamp
-                            .as_ref()
-                            .unwrap()
-                            .seconds as u64,
+                        timestamp: block.timestamp_seconds(),
                         created_at_block_number: block.number,
                         r#type: Some(SwapEvent(uniswap::Swap {
                             sender: Hex(&swap.sender).to_string(),
@@ -469,10 +461,8 @@ pub fn map_swaps_mints_burns(
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
-                    let amount0_bi: EthBigInt = mint.amount0.try_into().unwrap();
-                    let amount1_bi: EthBigInt = mint.amount1.try_into().unwrap();
-                    let amount0 = amount0_bi.to_decimal(token0.decimals);
-                    let amount1 = amount1_bi.to_decimal(token1.decimals);
+                    let amount0 = mint.amount0.to_decimal(token0.decimals);
+                    let amount1 = mint.amount1.to_decimal(token1.decimals);
                     log::debug!(
                         "logOrdinal: {}, amount0: {}, amount1:{}",
                         log.ordinal(),
@@ -488,26 +478,15 @@ pub fn map_swaps_mints_burns(
                         token1: token1.address.clone(),
                         fee: pool.fee_tier.unwrap().value,
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        timestamp: block
-                            .header
-                            .as_ref()
-                            .unwrap()
-                            .timestamp
-                            .as_ref()
-                            .unwrap()
-                            .seconds as u64,
+                        timestamp: block.timestamp_seconds(),
                         created_at_block_number: block.number,
                         r#type: Some(MintEvent(uniswap::Mint {
                             owner: Hex(&mint.owner).to_string(),
                             sender: Hex(&mint.sender).to_string(),
                             origin: Hex(&log.receipt.transaction.from).to_string(),
                             amount: Some(mint.amount.into()),
-                            amount_0: Some(uniswap::BigDecimal {
-                                value: amount0.to_string(),
-                            }),
-                            amount_1: Some(uniswap::BigDecimal {
-                                value: amount1.to_string(),
-                            }),
+                            amount_0: Some(amount0.into()),
+                            amount_1: Some(amount1.into()),
                             tick_lower: Some(mint.tick_lower.into()),
                             tick_upper: Some(mint.tick_upper.into()),
                         })),
@@ -532,8 +511,8 @@ pub fn map_swaps_mints_burns(
                     let token0 = pool.token0.as_ref().unwrap();
                     let token1 = pool.token1.as_ref().unwrap();
 
-                    let amount0_bi: EthBigInt = burn.amount0.try_into().unwrap();
-                    let amount1_bi: EthBigInt = burn.amount1.try_into().unwrap();
+                    let amount0_bi: BigInt = burn.amount0;
+                    let amount1_bi: BigInt = burn.amount1;
                     let amount0 = amount0_bi.to_decimal(token0.decimals);
                     let amount1 = amount1_bi.to_decimal(token1.decimals);
                     log::debug!("amount0: {}, amount1:{}", amount0, amount1);
@@ -546,14 +525,7 @@ pub fn map_swaps_mints_burns(
                         token1: token1.address.clone(),
                         fee: pool.fee_tier.unwrap().value,
                         transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        timestamp: block
-                            .header
-                            .as_ref()
-                            .unwrap()
-                            .timestamp
-                            .as_ref()
-                            .unwrap()
-                            .seconds as u64,
+                        timestamp: block.timestamp_seconds(),
                         created_at_block_number: block.number,
                         r#type: Some(BurnEvent(uniswap::Burn {
                             owner: Hex(&burn.owner).to_string(),
@@ -1266,10 +1238,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
 
                 //todo: implement the fee_growth_outside_x128_call mimicked from the smart contract
                 // to reduce the number of rpc calls to do
-                let lower_tick_result = rpc::fee_growth_outside_x128_call(
-                    &event.pool_address,
-                    &lower_tick_idx.to_string(),
-                );
+                let lower_tick_result =
+                    rpc::fee_growth_outside_x128_call(&event.pool_address, &lower_tick_idx);
 
                 let tick_lower: Tick = Tick {
                     id: lower_tick_id,
@@ -1300,10 +1270,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let upper_upper_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &upper_tick_price0);
 
-                let upper_tick_result = rpc::fee_growth_outside_x128_call(
-                    &event.pool_address,
-                    &upper_tick_idx.to_string(),
-                );
+                let upper_tick_result =
+                    rpc::fee_growth_outside_x128_call(&event.pool_address, &upper_tick_idx);
 
                 let tick_upper: Tick = Tick {
                     id: upper_tick_id,
@@ -1339,10 +1307,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let lower_tick_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &lower_tick_price0);
 
-                let lower_tick_result = rpc::fee_growth_outside_x128_call(
-                    &event.pool_address,
-                    &lower_tick_idx.to_string(),
-                );
+                let lower_tick_result =
+                    rpc::fee_growth_outside_x128_call(&event.pool_address, &lower_tick_idx);
 
                 // in the subgraph, there is a `load` which is done to see if the tick
                 // exists and if it doesn't exist, createTick()
@@ -1375,10 +1341,8 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 let upper_tick_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &upper_tick_price0);
 
-                let upper_tick_result = rpc::fee_growth_outside_x128_call(
-                    &event.pool_address,
-                    &upper_tick_idx.to_string(),
-                );
+                let upper_tick_result =
+                    rpc::fee_growth_outside_x128_call(&event.pool_address, &upper_tick_idx);
 
                 let tick_upper: Tick = Tick {
                     id: upper_tick_id,

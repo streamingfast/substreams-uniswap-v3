@@ -1,16 +1,13 @@
     const INTERNAL_ERR: &'static str = "`ethabi_derive` internal error";
     /// Contract's functions.
-    #[allow(dead_code)]
-    #[allow(unused_variables)]
-    #[allow(unused_imports)]
+    #[allow(dead_code, unused_imports, unused_variables)]
     pub mod functions {
-        use substreams_ethereum::scalar::EthBigInt;
         use super::INTERNAL_ERR;
         #[derive(Debug, Clone, PartialEq)]
         pub struct CreatePool {
             pub token_a: Vec<u8>,
             pub token_b: Vec<u8>,
-            pub fee: ethabi::Uint,
+            pub fee: substreams::scalar::BigInt,
         }
         impl CreatePool {
             const METHOD_ID: [u8; 4] = [161u8, 103u8, 18u8, 149u8];
@@ -46,11 +43,16 @@
                         .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
-                    fee: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
+                    fee: {
+                        let mut v = [0 as u8; 32];
+                        values
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        v.into()
+                    },
                 })
             }
             pub fn encode(&self) -> Vec<u8> {
@@ -62,7 +64,11 @@
                         ethabi::Token::Address(
                             ethabi::Address::from_slice(&self.token_b),
                         ),
-                        ethabi::Token::Uint(self.fee),
+                        ethabi::Token::Uint(
+                            ethabi::Uint::from_big_endian(
+                                self.fee.clone().to_signed_bytes_be().as_slice(),
+                            ),
+                        ),
                     ],
                 );
                 let mut encoded = Vec::with_capacity(4 + data.len());
@@ -145,8 +151,8 @@
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct EnableFeeAmount {
-            pub fee: ethabi::Uint,
-            pub tick_spacing: EthBigInt,
+            pub fee: substreams::scalar::BigInt,
+            pub tick_spacing: substreams::scalar::BigInt,
         }
         impl EnableFeeAmount {
             const METHOD_ID: [u8; 4] = [138u8, 124u8, 25u8, 95u8];
@@ -167,11 +173,16 @@
                     .map_err(|e| format!("unable to decode call.input: {:?}", e))?;
                 values.reverse();
                 Ok(Self {
-                    fee: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
+                    fee: {
+                        let mut v = [0 as u8; 32];
+                        values
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        v.into()
+                    },
                     tick_spacing: {
                         let mut v = [0 as u8; 32];
                         values
@@ -180,18 +191,21 @@
                             .into_int()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        EthBigInt::new(v.into())
+                        v.into()
                     },
                 })
             }
             pub fn encode(&self) -> Vec<u8> {
                 let data = ethabi::encode(
                     &[
-                        ethabi::Token::Uint(self.fee),
+                        ethabi::Token::Uint(
+                            ethabi::Uint::from_big_endian(
+                                self.fee.clone().to_signed_bytes_be().as_slice(),
+                            ),
+                        ),
                         {
                             let non_full_signed_bytes = self
                                 .tick_spacing
-                                .get_big_int()
                                 .to_signed_bytes_be();
                             let mut full_signed_bytes = [0xff as u8; 32];
                             non_full_signed_bytes
@@ -233,7 +247,7 @@
         }
         #[derive(Debug, Clone, PartialEq)]
         pub struct FeeAmountTickSpacing {
-            pub fee: ethabi::Uint,
+            pub fee: substreams::scalar::BigInt,
         }
         impl FeeAmountTickSpacing {
             const METHOD_ID: [u8; 4] = [34u8, 175u8, 204u8, 203u8];
@@ -251,15 +265,28 @@
                     .map_err(|e| format!("unable to decode call.input: {:?}", e))?;
                 values.reverse();
                 Ok(Self {
-                    fee: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
+                    fee: {
+                        let mut v = [0 as u8; 32];
+                        values
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        v.into()
+                    },
                 })
             }
             pub fn encode(&self) -> Vec<u8> {
-                let data = ethabi::encode(&[ethabi::Token::Uint(self.fee)]);
+                let data = ethabi::encode(
+                    &[
+                        ethabi::Token::Uint(
+                            ethabi::Uint::from_big_endian(
+                                self.fee.clone().to_signed_bytes_be().as_slice(),
+                            ),
+                        ),
+                    ],
+                );
                 let mut encoded = Vec::with_capacity(4 + data.len());
                 encoded.extend(Self::METHOD_ID);
                 encoded.extend(data);
@@ -267,10 +294,10 @@
             }
             pub fn output_call(
                 call: &substreams_ethereum::pb::eth::v2::Call,
-            ) -> Result<EthBigInt, String> {
+            ) -> Result<substreams::scalar::BigInt, String> {
                 Self::output(call.return_data.as_ref())
             }
-            pub fn output(data: &[u8]) -> Result<EthBigInt, String> {
+            pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Int(24usize)],
                         data.as_ref(),
@@ -284,7 +311,7 @@
                         .into_int()
                         .expect(INTERNAL_ERR)
                         .to_big_endian(v.as_mut_slice());
-                    EthBigInt::new(v.into())
+                    v.into()
                 })
             }
             pub fn match_call(call: &substreams_ethereum::pb::eth::v2::Call) -> bool {
@@ -293,7 +320,7 @@
                     None => false,
                 }
             }
-            pub fn call(&self, address: Vec<u8>) -> Option<EthBigInt> {
+            pub fn call(&self, address: Vec<u8>) -> Option<substreams::scalar::BigInt> {
                 use substreams_ethereum::pb::eth::rpc;
                 let rpc_calls = rpc::RpcCalls {
                     calls: vec![
@@ -334,8 +361,9 @@
                 self.encode()
             }
         }
-        impl substreams_ethereum::rpc::RPCDecodable<EthBigInt> for FeeAmountTickSpacing {
-            fn output(data: &[u8]) -> Result<EthBigInt, String> {
+        impl substreams_ethereum::rpc::RPCDecodable<substreams::scalar::BigInt>
+        for FeeAmountTickSpacing {
+            fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 Self::output(data)
             }
         }
@@ -343,7 +371,7 @@
         pub struct GetPool {
             pub token_a: Vec<u8>,
             pub token_b: Vec<u8>,
-            pub fee: ethabi::Uint,
+            pub fee: substreams::scalar::BigInt,
         }
         impl GetPool {
             const METHOD_ID: [u8; 4] = [22u8, 152u8, 238u8, 130u8];
@@ -379,11 +407,16 @@
                         .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
-                    fee: values
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
+                    fee: {
+                        let mut v = [0 as u8; 32];
+                        values
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        v.into()
+                    },
                 })
             }
             pub fn encode(&self) -> Vec<u8> {
@@ -395,7 +428,11 @@
                         ethabi::Token::Address(
                             ethabi::Address::from_slice(&self.token_b),
                         ),
-                        ethabi::Token::Uint(self.fee),
+                        ethabi::Token::Uint(
+                            ethabi::Uint::from_big_endian(
+                                self.fee.clone().to_signed_bytes_be().as_slice(),
+                            ),
+                        ),
                     ],
                 );
                 let mut encoded = Vec::with_capacity(4 + data.len());
@@ -626,14 +663,13 @@
         }
     }
     /// Contract's events.
-    #[allow(dead_code)]
+    #[allow(dead_code, unused_imports, unused_variables)]
     pub mod events {
-        use substreams_ethereum::scalar::EthBigInt;
         use super::INTERNAL_ERR;
         #[derive(Debug, Clone, PartialEq)]
         pub struct FeeAmountEnabled {
-            pub fee: ethabi::Uint,
-            pub tick_spacing: EthBigInt,
+            pub fee: substreams::scalar::BigInt,
+            pub tick_spacing: substreams::scalar::BigInt,
         }
         impl FeeAmountEnabled {
             const TOPIC_ID: [u8; 32] = [
@@ -684,24 +720,27 @@
                 log: &substreams_ethereum::pb::eth::v2::Log,
             ) -> Result<Self, String> {
                 Ok(Self {
-                    fee: ethabi::decode(
-                            &[ethabi::ParamType::Uint(24usize)],
-                            log.topics[1usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'fee' from topic of type 'uint24': {:?}",
-                                e
+                    fee: {
+                        let mut v = [0 as u8; 32];
+                        ethabi::decode(
+                                &[ethabi::ParamType::Uint(24usize)],
+                                log.topics[1usize].as_ref(),
                             )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
-                    tick_spacing: EthBigInt::new(
-                        substreams::scalar::BigInt::from_signed_bytes_be(
-                            log.topics[2usize].as_ref(),
-                        ),
+                            .map_err(|e| {
+                                format!(
+                                    "unable to decode param 'fee' from topic of type 'uint24': {:?}",
+                                    e
+                                )
+                            })?
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        v.into()
+                    },
+                    tick_spacing: substreams::scalar::BigInt::from_signed_bytes_be(
+                        log.topics[2usize].as_ref(),
                     ),
                 })
             }
@@ -821,8 +860,8 @@
         pub struct PoolCreated {
             pub token0: Vec<u8>,
             pub token1: Vec<u8>,
-            pub fee: ethabi::Uint,
-            pub tick_spacing: EthBigInt,
+            pub fee: substreams::scalar::BigInt,
+            pub tick_spacing: substreams::scalar::BigInt,
             pub pool: Vec<u8>,
         }
         impl PoolCreated {
@@ -912,20 +951,25 @@
                         .expect(INTERNAL_ERR)
                         .as_bytes()
                         .to_vec(),
-                    fee: ethabi::decode(
-                            &[ethabi::ParamType::Uint(24usize)],
-                            log.topics[3usize].as_ref(),
-                        )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'fee' from topic of type 'uint24': {:?}",
-                                e
+                    fee: {
+                        let mut v = [0 as u8; 32];
+                        ethabi::decode(
+                                &[ethabi::ParamType::Uint(24usize)],
+                                log.topics[3usize].as_ref(),
                             )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_uint()
-                        .expect(INTERNAL_ERR),
+                            .map_err(|e| {
+                                format!(
+                                    "unable to decode param 'fee' from topic of type 'uint24': {:?}",
+                                    e
+                                )
+                            })?
+                            .pop()
+                            .expect(INTERNAL_ERR)
+                            .into_uint()
+                            .expect(INTERNAL_ERR)
+                            .to_big_endian(v.as_mut_slice());
+                        v.into()
+                    },
                     tick_spacing: {
                         let mut v = [0 as u8; 32];
                         values
@@ -934,7 +978,7 @@
                             .into_int()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        EthBigInt::new(v.into())
+                        v.into()
                     },
                     pool: values
                         .pop()

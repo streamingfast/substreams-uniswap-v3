@@ -1,11 +1,9 @@
 use crate::{abi, eth, utils, Erc20Token};
-use ethabi::Uint;
 use prost::Message;
 use substreams::log;
 use substreams::scalar::BigInt;
 use substreams::Hex;
 use substreams_ethereum::rpc::RpcBatch;
-use substreams_ethereum::scalar::EthBigInt;
 
 pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
     let responses = RpcBatch::new()
@@ -26,22 +24,14 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
 
     let fee_0: BigInt =
         match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal0X128>(&responses[0]) {
-            Some(data) => {
-                let mut v = [0u8; 256usize];
-                data.to_big_endian(&mut v);
-                BigInt::from_signed_bytes_be(&v)
-            }
+            Some(data) => data,
             None => {
                 panic!("Failed to decode fee growth global 1x128");
             }
         };
     let fee_1: BigInt =
         match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal1X128>(&responses[1]) {
-            Some(data) => {
-                let mut v = [0u8; 256usize];
-                data.to_big_endian(&mut v);
-                BigInt::from_signed_bytes_be(&v)
-            }
+            Some(data) => data,
             None => {
                 panic!("Failed to decode fee growth global 1x128");
             }
@@ -50,13 +40,9 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
     return (fee_0, fee_1);
 }
 
-pub fn fee_growth_outside_x128_call(
-    pool_address: &String,
-    tick_idx: &String,
-) -> (EthBigInt, EthBigInt) {
-    let tick: EthBigInt = EthBigInt::new(tick_idx.try_into().unwrap());
-    log::info!("pool address {} tick idx {}", pool_address, tick_idx);
-    let ticks = abi::pool::functions::Ticks { tick };
+pub fn fee_growth_outside_x128_call(pool_address: &String, tick: &BigInt) -> (BigInt, BigInt) {
+    log::info!("pool address {} tick idx {}", pool_address, tick);
+    let ticks = abi::pool::functions::Ticks { tick: tick.clone() };
 
     let tick_option = ticks.call(hex::decode(pool_address).unwrap());
     if tick_option.is_none() {
@@ -69,26 +55,20 @@ pub fn fee_growth_outside_x128_call(
 
 pub fn positions_call(
     pool_address: &String,
-    token_id: Uint,
-) -> Option<(
-    Vec<u8>,
-    Vec<u8>,
-    EthBigInt,
-    EthBigInt,
-    EthBigInt,
-    EthBigInt,
-    EthBigInt,
-)> {
-    let positions = abi::positionmanager::functions::Positions { token_id };
+    token_id: BigInt,
+) -> Option<(Vec<u8>, Vec<u8>, BigInt, BigInt, BigInt, BigInt, BigInt)> {
+    let positions = abi::positionmanager::functions::Positions {
+        token_id: token_id.clone(),
+    };
     if let Some(positions_result) = positions.call(hex::decode(pool_address).unwrap()) {
         return Some((
             positions_result.2,
             positions_result.3,
-            positions_result.4.try_into().unwrap(),
+            positions_result.4,
             positions_result.5,
             positions_result.6,
-            positions_result.8.try_into().unwrap(),
-            positions_result.9.try_into().unwrap(),
+            positions_result.8,
+            positions_result.9,
         ));
     };
 
@@ -117,7 +97,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     let decimals: u64;
     match RpcBatch::decode::<_, abi::erc20::functions::Decimals>(&responses[0]) {
         Some(decoded_decimals) => {
-            decimals = decoded_decimals.as_u64();
+            decimals = decoded_decimals.to_u64();
         }
         None => match utils::get_static_uniswap_tokens(token_address.encode_to_vec().as_slice()) {
             Some(token) => decimals = token.decimals,
@@ -179,10 +159,10 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     });
 }
 
-pub fn token_total_supply_call(token_address: &String) -> Option<EthBigInt> {
+pub fn token_total_supply_call(token_address: &String) -> Option<BigInt> {
     let token_supply = abi::erc20::functions::TotalSupply {};
     if let Some(token_supply_result) = token_supply.call(hex::decode(token_address).unwrap()) {
-        return Some(EthBigInt::try_from(token_supply_result).unwrap());
+        return Some(token_supply_result);
     };
 
     return None;

@@ -831,7 +831,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "substreams"
-version = "0.3.0"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc0f6daef1b9e1008bc9bbb44c1a9d6e03d259262a1481850a949f47e9fa405a"
 dependencies = [
  "bigdecimal",
  "hex",
@@ -842,7 +844,26 @@ dependencies = [
  "prost",
  "prost-build",
  "prost-types",
- "substreams-macro",
+ "substreams-macro 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror",
+ "wee_alloc",
+]
+
+[[package]]
+name = "substreams"
+version = "0.3.1"
+source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#cdac9f90aebe11f0aeea599cd3c3cf42b57b7e36"
+dependencies = [
+ "bigdecimal",
+ "hex",
+ "hex-literal",
+ "num-bigint",
+ "num-traits",
+ "pad",
+ "prost",
+ "prost-build",
+ "prost-types",
+ "substreams-macro 0.3.1 (git+https://github.com/streamingfast/substreams-rs?branch=develop)",
  "thiserror",
  "wee_alloc",
 ]
@@ -850,20 +871,22 @@ dependencies = [
 [[package]]
 name = "substreams-entity-change"
 version = "0.1.0"
+source = "git+https://github.com/streamingfast/substreams-entity-change?branch=develop#c040148041f07ba5a737e5f7fc171919553f46f1"
 dependencies = [
  "base64",
  "prost",
  "prost-build",
  "prost-types",
- "substreams",
+ "substreams 0.3.1 (git+https://github.com/streamingfast/substreams-rs?branch=develop)",
 ]
 
 [[package]]
 name = "substreams-ethereum"
-version = "0.6.0"
+version = "0.6.1"
+source = "git+https://github.com/streamingfast/substreams-ethereum?branch=develop#da4795983cae4ead81cab8c3bc5e27153f7239b8"
 dependencies = [
  "getrandom",
- "substreams",
+ "substreams 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "substreams-ethereum-abigen",
  "substreams-ethereum-core",
  "substreams-ethereum-derive",
@@ -871,7 +894,8 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum-abigen"
-version = "0.6.0"
+version = "0.6.1"
+source = "git+https://github.com/streamingfast/substreams-ethereum?branch=develop#da4795983cae4ead81cab8c3bc5e27153f7239b8"
 dependencies = [
  "anyhow",
  "ethabi",
@@ -886,7 +910,8 @@ dependencies = [
 
 [[package]]
 name = "substreams-ethereum-core"
-version = "0.6.0"
+version = "0.6.1"
+source = "git+https://github.com/streamingfast/substreams-ethereum?branch=develop#da4795983cae4ead81cab8c3bc5e27153f7239b8"
 dependencies = [
  "bigdecimal",
  "ethabi",
@@ -895,12 +920,13 @@ dependencies = [
  "prost",
  "prost-build",
  "prost-types",
- "substreams",
+ "substreams 0.3.1 (git+https://github.com/streamingfast/substreams-rs?branch=develop)",
 ]
 
 [[package]]
 name = "substreams-ethereum-derive"
-version = "0.6.0"
+version = "0.6.1"
+source = "git+https://github.com/streamingfast/substreams-ethereum?branch=develop#da4795983cae4ead81cab8c3bc5e27153f7239b8"
 dependencies = [
  "ethabi",
  "heck",
@@ -913,7 +939,20 @@ dependencies = [
 
 [[package]]
 name = "substreams-macro"
-version = "0.3.0"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f80e79b8763bc4bac47d9754e7ff44fe64550359d134addcf06e966cb05dd92"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror",
+]
+
+[[package]]
+name = "substreams-macro"
+version = "0.3.1"
+source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#cdac9f90aebe11f0aeea599cd3c3cf42b57b7e36"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -938,7 +977,7 @@ dependencies = [
  "prost-types",
  "stable-hash 0.3.3",
  "stable-hash 0.4.2",
- "substreams",
+ "substreams 0.3.1 (git+https://github.com/streamingfast/substreams-rs?branch=develop)",
  "substreams-entity-change",
  "substreams-ethereum",
  "thiserror",

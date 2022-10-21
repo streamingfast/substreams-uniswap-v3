@@ -3,8 +3,8 @@ use crate::uniswap::position::PositionType;
 use crate::uniswap::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
 use crate::PositionType::Unset;
 use crate::{
-    BigInt, Collect, DecreaseLiquidity, Erc20Token, EthBigInt, IncreaseLiquidity, Pool,
-    PoolSqrtPrice, Position, Transfer,
+    BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, PoolSqrtPrice,
+    Position, Transfer,
 };
 use ethabi::Uint;
 use std::str::FromStr;
@@ -37,14 +37,6 @@ impl From<PbBigInt> for BigDecimal {
     fn from(bi: PbBigInt) -> Self {
         let big_int: BigInt = bi.into();
         BigDecimal::from(big_int)
-    }
-}
-
-impl Into<PbBigInt> for EthBigInt {
-    fn into(self) -> PbBigInt {
-        PbBigInt {
-            value: self.to_string(),
-        }
     }
 }
 
@@ -221,12 +213,12 @@ pub mod position_event {
 impl PositionEvent {
     //todo: create methods to get the data with the various types
     // which some of them will return nothing
-    pub fn get_token_id(&self) -> Uint {
+    pub fn get_token_id(&self) -> BigInt {
         return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => evt.token_id,
-            PositionEventType::DecreaseLiquidity(evt) => evt.token_id,
-            PositionEventType::Collect(evt) => evt.token_id,
-            PositionEventType::Transfer(evt) => evt.token_id,
+            PositionEventType::IncreaseLiquidity(evt) => evt.token_id.clone(),
+            PositionEventType::DecreaseLiquidity(evt) => evt.token_id.clone(),
+            PositionEventType::Collect(evt) => evt.token_id.clone(),
+            PositionEventType::Transfer(evt) => evt.token_id.clone(),
         };
     }
 

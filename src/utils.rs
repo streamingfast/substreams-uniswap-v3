@@ -219,7 +219,7 @@ pub fn get_position(
     if let Some(positions_call_result) = rpc::positions_call(log_address, event.get_token_id()) {
         let token_id_0_bytes = positions_call_result.0;
         let token_id_1_bytes = positions_call_result.1;
-        let fee = positions_call_result.2.get_big_int();
+        let fee = positions_call_result.2;
         let tick_lower: BigInt = positions_call_result.3.into();
         let tick_upper: BigInt = positions_call_result.4.into();
         let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into();
