@@ -150,7 +150,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     log::debug!("decoded_symbol ok");
 
     return Some(Erc20Token {
-        address: Hex(&token_address).to_string(),
+        address: token_address.clone(),
         name,
         symbol,
         decimals,
