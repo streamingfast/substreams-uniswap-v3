@@ -1759,7 +1759,7 @@ pub fn map_position_snapshots(
             Some(deposited_token0) => {
                 snapshot_position.deposited_token0 = Some(deposited_token0.into());
             }
-            _ => snapshot_position.deposited_token0 = None,
+            _ => snapshot_position.deposited_token0 = Some(BigDecimal::zero().into()),
         }
 
         match position_changes_store
@@ -1768,7 +1768,7 @@ pub fn map_position_snapshots(
             Some(deposited_token1) => {
                 snapshot_position.deposited_token1 = Some(deposited_token1.into());
             }
-            _ => snapshot_position.deposited_token1 = None,
+            _ => snapshot_position.deposited_token1 = Some(BigDecimal::zero().into()),
         }
 
         match position_changes_store
@@ -1777,7 +1777,7 @@ pub fn map_position_snapshots(
             Some(withdrawn_token0) => {
                 snapshot_position.withdrawn_token0 = Some(withdrawn_token0.into());
             }
-            _ => snapshot_position.withdrawn_token0 = None,
+            _ => snapshot_position.withdrawn_token0 = Some(BigDecimal::zero().into()),
         }
 
         match position_changes_store
@@ -1786,7 +1786,7 @@ pub fn map_position_snapshots(
             Some(withdrawn_token1) => {
                 snapshot_position.withdrawn_token1 = Some(withdrawn_token1.into());
             }
-            _ => snapshot_position.withdrawn_token1 = None,
+            _ => snapshot_position.withdrawn_token1 = Some(BigDecimal::zero().into()),
         }
 
         match position_changes_store
@@ -1795,7 +1795,7 @@ pub fn map_position_snapshots(
             Some(collected_fees_token0) => {
                 snapshot_position.collected_fees_token0 = Some(collected_fees_token0.into());
             }
-            _ => snapshot_position.collected_fees_token0 = None,
+            _ => snapshot_position.collected_fees_token0 = Some(BigDecimal::zero().into()),
         }
 
         match position_changes_store
@@ -1804,7 +1804,7 @@ pub fn map_position_snapshots(
             Some(collected_fees_token1) => {
                 snapshot_position.collected_fees_token1 = Some(collected_fees_token1.into());
             }
-            _ => snapshot_position.collected_fees_token1 = None,
+            _ => snapshot_position.collected_fees_token1 = Some(BigDecimal::zero().into()),
         }
 
         snapshot_positions
