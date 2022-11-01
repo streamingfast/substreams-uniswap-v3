@@ -1,12 +1,12 @@
 use crate::ethpb::v2::TransactionTrace;
 use crate::pb::PositionEvent;
-use crate::uniswap::position::PositionType;
-use crate::uniswap::Transaction;
+use crate::uniswap_types_v1::position::PositionType;
+use crate::uniswap_types_v1::Transaction;
 use crate::{
     keyer, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, WHITELIST_TOKENS,
 };
 
-use crate::uniswap::BigInt as PbBigInt;
+use crate::uniswap_types_v1::BigInt as PbBigInt;
 use std::ops::{Add, Mul};
 use std::str;
 use substreams::scalar::{BigDecimal, BigInt};

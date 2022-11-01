@@ -1,4 +1,3 @@
-use crate::uniswap::tick::Origin;
 use crate::{
     keyer, utils, BurnEvent, Erc20Token, Events, Flashes, MintEvent, PoolSqrtPrice, Pools,
     Positions, SnapshotPositions, SwapEvent, Tick, Transactions,
@@ -10,7 +9,10 @@ use substreams::store::{
     StoreGetBigInt,
 };
 use substreams::Hex;
-use substreams_entity_change::pb::entity::{entity_change::Operation, EntityChange, EntityChanges};
+use substreams_entity_change::pb::entity::entity_change::Operation;
+use substreams_entity_change::pb::entity::{EntityChange, EntityChanges};
+use crate::uniswap_types_v1::tick::Origin;
+
 
 // -------------------
 //  Map Bundle Entities

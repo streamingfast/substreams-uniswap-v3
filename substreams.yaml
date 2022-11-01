@@ -8,7 +8,6 @@ package:
     See individual modules docs for help.
 
 imports:
-  entity: https://github.com/streamingfast/substreams-entity-change/raw/develop/substreams-entity-change-v0.1.0.spkg
 
 protobuf:
   files:
@@ -20,6 +19,11 @@ binaries:
   default:
     type: wasm/rust-v1
     file: target/wasm32-unknown-unknown/release/substreams_uniswap_v3.wasm
+    protoPackageMapping:
+      sf.ethereum.type.v2: "substreams_ethereum::pb::eth::v2"
+      sf.substreams.v1: "substreams::pb::substreams"
+      substreams.entity.v1: "substreams_entity_change::pb::entity"
+      uniswap.types.v1: "pb::uniswap_types_v1"
 
 modules:
   - name: map_pools_created

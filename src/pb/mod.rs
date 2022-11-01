@@ -1,6 +1,6 @@
 use crate::pb::position_event::PositionEventType;
-use crate::uniswap::position::PositionType;
-use crate::uniswap::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
+use crate::uniswap_types_v1::position::PositionType;
+use crate::uniswap_types_v1::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
 use crate::PositionType::Unset;
 use crate::{
     BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, PoolSqrtPrice,
@@ -14,7 +14,7 @@ use substreams::scalar::BigDecimal;
 #[allow(unused_imports)]
 #[allow(dead_code)]
 #[path = "./uniswap.types.v1.rs"]
-pub mod uniswap;
+pub mod uniswap_types_v1;
 
 #[allow(unused_imports)]
 #[allow(dead_code)]
