@@ -841,6 +841,11 @@ pub fn snapshot_position_entity_change(
 // --------------------
 pub fn transaction_entity_change(transactions: Transactions, entity_changes: &mut EntityChanges) {
     for transaction in transactions.transactions {
+        let gas_price = match transaction.gas_price {
+            None => BigInt::zero(),
+            Some(price) => BigInt::from(price),
+        };
+
         entity_changes
             .push_change(
                 "Transaction",
@@ -852,7 +857,7 @@ pub fn transaction_entity_change(transactions: Transactions, entity_changes: &mu
             .change("blockNumber", BigInt::from(transaction.block_number))
             .change("timestamp", BigInt::from(transaction.timestamp))
             .change("gasUsed", BigInt::from(transaction.gas_used))
-            .change("gasPrice", BigInt::from(transaction.gas_price.unwrap()));
+            .change("gasPrice", gas_price);
     }
 }
 
