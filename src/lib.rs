@@ -53,7 +53,6 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
         pools: block
             .events::<PoolCreated>(&[&UNISWAP_V3_FACTORY])
             .filter_map(|(event, log)| {
-                log::info!("asd");
                 log::info!("pool addr: {}", Hex(&event.pool));
 
                 let token0_address: String = Hex(&event.token0).to_string();

@@ -8,7 +8,7 @@ package:
     See individual modules docs for help.
 
 imports:
-  entity: https://github.com/streamingfast/substreams-entity-change/raw/develop/substreams-entity-change-v0.1.0.spkg
+  entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v0.2.1/substreams-entity-change-v0.2.1.spkg
 
 protobuf:
   files:
