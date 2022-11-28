@@ -51,7 +51,7 @@
                             .into_uint()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        v.into()
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                 })
             }
@@ -181,7 +181,7 @@
                             .into_uint()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        v.into()
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     tick_spacing: {
                         let mut v = [0 as u8; 32];
@@ -191,7 +191,7 @@
                             .into_int()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        v.into()
+                        substreams::scalar::BigInt::from_signed_bytes_be(&v)
                     },
                 })
             }
@@ -273,7 +273,7 @@
                             .into_uint()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        v.into()
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                 })
             }
@@ -311,7 +311,7 @@
                         .into_int()
                         .expect(INTERNAL_ERR)
                         .to_big_endian(v.as_mut_slice());
-                    v.into()
+                    substreams::scalar::BigInt::from_signed_bytes_be(&v)
                 })
             }
             pub fn match_call(call: &substreams_ethereum::pb::eth::v2::Call) -> bool {
@@ -415,7 +415,7 @@
                             .into_uint()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        v.into()
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                 })
             }
@@ -737,7 +737,7 @@
                             .into_uint()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        v.into()
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     tick_spacing: substreams::scalar::BigInt::from_signed_bytes_be(
                         log.topics[2usize].as_ref(),
@@ -968,7 +968,7 @@
                             .into_uint()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        v.into()
+                        substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     tick_spacing: {
                         let mut v = [0 as u8; 32];
@@ -978,7 +978,7 @@
                             .into_int()
                             .expect(INTERNAL_ERR)
                             .to_big_endian(v.as_mut_slice());
-                        v.into()
+                        substreams::scalar::BigInt::from_signed_bytes_be(&v)
                     },
                     pool: values
                         .pop()

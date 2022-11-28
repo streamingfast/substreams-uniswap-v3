@@ -199,7 +199,7 @@ pub fn load_transaction(
     transaction.gas_price = match transaction_trace.clone().gas_price {
         None => None,
         Some(gas_price) => {
-            let gas_price: BigInt = gas_price.bytes.into();
+            let gas_price: BigInt = BigInt::from_signed_bytes_be(&gas_price.bytes);
             Some(gas_price.into())
         }
     };
