@@ -47,6 +47,15 @@ message Pool {
   bool ignore_pool = 33;
 }
 
+message Events {
+  PoolSqrtPrices pool_sqrt_prices = 1;
+  PoolLiquidities pool_liquidities = 2;
+  TokenEvents events = 3;
+  Transactions transactions = 4;
+  Positions positions = 5;
+  Flashes flashes = 6;
+}
+
 message PoolSqrtPrices {
   repeated PoolSqrtPrice pool_sqrt_prices = 1;
 }
@@ -58,11 +67,11 @@ message PoolSqrtPrice {
   BigInt tick = 4;
 }
 
-message Events {
-  repeated Event events = 1;
+message TokenEvents {
+  repeated TokenEvent events = 1;
 }
 
-message Event {
+message TokenEvent {
   oneof type {
     Swap swap = 1;
     Burn burn = 2;

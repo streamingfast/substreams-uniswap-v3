@@ -9,9 +9,9 @@ build:
 stream: build
 	substreams run -e $(ENDPOINT) substreams.yaml map_transfers -s 12292922 -t +10
 
-.PHONY: codegen
-codegen:
-	substreams protogen ./substreams.yaml --exclude-paths="sf/ethereum,sf/substreams,google"
+.PHONY: protogen
+protogen:
+	substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google"
 
 .PHONE: package
 package: build

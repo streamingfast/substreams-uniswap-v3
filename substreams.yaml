@@ -59,6 +59,15 @@ modules:
     inputs:
       - map: map_tokens_whitelist_pools
 
+  - name: map_extract_data_types
+    kind: map
+    initialBlock: 12369621
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pools
+    output:
+      type: proto:uniswap.types.v1.Events
+
   - name: map_pool_sqrt_price
     kind: map
     initialBlock: 12369621

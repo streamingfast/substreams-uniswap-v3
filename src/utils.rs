@@ -209,7 +209,7 @@ pub fn load_transaction(
 pub fn get_position(
     store_pool: &StoreGetProto<Pool>,
     log_address: &String,
-    transaction_hash: &Vec<u8>,
+    transaction_id: &String,
     position_type: PositionType,
     log_ordinal: u64,
     timestamp: u64,
@@ -252,7 +252,7 @@ pub fn get_position(
             token1,
             tick_lower: format!("{}#{}", pool.address, tick_lower.to_string()),
             tick_upper: format!("{}#{}", pool.address, tick_upper.to_string()),
-            transaction: Hex(&transaction_hash).to_string(),
+            transaction: transaction_id.to_string(),
             fee_growth_inside_0_last_x_128: Some(fee_growth_inside_0_last_x128.into()),
             fee_growth_inside_1_last_x_128: Some(fee_growth_inside_1_last_x128.into()),
             liquidity: Some(PbBigInt {

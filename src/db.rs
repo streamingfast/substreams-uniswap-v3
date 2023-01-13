@@ -1,7 +1,7 @@
 use crate::uniswap::tick::Origin;
 use crate::{
-    keyer, utils, BurnEvent, Erc20Token, Events, Flashes, MintEvent, PoolSqrtPrice, Pools,
-    Positions, SnapshotPositions, SwapEvent, Tick, Transactions,
+    keyer, utils, BurnEvent, Erc20Token, Flashes, MintEvent, PoolSqrtPrice, Pools, Positions,
+    SnapshotPositions, SwapEvent, Tick, TokenEvents, Transactions,
 };
 use std::str::FromStr;
 use substreams::scalar::{BigDecimal, BigInt};
@@ -865,7 +865,7 @@ pub fn transaction_entity_change(transactions: Transactions, entity_changes: &mu
 //  Map Swaps Mints Burns Entities
 // --------------------
 pub fn swaps_mints_burns_created_entity_change(
-    events: Events,
+    events: TokenEvents,
     tx_count_store: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
     entity_changes: &mut EntityChanges,

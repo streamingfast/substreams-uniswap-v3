@@ -170,6 +170,10 @@ impl Pool {
     pub fn token1(&self) -> Erc20Token {
         self.clone().token1.unwrap()
     }
+
+    pub fn fee_tier_value(&self) -> String {
+        self.clone().fee_tier.unwrap().value
+    }
 }
 
 impl Erc20Token {

@@ -1,6 +1,7 @@
 pub mod abi;
 mod db;
 mod eth;
+mod filtering;
 mod keyer;
 mod math;
 mod pb;
@@ -11,12 +12,14 @@ mod utils;
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
 use crate::pb::position_event::PositionEventType;
-use crate::pb::uniswap::event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
 use crate::pb::uniswap::tick::Type::{Lower, Upper};
+use crate::pb::uniswap::token_event::Type::{
+    Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent,
+};
 use crate::pb::uniswap::{
-    Erc20Token, Erc20Tokens, Event, EventAmount, Events, Pool, PoolLiquidities, PoolLiquidity,
-    PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
+    Erc20Token, Erc20Tokens, EventAmount, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice,
+    PoolSqrtPrices, Pools, Tick, Ticks, TokenEvent, TokenEvents,
 };
 use crate::pb::{uniswap, PositionEvent};
 use crate::price::WHITELIST_TOKENS;
@@ -25,7 +28,7 @@ use crate::uniswap::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
 use crate::uniswap::{
-    Flash, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transactions,
+    Events, Flash, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transactions,
 };
 use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY};
 use std::collections::HashMap;
@@ -165,6 +168,110 @@ pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreApp
             token.whitelist_pools,
         );
     }
+}
+
+#[substreams::handlers::map]
+pub fn map_extract_data_types(
+    block: Block,
+    pools_store: StoreGetProto<Pool>,
+) -> Result<Events, Error> {
+    let mut events = Events::default();
+
+    let mut pool_sqrt_prices = PoolSqrtPrices::default();
+    let mut pool_liquidities = PoolLiquidities::default();
+    let mut token_events = TokenEvents::default();
+    let mut transactions = Transactions::default();
+    let mut positions = Positions::default();
+    let mut flashes = Flashes::default();
+
+    let timestamp = block.timestamp_seconds();
+
+    for trx in block.transactions() {
+        for call in trx.calls.iter() {
+            let _call_index = call.index;
+            if call.state_reverted {
+                continue;
+            }
+
+            for log in call.logs.iter() {
+                let pool_address = &Hex(log.clone().address).to_string();
+                let pool_key = &keyer::pool_key(&pool_address);
+                let transactions_id = Hex(&trx.hash).to_string();
+
+                match pools_store.get_last(pool_key) {
+                    None => continue,
+                    Some(pool) => {
+                        // PoolSqrtPrices
+                        filtering::extract_pool_sqrt_prices(
+                            &mut pool_sqrt_prices,
+                            log,
+                            pool_address,
+                        );
+                        // PoolSqrtPrices
+
+                        // PoolLiquidities
+                        filtering::extract_pool_liquidities(
+                            &mut pool_liquidities,
+                            log,
+                            &call.storage_changes,
+                            &pool,
+                        );
+                        // PoolLiquidities
+
+                        // TokenEvents
+                        filtering::extract_token_events(
+                            &mut token_events,
+                            &transactions_id,
+                            &Hex(&trx.from).to_string(),
+                            log,
+                            &pool,
+                            timestamp,
+                            block.number,
+                        );
+                        // TokenEvents
+
+                        // Transactions
+                        filtering::extract_transactions(
+                            &mut transactions,
+                            log,
+                            &trx,
+                            timestamp,
+                            block.number,
+                        );
+                        // Transactions
+
+                        // Flashes
+                        filtering::extract_flashes(&mut flashes, &log, &pools_store, pool_key);
+                        // Flashes
+                    }
+                }
+
+                //todo: pools_store needed to check if the pool exists in the store
+                // by checking the index:token1:token2 instead of the address...
+                // could this be done smarter and checked with the log_address ?
+
+                // Positions
+                filtering::extract_positions(
+                    &mut positions,
+                    log,
+                    &transactions_id,
+                    &pools_store,
+                    timestamp,
+                    block.number,
+                );
+                // Positions
+            }
+        }
+    }
+
+    events.pool_sqrt_prices = Some(pool_sqrt_prices);
+    events.pool_liquidities = Some(pool_liquidities);
+    events.events = Some(token_events);
+    events.transactions = Some(transactions);
+    events.positions = Some(positions);
+    events.flashes = Some(flashes);
+
+    Ok(events)
 }
 
 #[substreams::handlers::map]
@@ -388,7 +495,7 @@ pub fn store_prices(
 pub fn map_swaps_mints_burns(
     block: Block,
     pools_store: StoreGetProto<Pool>,
-) -> Result<Events, Error> {
+) -> Result<TokenEvents, Error> {
     let mut events = vec![];
     for log in block.logs() {
         let pool_key = &format!("pool:{}", Hex(&log.address()).to_string());
@@ -415,7 +522,7 @@ pub fn map_swaps_mints_burns(
                     let amount1 = swap.amount1.to_decimal(token1.decimals);
                     log::debug!("amount0: {}, amount1:{}", amount0, amount1);
 
-                    events.push(Event {
+                    events.push(TokenEvent {
                         log_ordinal: log.ordinal(),
                         log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
@@ -469,7 +576,7 @@ pub fn map_swaps_mints_burns(
                         amount1
                     );
 
-                    events.push(Event {
+                    events.push(TokenEvent {
                         log_ordinal: log.ordinal(),
                         log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
@@ -516,7 +623,7 @@ pub fn map_swaps_mints_burns(
                     let amount1 = amount1_bi.to_decimal(token1.decimals);
                     log::debug!("amount0: {}, amount1:{}", amount0, amount1);
 
-                    events.push(Event {
+                    events.push(TokenEvent {
                         log_ordinal: log.ordinal(),
                         log_index: log.block_index() as u64,
                         pool_address: pool.address.to_string(),
@@ -540,11 +647,11 @@ pub fn map_swaps_mints_burns(
             }
         }
     }
-    Ok(Events { events })
+    Ok(TokenEvents { events })
 }
 
 #[substreams::handlers::map]
-pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error> {
+pub fn map_event_amounts(events: TokenEvents) -> Result<uniswap::EventAmounts, Error> {
     let mut event_amounts = vec![];
     for event in events.events {
         log::debug!("transaction id: {}", event.transaction_id);
@@ -738,7 +845,7 @@ pub fn store_totals(
 }
 
 #[substreams::handlers::store]
-pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigInt) {
+pub fn store_total_tx_counts(clock: Clock, events: TokenEvents, output: StoreAddBigInt) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     output.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
@@ -758,7 +865,7 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
 #[substreams::handlers::store]
 pub fn store_swaps_volume(
     clock: Clock,
-    events: Events,
+    events: TokenEvents,
     store_pool: StoreGetProto<Pool>,
     store_total_tx_counts: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
@@ -1051,7 +1158,7 @@ pub fn store_eth_prices(
 }
 
 #[substreams::handlers::store]
-pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigDecimal) {
+pub fn store_total_value_locked_by_tokens(events: TokenEvents, store: StoreAddBigDecimal) {
     for event in events.events {
         log::debug!("trx_id: {}", event.transaction_id);
         let mut amount0: BigDecimal;
@@ -1216,7 +1323,7 @@ pub fn store_total_value_locked(
 }
 
 #[substreams::handlers::map]
-pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
+pub fn map_ticks(events: TokenEvents) -> Result<Ticks, Error> {
     let mut out: Ticks = Ticks { ticks: vec![] };
     for event in events.events {
         match event.r#type.unwrap() {
@@ -1433,6 +1540,7 @@ pub fn map_all_positions(
     let mut positions: Positions = Positions { positions: vec![] };
 
     for log in block.logs() {
+        let transaction_id = Hex(log.receipt.transaction.clone().hash).to_string();
         if log.address() != NON_FUNGIBLE_POSITION_MANAGER {
             continue;
         }
@@ -1442,7 +1550,7 @@ pub fn map_all_positions(
             if let Some(position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
-                &log.receipt.transaction.hash,
+                &transaction_id,
                 IncreaseLiquidity,
                 log.ordinal(),
                 block
@@ -1464,7 +1572,7 @@ pub fn map_all_positions(
             if let Some(position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
-                &log.receipt.transaction.hash,
+                &transaction_id,
                 Collect,
                 log.ordinal(),
                 block
@@ -1488,7 +1596,7 @@ pub fn map_all_positions(
             if let Some(position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
-                &log.receipt.transaction.hash,
+                &transaction_id,
                 DecreaseLiquidity,
                 log.ordinal(),
                 block
@@ -1510,7 +1618,7 @@ pub fn map_all_positions(
             if let Some(position) = utils::get_position(
                 &store_pool,
                 &Hex(log.address()).to_string(),
-                &log.receipt.transaction.hash,
+                &transaction_id,
                 Transfer,
                 log.ordinal(),
                 block
@@ -1721,8 +1829,6 @@ pub fn store_position_changes(all_positions: Positions, store: StoreAddBigDecima
     }
 }
 
-//todo: maybe exact the some/none part in a macro and use it in the db?
-// as in the string is empty/0 in this use-case it would mean the same thing
 #[substreams::handlers::map]
 pub fn map_position_snapshots(
     positions: Positions,
@@ -1816,7 +1922,7 @@ pub fn map_position_snapshots(
 
 #[substreams::handlers::map]
 pub fn map_flashes(block: Block, pool_store: StoreGetProto<Pool>) -> Result<Flashes, Error> {
-    let mut out = Flashes { flashes: vec![] };
+    let mut flashes = Flashes { flashes: vec![] };
 
     for log in block.logs() {
         if abi::pool::events::Flash::match_log(&log.log) {
@@ -1831,7 +1937,7 @@ pub fn map_flashes(block: Block, pool_store: StoreGetProto<Pool>) -> Result<Flas
                     let (fee_growth_global_0x_128, fee_growth_global_1x_128) =
                         rpc::fee_growth_global_x128_call(&pool_address);
 
-                    out.flashes.push(Flash {
+                    flashes.flashes.push(Flash {
                         pool_address,
                         fee_growth_global_0x_128: Some(fee_growth_global_0x_128.into()),
                         fee_growth_global_1x_128: Some(fee_growth_global_1x_128.into()),
@@ -1842,7 +1948,7 @@ pub fn map_flashes(block: Block, pool_store: StoreGetProto<Pool>) -> Result<Flas
         }
     }
 
-    Ok(out)
+    Ok(flashes)
 }
 
 #[substreams::handlers::map]
@@ -1988,7 +2094,7 @@ pub fn map_transaction_entities(transactions: Transactions) -> Result<EntityChan
 
 #[substreams::handlers::map]
 pub fn map_swaps_mints_burns_entities(
-    events: Events,
+    events: TokenEvents,
     tx_count_store: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
