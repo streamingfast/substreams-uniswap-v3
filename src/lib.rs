@@ -31,6 +31,7 @@ use crate::uniswap::{
     Events, Flash, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transactions,
 };
 use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY};
+use ethabi::Event;
 use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Sub};
 use substreams::errors::Error;
@@ -274,59 +275,9 @@ pub fn map_extract_data_types(
     Ok(events)
 }
 
-#[substreams::handlers::map]
-pub fn map_pool_sqrt_price(
-    block: Block,
-    pools_store: StoreGetProto<Pool>,
-) -> Result<PoolSqrtPrices, Error> {
-    let mut pool_sqrt_prices = vec![];
-    for log in block.logs() {
-        let pool_address = &Hex(log.address()).to_string();
-        if let Some(event) = abi::pool::events::Initialize::match_and_decode(log) {
-            log::info!(
-                "log addr: {}",
-                Hex(&log.receipt.transaction.hash.as_slice()).to_string()
-            );
-            match pools_store.get_last(&keyer::pool_key(&pool_address)) {
-                None => {
-                    log::debug!("pool {} does not exist", pool_address);
-                    continue;
-                }
-                Some(pool) => {
-                    pool_sqrt_prices.push(PoolSqrtPrice {
-                        pool_address: pool.address,
-                        ordinal: log.ordinal(),
-                        sqrt_price: Some(event.sqrt_price_x96.into()),
-                        tick: Some(event.tick.into()),
-                    });
-                }
-            }
-        } else if let Some(event) = Swap::match_and_decode(log) {
-            log::info!(
-                "log addr: {}",
-                Hex(&log.receipt.transaction.hash.as_slice()).to_string()
-            );
-            match pools_store.get_last(&keyer::pool_key(&pool_address)) {
-                None => {
-                    log::debug!("pool {} does not exist", pool_address);
-                    continue;
-                }
-                Some(pool) => {
-                    pool_sqrt_prices.push(PoolSqrtPrice {
-                        pool_address: pool.address,
-                        ordinal: log.ordinal(),
-                        sqrt_price: Some(event.sqrt_price_x96.into()),
-                        tick: Some(event.tick.into()),
-                    });
-                }
-            }
-        }
-    }
-    Ok(PoolSqrtPrices { pool_sqrt_prices })
-}
 #[substreams::handlers::store]
-pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, store: StoreSetProto<PoolSqrtPrice>) {
-    for sqrt_price in sqrt_prices.pool_sqrt_prices {
+pub fn store_pool_sqrt_price(events: Events, store: StoreSetProto<PoolSqrtPrice>) {
+    for sqrt_price in events.pool_sqrt_prices.unwrap_or_default().pool_sqrt_prices {
         store.set(
             sqrt_price.ordinal,
             keyer::pool_sqrt_price_key(&sqrt_price.pool_address),
@@ -335,87 +286,9 @@ pub fn store_pool_sqrt_price(sqrt_prices: PoolSqrtPrices, store: StoreSetProto<P
     }
 }
 
-#[substreams::handlers::map]
-pub fn map_pool_liquidities(
-    block: Block,
-    pools_store: StoreGetProto<Pool>,
-) -> Result<PoolLiquidities, Error> {
-    let mut pool_liquidities = vec![];
-    for trx in block.transaction_traces {
-        if trx.status != 1 {
-            continue;
-        }
-        for call in trx.calls {
-            let _call_index = call.index;
-            if call.state_reverted {
-                continue;
-            }
-            for log in call.logs {
-                let pool_key = keyer::pool_key(&Hex(&log.address).to_string());
-                if let Some(_) = Swap::match_and_decode(&log) {
-                    log::debug!("swagp - trx_id: {}", Hex(&trx.hash).to_string());
-                    match pools_store.get_last(&pool_key) {
-                        None => continue,
-                        Some(pool) => {
-                            if !pool.should_handle_swap() {
-                                continue;
-                            }
-                            if let Some(pl) = utils::extract_pool_liquidity(
-                                log.ordinal,
-                                &log.address,
-                                &call.storage_changes,
-                            ) {
-                                pool_liquidities.push(pl)
-                            }
-                        }
-                    }
-                } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
-                    log::debug!("mint - trx_id: {}", Hex(&trx.hash).to_string());
-                    match pools_store.get_last(&pool_key) {
-                        None => {
-                            log::info!("unknown pool");
-                            continue;
-                        }
-                        Some(pool) => {
-                            if !pool.should_handle_mint_and_burn() {
-                                continue;
-                            }
-                            if let Some(pl) = utils::extract_pool_liquidity(
-                                log.ordinal,
-                                &log.address,
-                                &call.storage_changes,
-                            ) {
-                                pool_liquidities.push(pl)
-                            }
-                        }
-                    }
-                } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
-                    log::debug!("burn - trx_id: {}", Hex(&trx.hash).to_string());
-                    match pools_store.get_last(&pool_key) {
-                        None => continue,
-                        Some(pool) => {
-                            if !pool.should_handle_mint_and_burn() {
-                                continue;
-                            }
-                            if let Some(pl) = utils::extract_pool_liquidity(
-                                log.ordinal,
-                                &log.address,
-                                &call.storage_changes,
-                            ) {
-                                pool_liquidities.push(pl)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Ok(PoolLiquidities { pool_liquidities })
-}
-
 #[substreams::handlers::store]
-pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, store: StoreSetBigInt) {
-    for pool_liquidity in pool_liquidities.pool_liquidities {
+pub fn store_pool_liquidities(events: Events, store: StoreSetBigInt) {
+    for pool_liquidity in events.pool_liquidities.unwrap_or_default().pool_liquidities {
         let big_int: BigInt = pool_liquidity.liquidity.unwrap().into();
         store.set(
             0,
@@ -426,12 +299,8 @@ pub fn store_pool_liquidities(pool_liquidities: PoolLiquidities, store: StoreSet
 }
 
 #[substreams::handlers::store]
-pub fn store_prices(
-    pool_sqrt_prices: PoolSqrtPrices,
-    pools_store: StoreGetProto<Pool>,
-    store: StoreSetBigDecimal,
-) {
-    for sqrt_price_update in pool_sqrt_prices.pool_sqrt_prices {
+pub fn store_prices(events: Events, pools_store: StoreGetProto<Pool>, store: StoreSetBigDecimal) {
+    for sqrt_price_update in events.pool_sqrt_prices.unwrap_or_default().pool_sqrt_prices {
         match pools_store.get_last(keyer::pool_key(&sqrt_price_update.pool_address)) {
             None => {
                 log::info!("skipping pool {}", &sqrt_price_update.pool_address,);
@@ -492,168 +361,9 @@ pub fn store_prices(
 }
 
 #[substreams::handlers::map]
-pub fn map_swaps_mints_burns(
-    block: Block,
-    pools_store: StoreGetProto<Pool>,
-) -> Result<TokenEvents, Error> {
-    let mut events = vec![];
-    for log in block.logs() {
-        let pool_key = &format!("pool:{}", Hex(&log.address()).to_string());
-
-        if let Some(swap) = Swap::match_and_decode(log) {
-            match pools_store.get_last(pool_key) {
-                None => {
-                    log::info!(
-                        "invalid swap. pool does not exist. pool address {} transaction {}",
-                        Hex(&log.address()).to_string(),
-                        Hex(&log.receipt.transaction.hash).to_string()
-                    );
-                    continue;
-                }
-                Some(pool) => {
-                    if !pool.should_handle_swap() {
-                        continue;
-                    }
-
-                    let token0 = pool.token0.as_ref().unwrap();
-                    let token1 = pool.token1.as_ref().unwrap();
-
-                    let amount0 = swap.amount0.to_decimal(token0.decimals);
-                    let amount1 = swap.amount1.to_decimal(token1.decimals);
-                    log::debug!("amount0: {}, amount1:{}", amount0, amount1);
-
-                    events.push(TokenEvent {
-                        log_ordinal: log.ordinal(),
-                        log_index: log.block_index() as u64,
-                        pool_address: pool.address.to_string(),
-                        token0: token0.address.clone(),
-                        token1: token1.address.clone(),
-                        fee: pool.fee_tier.unwrap().value,
-                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        timestamp: block.timestamp_seconds(),
-                        created_at_block_number: block.number,
-                        r#type: Some(SwapEvent(uniswap::Swap {
-                            sender: Hex(&swap.sender).to_string(),
-                            recipient: Hex(&swap.recipient).to_string(),
-                            origin: Hex(&log.receipt.transaction.from).to_string(),
-                            amount_0: Some(uniswap::BigDecimal {
-                                value: amount0.to_string(),
-                            }),
-                            amount_1: Some(uniswap::BigDecimal {
-                                value: amount1.to_string(),
-                            }),
-                            sqrt_price: Some(swap.sqrt_price_x96.into()),
-                            liquidity: Some(swap.liquidity.into()),
-                            tick: Some(swap.tick.into()),
-                        })),
-                    });
-                }
-            }
-        } else if let Some(mint) = abi::pool::events::Mint::match_and_decode(log) {
-            match pools_store.get_last(pool_key) {
-                None => {
-                    log::info!(
-                        "invalid mint. pool does not exist. pool address {} transaction {}",
-                        Hex(&log.address()).to_string(),
-                        Hex(&log.receipt.transaction.hash).to_string()
-                    );
-                    continue;
-                }
-                Some(pool) => {
-                    if !pool.should_handle_mint_and_burn() {
-                        continue;
-                    }
-
-                    let token0 = pool.token0.as_ref().unwrap();
-                    let token1 = pool.token1.as_ref().unwrap();
-
-                    let amount0 = mint.amount0.to_decimal(token0.decimals);
-                    let amount1 = mint.amount1.to_decimal(token1.decimals);
-                    log::debug!(
-                        "logOrdinal: {}, amount0: {}, amount1:{}",
-                        log.ordinal(),
-                        amount0,
-                        amount1
-                    );
-
-                    events.push(TokenEvent {
-                        log_ordinal: log.ordinal(),
-                        log_index: log.block_index() as u64,
-                        pool_address: pool.address.to_string(),
-                        token0: token0.address.clone(),
-                        token1: token1.address.clone(),
-                        fee: pool.fee_tier.unwrap().value,
-                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        timestamp: block.timestamp_seconds(),
-                        created_at_block_number: block.number,
-                        r#type: Some(MintEvent(uniswap::Mint {
-                            owner: Hex(&mint.owner).to_string(),
-                            sender: Hex(&mint.sender).to_string(),
-                            origin: Hex(&log.receipt.transaction.from).to_string(),
-                            amount: Some(mint.amount.into()),
-                            amount_0: Some(amount0.into()),
-                            amount_1: Some(amount1.into()),
-                            tick_lower: Some(mint.tick_lower.into()),
-                            tick_upper: Some(mint.tick_upper.into()),
-                        })),
-                    });
-                }
-            }
-        } else if let Some(burn) = abi::pool::events::Burn::match_and_decode(log) {
-            match pools_store.get_last(pool_key) {
-                None => {
-                    log::info!(
-                        "invalid burn. pool does not exist. pool address {} transaction {}",
-                        Hex(&log.address()).to_string(),
-                        Hex(&log.receipt.transaction.hash).to_string()
-                    );
-                    continue;
-                }
-                Some(pool) => {
-                    if !pool.should_handle_mint_and_burn() {
-                        continue;
-                    }
-
-                    let token0 = pool.token0.as_ref().unwrap();
-                    let token1 = pool.token1.as_ref().unwrap();
-
-                    let amount0_bi: BigInt = burn.amount0;
-                    let amount1_bi: BigInt = burn.amount1;
-                    let amount0 = amount0_bi.to_decimal(token0.decimals);
-                    let amount1 = amount1_bi.to_decimal(token1.decimals);
-                    log::debug!("amount0: {}, amount1:{}", amount0, amount1);
-
-                    events.push(TokenEvent {
-                        log_ordinal: log.ordinal(),
-                        log_index: log.block_index() as u64,
-                        pool_address: pool.address.to_string(),
-                        token0: token1.address.clone(),
-                        token1: token1.address.clone(),
-                        fee: pool.fee_tier.unwrap().value,
-                        transaction_id: Hex(&log.receipt.transaction.hash).to_string(),
-                        timestamp: block.timestamp_seconds(),
-                        created_at_block_number: block.number,
-                        r#type: Some(BurnEvent(uniswap::Burn {
-                            owner: Hex(&burn.owner).to_string(),
-                            origin: Hex(&log.receipt.transaction.from).to_string(),
-                            amount: Some(burn.amount.into()),
-                            amount_0: Some(amount0.into()),
-                            amount_1: Some(amount1.into()),
-                            tick_lower: Some(burn.tick_lower.into()),
-                            tick_upper: Some(burn.tick_upper.into()),
-                        })),
-                    });
-                }
-            }
-        }
-    }
-    Ok(TokenEvents { events })
-}
-
-#[substreams::handlers::map]
-pub fn map_event_amounts(events: TokenEvents) -> Result<uniswap::EventAmounts, Error> {
+pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error> {
     let mut event_amounts = vec![];
-    for event in events.events {
+    for event in events.events.unwrap_or_default().events {
         log::debug!("transaction id: {}", event.transaction_id);
         if event.r#type.is_none() {
             continue;
@@ -707,70 +417,6 @@ pub fn map_event_amounts(events: TokenEvents) -> Result<uniswap::EventAmounts, E
         }
     }
     Ok(uniswap::EventAmounts { event_amounts })
-}
-
-#[substreams::handlers::map]
-pub fn map_transactions(
-    block: Block,
-    pools_store: StoreGetProto<Pool>,
-) -> Result<Transactions, Error> {
-    let mut transactions: Transactions = Transactions {
-        transactions: vec![],
-    };
-
-    for log in block.logs() {
-        let mut add_transaction = false;
-        let pool_key = &format!("pool:{}", Hex(&log.address()).to_string());
-
-        if let Some(_) = abi::pool::events::Burn::match_and_decode(log) {
-            match pools_store.get_last(pool_key) {
-                None => continue,
-
-                Some(_) => add_transaction = true,
-            }
-        } else if let Some(_) = abi::pool::events::Mint::match_and_decode(log) {
-            match pools_store.get_last(pool_key) {
-                None => continue,
-                Some(_) => add_transaction = true,
-            }
-        } else if let Some(_) = abi::pool::events::Swap::match_and_decode(log) {
-            match pools_store.get_last(pool_key) {
-                None => continue,
-                Some(_) => add_transaction = true,
-            }
-        } else if let Some(_) =
-            abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log)
-        {
-            if log.address() == NON_FUNGIBLE_POSITION_MANAGER {
-                add_transaction = true;
-            }
-        } else if let Some(_) = abi::positionmanager::events::Collect::match_and_decode(log) {
-            if log.address() == NON_FUNGIBLE_POSITION_MANAGER {
-                add_transaction = true;
-            }
-        } else if let Some(_) =
-            abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log)
-        {
-            if log.address() == NON_FUNGIBLE_POSITION_MANAGER {
-                add_transaction = true;
-            }
-        } else if let Some(_) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-            if log.address() == NON_FUNGIBLE_POSITION_MANAGER {
-                add_transaction = true;
-            }
-        }
-
-        if add_transaction {
-            transactions.transactions.push(utils::load_transaction(
-                block.number,
-                block.timestamp_seconds(),
-                log.ordinal(),
-                log.receipt.transaction,
-            ));
-        }
-    }
-
-    Ok(transactions)
 }
 
 #[substreams::handlers::store]
@@ -845,12 +491,12 @@ pub fn store_totals(
 }
 
 #[substreams::handlers::store]
-pub fn store_total_tx_counts(clock: Clock, events: TokenEvents, output: StoreAddBigInt) {
+pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigInt) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     output.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
 
-    for event in events.events {
+    for event in events.events.unwrap_or_default().events {
         let keys: Vec<String> = vec![
             keyer::pool_total_tx_count(&event.pool_address),
             keyer::token_total_tx_count(&event.token0),
@@ -865,7 +511,7 @@ pub fn store_total_tx_counts(clock: Clock, events: TokenEvents, output: StoreAdd
 #[substreams::handlers::store]
 pub fn store_swaps_volume(
     clock: Clock,
-    events: TokenEvents,
+    events: Events,
     store_pool: StoreGetProto<Pool>,
     store_total_tx_counts: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
@@ -875,7 +521,7 @@ pub fn store_swaps_volume(
     let day_id: i64 = timestamp_seconds / 86400;
     output.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
 
-    for event in events.events {
+    for event in events.events.unwrap_or_default().events {
         let pool: Pool = match store_pool.get_last(keyer::pool_key(&event.pool_address)) {
             None => continue,
             Some(pool) => pool,
@@ -1080,7 +726,7 @@ pub fn store_native_total_value_locked(
 
 #[substreams::handlers::store]
 pub fn store_eth_prices(
-    pool_sqrt_prices: PoolSqrtPrices,
+    events: Events,
     pools_store: StoreGetProto<Pool>,
     prices_store: StoreGetBigDecimal,
     tokens_whitelist_pools_store: StoreGetRaw,
@@ -1088,7 +734,7 @@ pub fn store_eth_prices(
     pool_liquidities_store: StoreGetBigInt,
     store: StoreSetBigDecimal,
 ) {
-    for pool_sqrt_price in pool_sqrt_prices.pool_sqrt_prices {
+    for pool_sqrt_price in events.pool_sqrt_prices.unwrap_or_default().pool_sqrt_prices {
         log::debug!(
             "handling pool price update - addr: {} price: {}",
             pool_sqrt_price.pool_address,
@@ -1158,8 +804,8 @@ pub fn store_eth_prices(
 }
 
 #[substreams::handlers::store]
-pub fn store_total_value_locked_by_tokens(events: TokenEvents, store: StoreAddBigDecimal) {
-    for event in events.events {
+pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigDecimal) {
+    for event in events.events.unwrap_or_default().events {
         log::debug!("trx_id: {}", event.transaction_id);
         let mut amount0: BigDecimal;
         let mut amount1: BigDecimal;
@@ -1323,9 +969,9 @@ pub fn store_total_value_locked(
 }
 
 #[substreams::handlers::map]
-pub fn map_ticks(events: TokenEvents) -> Result<Ticks, Error> {
+pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
     let mut out: Ticks = Ticks { ticks: vec![] };
-    for event in events.events {
+    for event in events.events.unwrap_or_default().events {
         match event.r#type.unwrap() {
             BurnEvent(burn) => {
                 log::debug!("burn event transaction_id: {}", event.transaction_id);
@@ -1532,119 +1178,9 @@ pub fn store_ticks_liquidities(ticks: Ticks, output: StoreAddBigInt) {
     }
 }
 
-#[substreams::handlers::map]
-pub fn map_all_positions(
-    block: Block,
-    store_pool: StoreGetProto<Pool>,
-) -> Result<Positions, Error> {
-    let mut positions: Positions = Positions { positions: vec![] };
-
-    for log in block.logs() {
-        let transaction_id = Hex(log.receipt.transaction.clone().hash).to_string();
-        if log.address() != NON_FUNGIBLE_POSITION_MANAGER {
-            continue;
-        }
-
-        if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log)
-        {
-            if let Some(position) = utils::get_position(
-                &store_pool,
-                &Hex(log.address()).to_string(),
-                &transaction_id,
-                IncreaseLiquidity,
-                log.ordinal(),
-                block
-                    .header
-                    .as_ref()
-                    .unwrap()
-                    .timestamp
-                    .as_ref()
-                    .unwrap()
-                    .seconds as u64,
-                block.number,
-                PositionEvent {
-                    event: PositionEventType::IncreaseLiquidity(event),
-                },
-            ) {
-                positions.positions.push(position);
-            }
-        } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
-            if let Some(position) = utils::get_position(
-                &store_pool,
-                &Hex(log.address()).to_string(),
-                &transaction_id,
-                Collect,
-                log.ordinal(),
-                block
-                    .header
-                    .as_ref()
-                    .unwrap()
-                    .timestamp
-                    .as_ref()
-                    .unwrap()
-                    .seconds as u64,
-                block.number,
-                PositionEvent {
-                    event: PositionEventType::Collect(event),
-                },
-            ) {
-                positions.positions.push(position);
-            }
-        } else if let Some(event) =
-            abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log)
-        {
-            if let Some(position) = utils::get_position(
-                &store_pool,
-                &Hex(log.address()).to_string(),
-                &transaction_id,
-                DecreaseLiquidity,
-                log.ordinal(),
-                block
-                    .header
-                    .as_ref()
-                    .unwrap()
-                    .timestamp
-                    .as_ref()
-                    .unwrap()
-                    .seconds as u64,
-                block.number,
-                PositionEvent {
-                    event: PositionEventType::DecreaseLiquidity(event),
-                },
-            ) {
-                positions.positions.push(position);
-            }
-        } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-            if let Some(position) = utils::get_position(
-                &store_pool,
-                &Hex(log.address()).to_string(),
-                &transaction_id,
-                Transfer,
-                log.ordinal(),
-                block
-                    .header
-                    .as_ref()
-                    .unwrap()
-                    .timestamp
-                    .as_ref()
-                    .unwrap()
-                    .seconds as u64,
-                block.number,
-                PositionEvent {
-                    event: PositionEventType::Transfer(event.clone()),
-                },
-            ) {
-                positions.positions.push(position);
-            }
-        }
-    }
-
-    Ok(positions)
-}
-
 #[substreams::handlers::store]
-pub fn store_all_positions(positions: Positions, store: StoreSetProto<Position>) {
-    for position in positions.positions {
+pub fn store_all_positions(events: Events, store: StoreSetProto<Position>) {
+    for position in events.positions.unwrap_or_default().positions {
         store.set(
             position.log_ordinal,
             keyer::all_position(
@@ -1775,8 +1311,8 @@ pub fn map_positions(
 }
 
 #[substreams::handlers::store]
-pub fn store_position_changes(all_positions: Positions, store: StoreAddBigDecimal) {
-    for position in all_positions.positions {
+pub fn store_position_changes(events: Events, store: StoreAddBigDecimal) {
+    for position in events.positions.unwrap_or_default().positions {
         match position.convert_position_type() {
             IncreaseLiquidity => {
                 store.add(
@@ -1831,14 +1367,14 @@ pub fn store_position_changes(all_positions: Positions, store: StoreAddBigDecima
 
 #[substreams::handlers::map]
 pub fn map_position_snapshots(
-    positions: Positions,
+    events: Events,
     position_changes_store: StoreGetBigDecimal,
 ) -> Result<SnapshotPositions, Error> {
     let mut snapshot_positions: SnapshotPositions = SnapshotPositions {
         snapshot_positions: vec![],
     };
 
-    for position in positions.positions {
+    for position in events.positions.unwrap_or_default().positions {
         let mut snapshot_position: SnapshotPosition = SnapshotPosition {
             id: format!("{}#{}", position.id, position.block_number),
             owner: position.owner,
@@ -1918,37 +1454,6 @@ pub fn map_position_snapshots(
     }
 
     Ok(snapshot_positions)
-}
-
-#[substreams::handlers::map]
-pub fn map_flashes(block: Block, pool_store: StoreGetProto<Pool>) -> Result<Flashes, Error> {
-    let mut flashes = Flashes { flashes: vec![] };
-
-    for log in block.logs() {
-        if abi::pool::events::Flash::match_log(&log.log) {
-            let pool_address: String = Hex(&log.address()).to_string();
-
-            match pool_store.get_last(keyer::pool_key(&pool_address)) {
-                None => {
-                    panic!("pool {} not found for flash", pool_address)
-                }
-                Some(_) => {
-                    log::info!("pool_address: {}", pool_address);
-                    let (fee_growth_global_0x_128, fee_growth_global_1x_128) =
-                        rpc::fee_growth_global_x128_call(&pool_address);
-
-                    flashes.flashes.push(Flash {
-                        pool_address,
-                        fee_growth_global_0x_128: Some(fee_growth_global_0x_128.into()),
-                        fee_growth_global_1x_128: Some(fee_growth_global_1x_128.into()),
-                        log_ordinal: log.ordinal(),
-                    });
-                }
-            }
-        }
-    }
-
-    Ok(flashes)
 }
 
 #[substreams::handlers::map]
@@ -2067,11 +1572,11 @@ pub fn map_tick_entities(
 
 #[substreams::handlers::map]
 pub fn map_position_entities(
-    positions: Positions,
+    events: Events,
     positions_changes_deltas: store::Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
-    db::position_create_entity_change(positions, &mut entity_changes);
+    db::position_create_entity_change(events.positions.unwrap_or_default(), &mut entity_changes);
     db::positions_changes_entity_change(&mut entity_changes, positions_changes_deltas);
     Ok(entity_changes)
 }
@@ -2086,21 +1591,21 @@ pub fn map_position_snapshot_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_transaction_entities(transactions: Transactions) -> Result<EntityChanges, Error> {
+pub fn map_transaction_entities(events: Events) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
-    db::transaction_entity_change(transactions, &mut entity_changes);
+    db::transaction_entity_change(events.transactions.unwrap_or_default(), &mut entity_changes);
     Ok(entity_changes)
 }
 
 #[substreams::handlers::map]
 pub fn map_swaps_mints_burns_entities(
-    events: TokenEvents,
+    events: Events,
     tx_count_store: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::swaps_mints_burns_created_entity_change(
-        events,
+        events.events.unwrap_or_default(),
         tx_count_store,
         store_eth_prices,
         &mut entity_changes,
@@ -2109,9 +1614,12 @@ pub fn map_swaps_mints_burns_entities(
 }
 
 #[substreams::handlers::map]
-pub fn map_flash_entities(flashes: Flashes) -> Result<EntityChanges, Error> {
+pub fn map_flash_entities(events: Events) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
-    db::flashes_update_pool_fee_entity_change(flashes, &mut entity_changes);
+    db::flashes_update_pool_fee_entity_change(
+        events.flashes.unwrap_or_default(),
+        &mut entity_changes,
+    );
     Ok(entity_changes)
 }
 

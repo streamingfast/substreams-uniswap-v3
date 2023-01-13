@@ -68,21 +68,12 @@ modules:
     output:
       type: proto:uniswap.types.v1.Events
 
-  - name: map_pool_sqrt_price
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_pools
-    output:
-      type: proto:uniswap.types.v1.PoolSqrtPrices
-
   - name: store_pool_sqrt_price
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.PoolSqrtPrice
     inputs:
-      - map: map_pool_sqrt_price
+      - map: map_extract_data_types
 
   - name: store_prices
     kind: store
@@ -90,17 +81,8 @@ modules:
     initialBlock: 12369621
     valueType: bigdecimal
     inputs:
-      - map: map_pool_sqrt_price
+      - map: map_extract_data_types
       - store: store_pools
-
-  - name: map_pool_liquidities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_pools
-    output:
-      type: proto:uniswap.types.v1.PoolLiquidities
 
   - name: store_pool_liquidities
     kind: store
@@ -108,32 +90,15 @@ modules:
     initialBlock: 12369621
     valueType: bigint
     inputs:
-      - map: map_pool_liquidities
-
-  - name: map_swaps_mints_burns
-    kind: map
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_pools
-    output:
-      type: proto:uniswap.types.v1.Events
+      - map: map_extract_data_types
 
   - name: map_event_amounts
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_swaps_mints_burns
+      - map: map_extract_data_types
     output:
       type: proto:uniswap.types.v1.EventAmounts
-
-  - name: map_transactions
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_pools
-    output:
-      type: proto:uniswap.types.v1.Transactions
 
   - name: store_totals
     kind: store
@@ -152,7 +117,7 @@ modules:
     valueType: int64
     inputs:
       - source: sf.substreams.v1.Clock
-      - map: map_swaps_mints_burns
+      - map: map_extract_data_types
 
   - name: store_swaps_volume
     kind: store
@@ -160,7 +125,7 @@ modules:
     valueType: bigdecimal
     inputs:
       - source: sf.substreams.v1.Clock
-      - map: map_swaps_mints_burns
+      - map: map_extract_data_types
       - store: store_pools
       - store: store_total_tx_counts
       - store: store_eth_prices
@@ -186,7 +151,7 @@ modules:
     initialBlock: 12369621
     valueType: bigdecimal
     inputs:
-      - map: map_pool_sqrt_price
+      - map: map_extract_data_types
       - store: store_pools
       - store: store_prices
       - store: store_tokens_whitelist_pools
@@ -199,7 +164,7 @@ modules:
     updatePolicy: add
     valueType: bigdecimal
     inputs:
-      - map: map_swaps_mints_burns
+      - map: map_extract_data_types
 
   - name: store_total_value_locked
     kind: store
@@ -216,7 +181,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_swaps_mints_burns
+      - map: map_extract_data_types
     output:
       type: proto:uniswap.types.v1.Ticks
 
@@ -234,31 +199,13 @@ modules:
     inputs:
       - map: map_ticks
 
-  - name: map_all_positions
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_pools
-    output:
-      type: proto:uniswap.types.v1.Positions
-
   - name: store_all_positions
     kind: store
     updatePolicy: set
     initialBlock: 12369621
     valueType: proto:uniswap.types.v1.Position
     inputs:
-      - map: map_all_positions
-
-  - name: map_positions
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_all_positions
-    output:
-      type: proto:uniswap.types.v1.Positions
+      - map: map_extract_data_types
 
   - name: store_position_changes
     kind: store
@@ -266,23 +213,16 @@ modules:
     updatePolicy: add
     valueType: bigdecimal
     inputs:
-      - map: map_all_positions
+      - map: map_extract_data_types
 
   - name: map_position_snapshots
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_positions
+      - map: map_extract_data_types
       - store: store_position_changes
     output:
       type: proto:uniswap.types.v1.SnapshotPositions
-
-  - name: store_swaps
-    kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Swap
-    inputs:
-      - map: map_swaps_mints_burns
 
   - name: map_fees
     kind: map
@@ -299,15 +239,6 @@ modules:
     valueType: proto:uniswap.types.v1.Fee
     inputs:
       - source: sf.ethereum.type.v2.Block
-
-  - name: map_flashes
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_pools
-    output:
-      type: proto:uniswap.types.v1.Flashes
 
   - name: map_bundle_entities
     kind: map
@@ -394,7 +325,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_positions
+      - map: map_extract_data_types
       - store: store_position_changes
         mode: deltas
     output:
@@ -412,7 +343,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_transactions
+      - map: map_extract_data_types
     output:
       type: proto:substreams.entity.v1.EntityChanges
 
@@ -420,7 +351,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_swaps_mints_burns
+      - map: map_extract_data_types
       - store: store_total_tx_counts
       - store: store_eth_prices
     output:
@@ -430,7 +361,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - map: map_flashes
+      - map: map_extract_data_types
     output:
       type: proto:substreams.entity.v1.EntityChanges
 
