@@ -11,7 +11,8 @@ mod utils;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
-use crate::pb::position_event::PositionEventType;
+
+use crate::pb::uniswap;
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
 use crate::pb::uniswap::tick::Type::{Lower, Upper};
 use crate::pb::uniswap::token_event::Type::{
@@ -21,17 +22,15 @@ use crate::pb::uniswap::{
     Erc20Token, Erc20Tokens, EventAmount, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice,
     PoolSqrtPrices, Pools, Tick, Ticks, TokenEvent, TokenEvents,
 };
-use crate::pb::{uniswap, PositionEvent};
 use crate::price::WHITELIST_TOKENS;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
 use crate::uniswap::{
-    Events, Flash, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transactions,
+    Events, Flashes, Position, Positions, SnapshotPosition, SnapshotPositions, Transactions,
 };
 use crate::utils::{NON_FUNGIBLE_POSITION_MANAGER, UNISWAP_V3_FACTORY};
-use ethabi::Event;
 use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Sub};
 use substreams::errors::Error;
@@ -1178,20 +1177,6 @@ pub fn store_ticks_liquidities(ticks: Ticks, output: StoreAddBigInt) {
     }
 }
 
-#[substreams::handlers::store]
-pub fn store_all_positions(events: Events, store: StoreSetProto<Position>) {
-    for position in events.positions.unwrap_or_default().positions {
-        store.set(
-            position.log_ordinal,
-            keyer::all_position(
-                &position.id,
-                &PositionType::get_position_type(position.position_type).to_string(),
-            ),
-            &position,
-        )
-    }
-}
-
 #[substreams::handlers::map]
 pub fn map_positions(
     block: Block,
@@ -1620,19 +1605,6 @@ pub fn map_flash_entities(events: Events) -> Result<EntityChanges, Error> {
         events.flashes.unwrap_or_default(),
         &mut entity_changes,
     );
-    Ok(entity_changes)
-}
-
-#[substreams::handlers::map]
-pub fn map_uniswap_day_data_entities(
-    tx_count_deltas: store::Deltas<DeltaBigInt>,
-    totals_deltas: store::Deltas<DeltaBigDecimal>,
-    volume_deltas: store::Deltas<DeltaBigDecimal>,
-) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
-    db::uniswap_day_data_tx_count_entity_change(&mut entity_changes, tx_count_deltas);
-    db::uniswap_day_data_totals_entity_change(&mut entity_changes, totals_deltas);
-    db::uniswap_day_data_volumes_entity_change(&mut entity_changes, volume_deltas);
     Ok(entity_changes)
 }
 

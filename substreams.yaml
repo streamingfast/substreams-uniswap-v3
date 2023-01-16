@@ -199,14 +199,6 @@ modules:
     inputs:
       - map: map_ticks
 
-  - name: store_all_positions
-    kind: store
-    updatePolicy: set
-    initialBlock: 12369621
-    valueType: proto:uniswap.types.v1.Position
-    inputs:
-      - map: map_extract_data_types
-
   - name: store_position_changes
     kind: store
     initialBlock: 12369621
@@ -223,22 +215,6 @@ modules:
       - store: store_position_changes
     output:
       type: proto:uniswap.types.v1.SnapshotPositions
-
-  - name: map_fees
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-    output:
-      type: proto:uniswap.types.v1.Fees
-
-  - name: store_fees
-    kind: store
-    initialBlock: 12369621
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Fee
-    inputs:
-      - source: sf.ethereum.type.v2.Block
 
   - name: map_bundle_entities
     kind: map
@@ -365,19 +341,6 @@ modules:
     output:
       type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_uniswap_day_data_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - store: store_total_tx_counts
-        mode: deltas
-      - store: store_totals
-        mode: deltas
-      - store: store_swaps_volume
-        mode: deltas
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
-
   - name: graph_out
     kind: map
     initialBlock: 12369621
@@ -394,10 +357,3 @@ modules:
       - map: map_swaps_mints_burns_entities
     output:
       type: proto:substreams.entity.v1.EntityChanges
-
-  - name: dummy_graph_out_store
-    kind: store
-    updatePolicy: set
-    valueType: string
-    inputs:
-      - map: graph_out
