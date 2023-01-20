@@ -264,11 +264,36 @@ pub fn map_extract_data_types(
         }
     }
 
+    // sorting those vecs because we took the Logs from within Calls, possibly breaking the
+    // ordering
+    pool_sqrt_prices
+        .pool_sqrt_prices
+        .sort_by(|x, y| x.ordinal.cmp(&y.ordinal));
     events.pool_sqrt_prices = Some(pool_sqrt_prices);
+
+    pool_liquidities
+        .pool_liquidities
+        .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
     events.pool_liquidities = Some(pool_liquidities);
+
+    token_events
+        .events
+        .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
     events.events = Some(token_events);
+
+    transactions
+        .transactions
+        .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
     events.transactions = Some(transactions);
+
+    positions
+        .positions
+        .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
     events.positions = Some(positions);
+
+    flashes
+        .flashes
+        .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
     events.flashes = Some(flashes);
 
     Ok(events)
