@@ -76,7 +76,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                     token0: Some(match rpc::create_uniswap_token(&token0_address) {
                         Some(mut token) => {
                             token.total_supply = rpc::token_total_supply_call(&token0_address)
-                                .expect("failed to get token0 total supply")
+                                .unwrap_or(BigInt::zero())
                                 .to_string();
                             token
                         }
@@ -88,7 +88,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                     token1: Some(match rpc::create_uniswap_token(&token1_address) {
                         Some(mut token) => {
                             token.total_supply = rpc::token_total_supply_call(&token1_address)
-                                .expect("failed to get token1 total supply")
+                                .unwrap_or(BigInt::zero())
                                 .to_string();
                             token
                         }
