@@ -420,24 +420,26 @@ pub fn tokens_created_token_entity_change(
 ) {
     for pool in pools.pools {
         match tokens_store.get_last(&keyer::token_key(pool.token0_ref().address())) {
-            Some(_) => {
-                log::info!("token exists: {}", pool.token0_ref().address());
-                continue; // nothing to add, the token already exists
+            Some(value) => {
+                if value.gt(&1) {
+                    continue;
+                }
+                add_token_entity_change(entity_changes, pool.token0_ref(), pool.log_ordinal);
             }
             None => {
-                log::info!("token doesn't exists: {}", pool.token0_ref().address());
-                add_token_entity_change(entity_changes, pool.token0_ref(), pool.log_ordinal);
+                panic!("pool contains token that doesn't exist {}", pool.address)
             }
         }
 
         match tokens_store.get_last(&keyer::token_key(pool.token1_ref().address())) {
-            Some(_) => {
-                log::info!("token exists: {}", pool.token1_ref().address());
-                continue; // nothing to add, the token already exists
+            Some(value) => {
+                if value.gt(&1) {
+                    continue;
+                }
+                add_token_entity_change(entity_changes, pool.token1_ref(), pool.log_ordinal);
             }
             None => {
-                log::info!("token doesn't exists: {}", pool.token1_ref().address());
-                add_token_entity_change(entity_changes, pool.token1_ref(), pool.log_ordinal);
+                panic!("pool contains token that doesn't exist {}", pool.address)
             }
         }
     }

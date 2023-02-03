@@ -123,17 +123,17 @@ pub fn store_pools(pools: Pools, store: StoreSetProto<Pool>) {
 }
 
 #[substreams::handlers::store]
-pub fn store_tokens(pools: Pools, store: StoreSetInt64) {
+pub fn store_tokens(pools: Pools, store: StoreAddInt64) {
     for pool in pools.pools {
-        store.set(
+        store.add(
             pool.log_ordinal,
             keyer::token_key(&pool.token0_ref().address()),
-            &1,
+            1,
         );
-        store.set(
+        store.add(
             pool.log_ordinal,
             keyer::token_key(&pool.token1_ref().address()),
-            &1,
+            1,
         );
     }
 }
@@ -1563,7 +1563,7 @@ pub fn map_pool_entities(
 
 #[substreams::handlers::map]
 pub fn map_tokens_entities(
-    pools_created: Pools,
+    pools: Pools,
     tokens_store: StoreGetInt64,
     swaps_volume_deltas: Deltas<DeltaBigDecimal>,
     tx_count_deltas: Deltas<DeltaBigInt>,
@@ -1573,8 +1573,7 @@ pub fn map_tokens_entities(
     tokens_whitelist_pools: Deltas<DeltaArray<String>>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
-    // todo: here we need to check to make sure that the token doesn't already exist in the store
-    db::tokens_created_token_entity_change(&mut entity_changes, pools_created, tokens_store);
+    db::tokens_created_token_entity_change(&mut entity_changes, pools, tokens_store);
     db::swap_volume_token_entity_change(&mut entity_changes, swaps_volume_deltas);
     db::tx_count_token_entity_change(&mut entity_changes, tx_count_deltas);
     db::total_value_locked_by_token_token_entity_change(
