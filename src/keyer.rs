@@ -26,6 +26,10 @@ where
     )
 }
 
+pub fn token_key(token_address: &String) -> String {
+    format!("token:{}", token_address)
+}
+
 pub fn generate_tokens_key(token0: &str, token1: &str) -> String {
     if token0 > token1 {
         return format!("{}:{}", token1, token0);
@@ -152,12 +156,16 @@ pub fn pool_liquidity(pool_address: &String) -> String {
 // ------------------------------------------------
 //      store_total_value_locked_by_tokens
 // ------------------------------------------------
-pub fn total_value_locked_by_tokens(
+pub fn total_value_locked_by_pool(
     pool_address: &String,
     token_address: &String,
     token: String,
 ) -> String {
     format!("pool:{}:{}:{}", pool_address, token_address, token)
+}
+
+pub fn total_value_locked_by_token(token_address: &String) -> String {
+    format!("token:{}", token_address)
 }
 
 // ------------------------------------------------

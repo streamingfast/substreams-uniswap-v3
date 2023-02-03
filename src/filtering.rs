@@ -61,6 +61,7 @@ pub fn extract_token_events(
             })),
         })
     } else if let Some(mint) = abi::pool::events::Mint::match_and_decode(log) {
+        log::info!("transaction: {}", transaction_id.to_string());
         if !pool.should_handle_mint_and_burn() {
             return;
         }
@@ -109,7 +110,7 @@ pub fn extract_token_events(
             log_ordinal: log.ordinal,
             log_index: log.block_index as u64,
             pool_address: pool.address.to_string(),
-            token0: token1.address.clone(),
+            token0: token0.address.clone(),
             token1: token1.address.clone(),
             fee: pool.fee_tier_value(),
             transaction_id: transaction_id.to_string(),

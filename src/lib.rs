@@ -107,16 +107,33 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
 #[substreams::handlers::store]
 pub fn store_pools(pools: Pools, store: StoreSetProto<Pool>) {
     for pool in pools.pools {
-        store.set(pool.log_ordinal, keyer::pool_key(&pool.address), &pool);
+        store.set_many(
+            pool.log_ordinal,
+            &vec![
+                keyer::pool_key(&pool.address),
+                keyer::pool_token_index_key(
+                    &pool.token0_ref().address(),
+                    &pool.token1_ref().address(),
+                    pool.fee_tier.as_ref().unwrap().into(),
+                ),
+            ],
+            &pool,
+        );
+    }
+}
 
+#[substreams::handlers::store]
+pub fn store_tokens(pools: Pools, store: StoreSetInt64) {
+    for pool in pools.pools {
         store.set(
             pool.log_ordinal,
-            keyer::pool_token_index_key(
-                &pool.token0_ref().address(),
-                &pool.token1_ref().address(),
-                pool.fee_tier.as_ref().unwrap().into(),
-            ),
-            &pool,
+            keyer::token_key(&pool.token0_ref().address()),
+            &1,
+        );
+        store.set(
+            pool.log_ordinal,
+            keyer::token_key(&pool.token1_ref().address()),
+            &1,
         );
     }
 }
@@ -584,13 +601,6 @@ pub fn store_swaps_volume(
                         amount1_abs = amount1_abs.mul(BigDecimal::from(-1 as i64))
                     }
 
-                    log::debug!("trx_id: {}", event.transaction_id);
-                    log::debug!("bundle.ethPriceUSD: {}", eth_price_in_usd);
-                    log::debug!("token0_derived_eth_price: {}", token0_derived_eth_price);
-                    log::debug!("token1_derived_eth_price: {}", token1_derived_eth_price);
-                    log::debug!("amount0_abs: {}", amount0_abs);
-                    log::debug!("amount1_abs: {}", amount1_abs);
-
                     let amount_total_usd_tracked: BigDecimal = utils::get_tracked_amount_usd(
                         &event.token0,
                         &event.token1,
@@ -605,9 +615,14 @@ pub fn store_swaps_volume(
                     let amount_total_eth_tracked =
                         math::safe_div(&amount_total_usd_tracked, &eth_price_in_usd);
 
-                    let amount_total_usd_untracked: BigDecimal = amount0_abs
+                    let amount0_eth = amount0_abs.clone().mul(token0_derived_eth_price);
+                    let amount1_eth = amount1_abs.clone().mul(token1_derived_eth_price);
+                    let amount0_usd = amount0_eth.mul(eth_price_in_usd.clone());
+                    let amount1_usd = amount1_eth.mul(eth_price_in_usd);
+
+                    let amount_total_usd_untracked: BigDecimal = amount0_usd
                         .clone()
-                        .add(amount1_abs.clone())
+                        .add(amount1_usd)
                         .div(BigDecimal::from(2 as i32));
 
                     let fee_tier: BigDecimal = BigDecimal::from(pool.fee_tier.unwrap());
@@ -851,22 +866,29 @@ pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigDeci
             }
         }
 
-        store.add(
+        store.add_many(
             event.log_ordinal,
-            keyer::total_value_locked_by_tokens(
-                &event.pool_address,
-                &event.token0,
-                "token0".to_string(),
-            ),
+            &vec![
+                keyer::total_value_locked_by_pool(
+                    &event.pool_address,
+                    &event.token0,
+                    "token0".to_string(),
+                ),
+                keyer::total_value_locked_by_token(&event.token0),
+            ],
             &amount0,
         );
-        store.add(
+
+        store.add_many(
             event.log_ordinal,
-            keyer::total_value_locked_by_tokens(
-                &event.pool_address,
-                &event.token1,
-                "token1".to_string(),
-            ),
+            &vec![
+                keyer::total_value_locked_by_pool(
+                    &event.pool_address,
+                    &event.token1,
+                    "token1".to_string(),
+                ),
+                keyer::total_value_locked_by_token(&event.token1),
+            ],
             &amount1,
         );
     }
@@ -874,7 +896,7 @@ pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigDeci
 
 #[substreams::handlers::store]
 pub fn store_total_value_locked(
-    native_total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
+    native_total_value_locked_deltas: Deltas<DeltaBigDecimal>,
     pools_store: StoreGetProto<Pool>,
     eth_prices_store: StoreGetBigDecimal,
     store: StoreSetBigDecimal,
@@ -1539,23 +1561,20 @@ pub fn map_pool_entities(
     Ok(entity_changes)
 }
 
-//todo: when a pool is created, we also save the token
-// (id, name, symbol, decimals and total supply)
-// issue here is what if we have multiple pools with t1-t2, t1-t3, t1-t4, etc.
-// we will have t1 generate multiple entity changes for nothing since it has
-// already been emitted -- subgraph doesn't solve this either (Optimization)
 #[substreams::handlers::map]
 pub fn map_tokens_entities(
     pools_created: Pools,
-    swaps_volume_deltas: store::Deltas<DeltaBigDecimal>,
-    tx_count_deltas: store::Deltas<DeltaBigInt>,
-    total_value_locked_by_deltas: store::Deltas<DeltaBigDecimal>,
-    total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
-    derived_eth_prices_deltas: store::Deltas<DeltaBigDecimal>,
-    tokens_whitelist_pools: store::Deltas<DeltaArray<String>>,
+    tokens_store: StoreGetInt64,
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>,
+    tx_count_deltas: Deltas<DeltaBigInt>,
+    total_value_locked_by_deltas: Deltas<DeltaBigDecimal>,
+    total_value_locked_deltas: Deltas<DeltaBigDecimal>,
+    derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,
+    tokens_whitelist_pools: Deltas<DeltaArray<String>>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
-    db::tokens_created_token_entity_change(&mut entity_changes, pools_created);
+    // todo: here we need to check to make sure that the token doesn't already exist in the store
+    db::tokens_created_token_entity_change(&mut entity_changes, pools_created, tokens_store);
     db::swap_volume_token_entity_change(&mut entity_changes, swaps_volume_deltas);
     db::tx_count_token_entity_change(&mut entity_changes, tx_count_deltas);
     db::total_value_locked_by_token_token_entity_change(

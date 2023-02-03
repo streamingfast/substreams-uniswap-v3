@@ -150,7 +150,7 @@ pub fn get_tracked_amount_usd(
 
     // both are whitelist tokens, return sum of both amounts
     if WHITELIST_TOKENS.contains(&token0_id.as_str())
-        && WHITELIST_TOKENS.contains(&token0_id.as_str())
+        && WHITELIST_TOKENS.contains(&token1_id.as_str())
     {
         return amount0_abs
             .clone()

@@ -1,15 +1,17 @@
+use crate::pb::uniswap::Pool;
 use crate::uniswap::tick::Origin;
 use crate::{
     keyer, utils, BurnEvent, Erc20Token, Flashes, MintEvent, PoolSqrtPrice, Pools, Positions,
     SnapshotPositions, SwapEvent, Tick, TokenEvents, Transactions,
 };
 use std::str::FromStr;
+use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
     DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
-    StoreGetBigInt,
+    StoreGetBigInt, StoreGetProto,
 };
-use substreams::Hex;
+use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::{entity_change::Operation, EntityChange, EntityChanges};
 
 // -------------------
@@ -411,13 +413,33 @@ pub fn swap_volume_pool_entity_change(
 // --------------------
 //  Map Token Entities
 // --------------------
-pub fn tokens_created_token_entity_change(entity_changes: &mut EntityChanges, pools: Pools) {
+pub fn tokens_created_token_entity_change(
+    entity_changes: &mut EntityChanges,
+    pools: Pools,
+    tokens_store: StoreGetInt64,
+) {
     for pool in pools.pools {
-        let token0: &Erc20Token = pool.token0.as_ref().unwrap();
-        let token1: &Erc20Token = pool.token1.as_ref().unwrap();
+        match tokens_store.get_last(&keyer::token_key(pool.token0_ref().address())) {
+            Some(_) => {
+                log::info!("token exists: {}", pool.token0_ref().address());
+                continue; // nothing to add, the token already exists
+            }
+            None => {
+                log::info!("token doesn't exists: {}", pool.token0_ref().address());
+                add_token_entity_change(entity_changes, pool.token0_ref(), pool.log_ordinal);
+            }
+        }
 
-        add_token_entity_change(entity_changes, token0, pool.log_ordinal);
-        add_token_entity_change(entity_changes, token1, pool.log_ordinal);
+        match tokens_store.get_last(&keyer::token_key(pool.token1_ref().address())) {
+            Some(_) => {
+                log::info!("token exists: {}", pool.token1_ref().address());
+                continue; // nothing to add, the token already exists
+            }
+            None => {
+                log::info!("token doesn't exists: {}", pool.token1_ref().address());
+                add_token_entity_change(entity_changes, pool.token1_ref(), pool.log_ordinal);
+            }
+        }
     }
 }
 
@@ -459,6 +481,7 @@ pub fn tx_count_token_entity_change(
             continue;
         }
 
+        log::info!("delta key {}", delta.key);
         let token_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
         entity_changes
             .push_change(
@@ -476,7 +499,12 @@ pub fn total_value_locked_by_token_token_entity_change(
     deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
-        let token_address = delta.key.as_str().split(":").nth(2).unwrap().to_string();
+        if !delta.key.starts_with("token:") {
+            continue;
+        }
+
+        let token_address = delta.key.as_str().split(":").last().unwrap().to_string();
+        log::info!("printing delta {:?}", delta);
 
         entity_changes
             .push_change(
@@ -947,6 +975,7 @@ pub fn swaps_mints_burns_created_entity_change(
                 }
                 MintEvent(mint) => {
                     let amount0: BigDecimal = BigDecimal::from(mint.amount_0.unwrap());
+                    log::info!("mint amount 0 {}", amount0);
                     let amount1: BigDecimal = BigDecimal::from(mint.amount_1.unwrap());
 
                     let amount_usd: BigDecimal = utils::calculate_amount_usd(
