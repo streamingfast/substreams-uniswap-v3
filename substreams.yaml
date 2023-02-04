@@ -143,7 +143,7 @@ modules:
     updatePolicy: set
     valueType: bigint
     inputs:
-      - map: map_pools_created
+      - map: map_extract_data_types
 
   - name: store_native_total_value_locked
     kind: store

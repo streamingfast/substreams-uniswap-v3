@@ -706,25 +706,26 @@ pub fn store_swaps_volume(
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_fee_growth_global_x128(pools: Pools, store: StoreSetBigInt) {
-    for pool in pools.pools {
+pub fn store_pool_fee_growth_global_x128(events: Events, store: StoreSetBigInt) {
+    for event in events.events.unwrap_or_default().events {
+        let pool_address = event.pool_address;
         log::info!(
             "pool address: {} trx_id:{}",
-            pool.address,
-            pool.transaction_id
+            pool_address,
+            event.transaction_id
         );
-        let (big_int_1, big_int_2) = rpc::fee_growth_global_x128_call(&pool.address);
-        log::debug!("big decimal0: {}", big_int_1);
-        log::debug!("big decimal1: {}", big_int_2);
+        let (big_int_1, big_int_2) = rpc::fee_growth_global_x128_call(&pool_address);
+        log::info!("big decimal0: {}", big_int_1);
+        log::info!("big decimal1: {}", big_int_2);
 
         store.set(
-            pool.log_ordinal,
-            keyer::pool_fee_growth_global_x128(&pool.address, "token0".to_string()),
+            event.log_ordinal,
+            keyer::pool_fee_growth_global_x128(&pool_address, "token0".to_string()),
             &big_int_1,
         );
         store.set(
-            pool.log_ordinal,
-            keyer::pool_fee_growth_global_x128(&pool.address, "token1".to_string()),
+            event.log_ordinal,
+            keyer::pool_fee_growth_global_x128(&pool_address, "token1".to_string()),
             &big_int_2,
         );
     }
@@ -738,6 +739,7 @@ pub fn store_native_total_value_locked(
     for event_amount in event_amounts.event_amounts {
         let amount0: BigDecimal = event_amount.amount0_value.unwrap().into();
         let amount1: BigDecimal = event_amount.amount1_value.unwrap().into();
+        log::info!("amount 0: {} amount 1: {}", amount0, amount1);
         store.add_many(
             event_amount.log_ordinal,
             &vec![
@@ -919,6 +921,7 @@ pub fn store_total_value_locked(
             native_total_value_locked.key
         );
         if let Some(token_addr) = keyer::native_token_from_key(&native_total_value_locked.key) {
+            log::info!("native token delta: {:?}", native_total_value_locked);
             let value = &native_total_value_locked.new_value;
             let token_derive_eth: BigDecimal =
                 match eth_prices_store.get_last(&keyer::token_eth_price(&token_addr)) {
@@ -926,6 +929,8 @@ pub fn store_total_value_locked(
                     Some(price) => price,
                 };
 
+            //todo: here I think that value is incorrect and not what we think it is
+            // the value should be total_value_locked_usd = (totalValueLockedETH * ethPriceUSD)
             let total_value_locked_usd = value
                 .clone()
                 .mul(token_derive_eth)
@@ -1533,14 +1538,14 @@ pub fn map_factory_entities(
 #[substreams::handlers::map]
 pub fn map_pool_entities(
     pools_created: Pools,
-    pool_sqrt_price_deltas: store::Deltas<DeltaProto<PoolSqrtPrice>>,
-    pool_liquidities_store_deltas: store::Deltas<DeltaBigInt>,
-    total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
-    total_value_locked_by_tokens_deltas: store::Deltas<DeltaBigDecimal>,
-    pool_fee_growth_global_x128_deltas: store::Deltas<DeltaBigInt>,
-    price_deltas: store::Deltas<DeltaBigDecimal>,
-    tx_count_deltas: store::Deltas<DeltaBigInt>,
-    swaps_volume_deltas: store::Deltas<DeltaBigDecimal>,
+    pool_sqrt_price_deltas: Deltas<DeltaProto<PoolSqrtPrice>>,
+    pool_liquidities_store_deltas: Deltas<DeltaBigInt>,
+    total_value_locked_deltas: Deltas<DeltaBigDecimal>,
+    total_value_locked_by_tokens_deltas: Deltas<DeltaBigDecimal>,
+    pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>,
+    price_deltas: Deltas<DeltaBigDecimal>,
+    tx_count_deltas: Deltas<DeltaBigInt>,
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::pools_created_pool_entity_change(pools_created, &mut entity_changes);

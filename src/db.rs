@@ -389,6 +389,9 @@ pub fn swap_volume_pool_entity_change(
         }
 
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
+        if delta.key.as_str().split(":").last().unwrap().eq("usd") {
+            log::info!("delta value {:?}", delta);
+        }
 
         let name = match delta.key.as_str().split(":").last().unwrap() {
             "token0" => "volumeToken0",
