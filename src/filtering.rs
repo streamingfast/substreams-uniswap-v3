@@ -32,6 +32,8 @@ pub fn extract_token_events(
         let token0 = pool.token0.as_ref().unwrap();
         let token1 = pool.token1.as_ref().unwrap();
 
+        log::info!("'swap amount 0 {}", swap.amount0);
+        log::info!("'swap amount 1 {}", swap.amount1);
         let amount0 = swap.amount0.to_decimal(token0.decimals);
         let amount1 = swap.amount1.to_decimal(token1.decimals);
 

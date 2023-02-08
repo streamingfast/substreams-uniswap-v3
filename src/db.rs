@@ -908,7 +908,7 @@ pub fn swaps_mints_burns_created_entity_change(
 
         if event.r#type.is_some() {
             let transaction_count: i32 =
-                match tx_count_store.get_last(keyer::factory_total_tx_count()) {
+                match tx_count_store.get_last(keyer::pool_total_tx_count(&event.pool_address)) {
                     Some(data) => data.to_u64() as i32,
                     None => 0,
                 };

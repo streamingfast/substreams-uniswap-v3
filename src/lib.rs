@@ -464,7 +464,7 @@ pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error>
 pub fn store_totals(
     clock: Clock,
     store_eth_prices: StoreGetBigDecimal,
-    total_value_locked_deltas: store::Deltas<DeltaBigDecimal>,
+    total_value_locked_deltas: Deltas<DeltaBigDecimal>,
     store: StoreAddBigDecimal,
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
@@ -472,20 +472,34 @@ pub fn store_totals(
     store.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
 
     let mut pool_total_value_locked_eth_new_value: BigDecimal = BigDecimal::zero();
+    log::info!(
+        "number of deltas {}",
+        total_value_locked_deltas.deltas.len()
+    );
     for delta in total_value_locked_deltas.deltas {
         if !delta.key.starts_with("pool:") {
+            // todo: is this good??
             continue;
         }
         match delta.key.as_str().split(":").last().unwrap() {
             "eth" => {
                 let pool_total_value_locked_eth_old_value = delta.old_value;
-                // let pool_total_value_locked_eth_old_value: BigDecimal = math::decimal_from_bytes(&delta.old_value);
                 pool_total_value_locked_eth_new_value = delta.new_value;
-                // pool_total_value_locked_eth_new_value = math::decimal_from_bytes(&delta.new_value);
 
                 let pool_total_value_locked_eth_diff: BigDecimal =
                     pool_total_value_locked_eth_old_value
+                        .clone()
                         .sub(pool_total_value_locked_eth_new_value.clone());
+
+                log::info!(
+                    "total value locked eth old: {}",
+                    pool_total_value_locked_eth_old_value
+                );
+                log::info!(
+                    "total value locked eth new: {}",
+                    pool_total_value_locked_eth_new_value
+                );
+                log::info!("diff: {}", pool_total_value_locked_eth_diff);
 
                 store.add(
                     delta.ordinal,
@@ -504,16 +518,23 @@ pub fn store_totals(
                     .clone()
                     .mul(bundle_eth_price);
 
+                log::info!("total value locked usd {}", total_value_locked_usd);
+
                 // here we have to do a hackish way to set the value, to not have to
                 // create a new store which would do the same but that would set the
                 // value instead of summing it, what we do is calculate the difference
                 // and simply add/sub the difference and that mimics the same as setting
                 // the value
                 let total_value_locked_usd_old_value: BigDecimal = delta.old_value;
-                // let total_value_locked_usd_old_value: BigDecimal = math::decimal_from_bytes(&delta.old_value);
                 let diff: BigDecimal = total_value_locked_usd
                     .clone()
-                    .sub(total_value_locked_usd_old_value);
+                    .sub(total_value_locked_usd_old_value.clone());
+
+                log::info!(
+                    "total value locked usd old {}",
+                    total_value_locked_usd_old_value
+                );
+                log::info!("diff {}", diff);
 
                 store.add(
                     delta.ordinal,
@@ -910,6 +931,7 @@ pub fn store_total_value_locked(
     // let eth_price_usd = helper::get_eth_price(&eth_prices_store).unwrap();
 
     for native_total_value_locked in native_total_value_locked_deltas.deltas {
+        // todo: shouldn't this be fetched out of the deltas?
         let eth_price_usd: BigDecimal = match &eth_prices_store.get_last(&keyer::bundle_eth_price())
         {
             None => continue,
@@ -1008,12 +1030,15 @@ pub fn store_total_value_locked(
                     &pool_total_value_locked_usd,
                 );
 
+                // todo: here we should remove the pool from the pool_aggregator no ?
+
                 continue;
             }
             pool_aggregator.insert(
                 aggregate_key.clone(),
                 (1, partial_pool_total_value_locked_eth),
             );
+            // todo: should we not loop over the pools here after ?
             log::info!("partial inserted");
         }
     }
