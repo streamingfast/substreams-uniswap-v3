@@ -6,6 +6,21 @@ The Subgraph-style output hinges on the latest `graph-node` to implement `substr
 
 Substreams are consumable directly.
 
+Contrains additional experiments with sinking by Blocktorch.
+
+## Auth
+`$STREAMINGFAST_KEY` should be present in env, then:
+```bash
+. sf-token.sh
+```
+
+## Sink data about created pools to files
+_(Locally for now, s3 todo if deemed needed)_
+```bash
+make sink
+```
+This will take on the sinking if the progress existed before in [output/state.yml](output/state.yaml). New files are created for each 10k processed blocks. Add freshly created ones to VCS.
+
 ## Stream intermediate values and events
 
 ```bash
