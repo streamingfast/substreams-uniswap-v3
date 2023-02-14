@@ -9,6 +9,7 @@ package:
 
 imports:
   entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v0.2.1/substreams-entity-change-v0.2.1.spkg
+  sink_files: https://github.com/streamingfast/substreams-sink-files/releases/download/v0.2.0/substreams-sink-files-v0.2.0.spkg
 
 protobuf:
   files:
@@ -29,6 +30,13 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:uniswap.types.v1.Pools
+
+  - name: jsonl_out
+    kind: map
+    inputs:
+      - map: map_pools_created
+    output:
+      type: proto:sf.substreams.sink.files.v1.Lines
 
   - name: store_pools
     kind: store

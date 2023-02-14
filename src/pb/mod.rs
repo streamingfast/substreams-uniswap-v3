@@ -11,6 +11,10 @@ use std::str::FromStr;
 use substreams::log;
 use substreams::scalar::BigDecimal;
 
+#[allow(dead_code)]
+#[path = "sf.substreams.sink.files.v1.rs"]
+pub mod sinkfiles;
+
 #[allow(unused_imports)]
 #[allow(dead_code)]
 #[path = "./uniswap.types.v1.rs"]

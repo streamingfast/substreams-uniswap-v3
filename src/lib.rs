@@ -44,6 +44,8 @@ use substreams::store::{
 use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::EntityChanges;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
+use pb::sinkfiles::Lines;
+use serde_json::json;
 
 #[substreams::handlers::map]
 pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
@@ -98,6 +100,28 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                 })
             })
             .collect(),
+    })
+}
+
+#[substreams::handlers::map]
+pub fn jsonl_out(pools: Pools) -> Result<Lines, substreams::errors::Error> {
+    let mut vec = Vec::new();
+    for pool in pools.pools {
+        vec.push(json!({
+            "number": pool.created_at_block_number,
+            "timestamp": pool.created_at_timestamp,
+            "pool_address": pool.address,
+            "token0_address": pool.token0().address,
+            "token0_ticker": pool.token0().symbol,
+            "token1_address": pool.token1().address,
+            "token1_ticker": pool.token1().symbol
+        })
+        .to_string())
+    }
+
+    Ok(pb::sinkfiles::Lines {
+        // Although we return a single line, you are free in your own code to return multiple lines, one per entity usually
+        lines: vec,
     })
 }
 

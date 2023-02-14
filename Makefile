@@ -7,7 +7,11 @@ build:
 
 .PHONY: stream
 stream: build
-	substreams run -e $(ENDPOINT) substreams.yaml map_transfers -s 12292922 -t +10
+	substreams run -e $(ENDPOINT) substreams.yaml jsonl_out -s 16055391 -t +10
+
+.PHONY: sink
+sink: build
+	substreams-sink-files run --encoder=lines --state-store=./output/state.yaml $(ENDPOINT) substreams.yaml jsonl_out ./output/files
 
 .PHONY: codegen
 codegen:
