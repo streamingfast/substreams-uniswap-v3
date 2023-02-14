@@ -11,7 +11,7 @@ stream: build
 
 .PHONY: codegen
 codegen:
-	substreams protogen ./substreams.yaml --exclude-paths="sf/ethereum,sf/substreams,google"
+	substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google"
 
 .PHONE: package
 package: build
