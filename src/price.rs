@@ -98,6 +98,7 @@ pub fn find_eth_per_token(
     if STABLE_COINS.contains(&token_address.as_str()) {
         log::debug!("token addr: {} is a stable coin", token_address);
         let eth_price_usd = get_eth_price_in_usd(prices_store, log_ordinal);
+        log::info!("eth_price_usd {}", eth_price_usd);
         price_so_far = math::safe_div(&BigDecimal::one(), &eth_price_usd);
     } else {
         // TODO: @eduard change this once the changes for store of list has been merged

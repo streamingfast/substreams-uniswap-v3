@@ -1,9 +1,12 @@
-use crate::pb::uniswap::Pool;
+use crate::pb::position_event::PositionEventType;
+use crate::pb::uniswap::position::PositionType;
+use crate::pb::uniswap::{Pool, Position};
 use crate::uniswap::tick::Origin;
 use crate::{
     keyer, utils, BurnEvent, Erc20Token, Flashes, MintEvent, PoolSqrtPrice, Pools, Positions,
     SnapshotPositions, SwapEvent, Tick, TokenEvents, Transactions,
 };
+use std::ops::{Div, Mul};
 use std::str::FromStr;
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
@@ -552,6 +555,9 @@ pub fn derived_eth_prices_token_entity_change(
     deltas: Deltas<DeltaBigDecimal>,
 ) {
     for delta in deltas.deltas {
+        log::info!("delta.key {:?}", delta.key);
+        log::info!("delta.old_value {:?}", delta.old_value);
+        log::info!("delta.new_value {:?}", delta.new_value);
         if !delta.key.starts_with("token:") {
             continue;
         }
@@ -699,11 +705,11 @@ fn create_tick_entity_change(entity_changes: &mut EntityChanges, tick: Tick) {
         .change("liquidityProviderCount", BigInt::zero())
         .change(
             "feeGrowthOutside0X128",
-            BigInt::from(tick.created_at_block_number),
+            BigInt::from(tick.fee_growth_outside_0x_128.unwrap()),
         )
         .change(
             "feeGrowthOutside1X128",
-            BigInt::from(tick.created_at_block_number),
+            BigInt::from(tick.fee_growth_outside_1x_128.unwrap()),
         );
 }
 
@@ -740,38 +746,52 @@ fn update_tick_entity_change(entity_changes: &mut EntityChanges, old_tick: Tick,
 // --------------------
 //  Map Position Entities
 // --------------------
-pub fn position_create_entity_change(positions: Positions, entity_changes: &mut EntityChanges) {
+pub fn position_create_entity_change(
+    positions: Positions,
+    positions_store: StoreGetInt64,
+    entity_changes: &mut EntityChanges,
+) {
     for position in positions.positions {
-        entity_changes
-            .push_change(
-                "Position",
-                position.id.clone().as_str(),
-                position.log_ordinal,
-                Operation::Create,
-            )
-            .change("id", position.id)
-            .change("owner", position.owner.into_bytes())
-            .change("pool", position.pool)
-            .change("token0", position.token0)
-            .change("token1", position.token1)
-            .change("tickLower", position.tick_lower)
-            .change("tickUpper", position.tick_upper)
-            .change("liquidity", BigDecimal::zero())
-            .change("depositedToken0", BigDecimal::zero())
-            .change("depositedToken1", BigDecimal::zero())
-            .change("withdrawnToken0", BigDecimal::zero())
-            .change("withdrawnToken1", BigDecimal::zero())
-            .change("collectedFeesToken0", BigDecimal::zero())
-            .change("collectedFeesToken1", BigDecimal::zero())
-            .change("transaction", position.transaction)
-            .change(
-                "feeGrowthInside0LastX128",
-                BigInt::from(position.fee_growth_inside_0_last_x_128.unwrap()),
-            )
-            .change(
-                "feeGrowthInside1LastX128",
-                BigInt::from(position.fee_growth_inside_1_last_x_128.unwrap()),
-            );
+        match position.convert_position_type() {
+            //TODO: Check https://github.com/streamingfast/substreams-uniswap-v3/issues/6
+            // to merge positions of the same id. Probably gonna need a map[string][Position]
+            // which will have the id as a key and simply loop over the map and merge the
+            // exclusive data types. Good example is getting a Transfer then an
+            // IncreaseLiquidity where the IncreaseLiquidity position sets owner (in this case) to
+            // 0x000...000 but the Transfer will set a specific owner of the position. We
+            // want the owner set by the Transfer as an end result.
+            PositionType::IncreaseLiquidity => {
+                add_or_skip_position_entity_change(
+                    PositionType::IncreaseLiquidity,
+                    &positions_store,
+                    entity_changes,
+                    position,
+                );
+            }
+            PositionType::DecreaseLiquidity => {
+                add_or_skip_position_entity_change(
+                    PositionType::DecreaseLiquidity,
+                    &positions_store,
+                    entity_changes,
+                    position,
+                );
+            }
+            PositionType::Collect => {
+                add_or_skip_position_entity_change(
+                    PositionType::Collect,
+                    &positions_store,
+                    entity_changes,
+                    position,
+                );
+            }
+            PositionType::Transfer => add_or_skip_position_entity_change(
+                PositionType::Transfer,
+                &positions_store,
+                entity_changes,
+                position,
+            ),
+            _ => {}
+        }
     }
 }
 
@@ -804,6 +824,55 @@ pub fn positions_changes_entity_change(
             .entity_changes
             .push(entity_change.change(name, delta).to_owned());
     }
+}
+
+fn add_or_skip_position_entity_change(
+    position_type: PositionType,
+    positions_store: &StoreGetInt64,
+    entity_changes: &mut EntityChanges,
+    position: Position,
+) {
+    match positions_store.get_last(&keyer::position(&position.id, &position_type.to_string())) {
+        None => {}
+        Some(value) => {
+            if value.eq(&1) {
+                add_position_entity_change(entity_changes, position);
+            }
+        }
+    }
+}
+
+fn add_position_entity_change(entity_changes: &mut EntityChanges, position: Position) {
+    entity_changes
+        .push_change(
+            "Position",
+            position.id.clone().as_str(),
+            position.log_ordinal,
+            Operation::Create,
+        )
+        .change("id", position.id)
+        .change("owner", position.owner.into_bytes())
+        .change("pool", position.pool)
+        .change("token0", position.token0)
+        .change("token1", position.token1)
+        .change("tickLower", position.tick_lower)
+        .change("tickUpper", position.tick_upper)
+        .change("liquidity", BigDecimal::zero())
+        .change("depositedToken0", BigDecimal::zero())
+        .change("depositedToken1", BigDecimal::zero())
+        .change("withdrawnToken0", BigDecimal::zero())
+        .change("withdrawnToken1", BigDecimal::zero())
+        .change("collectedFeesToken0", BigDecimal::zero())
+        .change("collectedFeesToken1", BigDecimal::zero())
+        .change("transaction", position.transaction)
+        .change(
+            "feeGrowthInside0LastX128",
+            BigInt::from(position.fee_growth_inside_0_last_x_128.unwrap()),
+        )
+        .change(
+            "feeGrowthInside1LastX128",
+            BigInt::from(position.fee_growth_inside_1_last_x_128.unwrap()),
+        );
 }
 
 // --------------------
@@ -944,13 +1013,26 @@ pub fn swaps_mints_burns_created_entity_change(
                     let amount0: BigDecimal = BigDecimal::from(swap.amount_0.unwrap());
                     let amount1: BigDecimal = BigDecimal::from(swap.amount_1.unwrap());
 
-                    let amount_usd: BigDecimal = utils::calculate_amount_usd(
-                        &amount0,
-                        &amount1,
+                    let mut amount0_abs: BigDecimal = amount0.clone();
+                    if amount0_abs.lt(&BigDecimal::from(0 as u64)) {
+                        amount0_abs = amount0_abs.mul(BigDecimal::from(-1 as i64))
+                    }
+
+                    let mut amount1_abs: BigDecimal = amount1.clone();
+                    if amount1_abs.lt(&BigDecimal::from(0 as u64)) {
+                        amount1_abs = amount1_abs.mul(BigDecimal::from(-1 as i64))
+                    }
+
+                    let amount_total_usd_tracked: BigDecimal = utils::get_tracked_amount_usd(
+                        &event.token0,
+                        &event.token1,
                         &token0_derived_eth_price,
                         &token1_derived_eth_price,
-                        &bundle_eth_price,
-                    );
+                        &amount0_abs,
+                        &amount1_abs,
+                        &bundle_eth_price, // get the value from the store_eth_price
+                    )
+                    .div(BigDecimal::from(2 as i32));
 
                     entity_changes
                         .push_change(
@@ -970,11 +1052,10 @@ pub fn swaps_mints_burns_created_entity_change(
                         .change("origin", swap.origin.into_bytes())
                         .change("amount0", amount0)
                         .change("amount1", amount1)
-                        .change("amountUSD", amount_usd)
+                        .change("amountUSD", amount_total_usd_tracked)
                         .change("sqrtPriceX96", BigInt::from(swap.sqrt_price.unwrap()))
                         .change("tick", BigInt::from(swap.tick.unwrap()))
-                        .change("logIndex", BigInt::from(event.log_ordinal));
-                    // not sure if log index is good
+                        .change("logIndex", BigInt::from(event.log_index));
                 }
                 MintEvent(mint) => {
                     let amount0: BigDecimal = BigDecimal::from(mint.amount_0.unwrap());
@@ -1011,8 +1092,7 @@ pub fn swaps_mints_burns_created_entity_change(
                         .change("amountUSD", amount_usd)
                         .change("tickLower", BigInt::from(mint.tick_lower.unwrap()))
                         .change("tickUpper", BigInt::from(mint.tick_upper.unwrap()))
-                        .change("logIndex", BigInt::from(event.log_ordinal));
-                    // not sure if log index is good
+                        .change("logIndex", BigInt::from(event.log_index));
                 }
                 BurnEvent(burn) => {
                     let amount0: BigDecimal = BigDecimal::from(burn.amount_0.unwrap());
@@ -1047,8 +1127,7 @@ pub fn swaps_mints_burns_created_entity_change(
                         .change("amountUSD", amount_usd)
                         .change("tickLower", BigInt::from(burn.tick_lower.unwrap()))
                         .change("tickUpper", BigInt::from(burn.tick_upper.unwrap()))
-                        .change("logIndex", BigInt::from(event.log_ordinal));
-                    // not sure if log index is good
+                        .change("logIndex", BigInt::from(event.log_index));
                 }
             };
         }

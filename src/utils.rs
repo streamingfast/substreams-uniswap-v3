@@ -18,15 +18,6 @@ pub const ZERO_ADDRESS: [u8; 20] = hex!("000000000000000000000000000000000000000
 pub const NON_FUNGIBLE_POSITION_MANAGER: [u8; 20] =
     hex!("c36442b4a4522e871399cd717abdd847ab11fe88");
 
-pub const _STABLE_COINS: [&str; 6] = [
-    "6b175474e89094c44da98b954eedeac495271d0f",
-    "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-    "dac17f958d2ee523a2206206994597c13d831ec7",
-    "0000000000085d4780b73119b644ae5ecd22b376",
-    "956f47f50a910163d8bf957cf5846d573e7f87ca",
-    "4dd28568d05f09b02220b09c2cb307bfd837cb95",
-];
-
 const DGD_TOKEN_ADDRESS: [u8; 20] = hex!("e0b7927c4af23765cb51314a0e0521a9645f0e2a");
 const AAVE_TOKEN_ADDRESS: [u8; 20] = hex!("7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9");
 const LIF_TOKEN_ADDRESS: [u8; 20] = hex!("eb9951021698b42e4399f9cbb6267aa35f82d59d");
@@ -246,7 +237,7 @@ pub fn get_position(
 
         return Some(Position {
             id: event.get_token_id().to_string(),
-            owner: Hex(ZERO_ADDRESS).to_string(),
+            owner: event.get_owner(),
             pool: pool.address.clone(),
             token0,
             token1,

@@ -216,7 +216,6 @@ pub fn map_extract_data_types(
                 let transactions_id = Hex(&trx.hash).to_string();
 
                 match pools_store.get_last(pool_key) {
-                    None => continue,
                     Some(pool) => {
                         // PoolSqrtPrices
                         filtering::extract_pool_sqrt_prices(
@@ -261,6 +260,7 @@ pub fn map_extract_data_types(
                         filtering::extract_flashes(&mut flashes, &log, &pools_store, pool_key);
                         // Flashes
                     }
+                    _ => (), // do nothing
                 }
 
                 //todo: pools_store needed to check if the pool exists in the store
@@ -472,13 +472,9 @@ pub fn store_totals(
     store.delete_prefix(0, &format!("uniswap_day_data:{}:", day_id - 1));
 
     let mut pool_total_value_locked_eth_new_value: BigDecimal = BigDecimal::zero();
-    log::info!(
-        "number of deltas {}",
-        total_value_locked_deltas.deltas.len()
-    );
     for delta in total_value_locked_deltas.deltas {
-        if !delta.key.starts_with("pool:") {
-            // todo: is this good??
+        log::info!("delta key {:?}", delta.key);
+        if !delta.key.starts_with("factory:") {
             continue;
         }
         match delta.key.as_str().split(":").last().unwrap() {
@@ -487,9 +483,9 @@ pub fn store_totals(
                 pool_total_value_locked_eth_new_value = delta.new_value;
 
                 let pool_total_value_locked_eth_diff: BigDecimal =
-                    pool_total_value_locked_eth_old_value
+                    pool_total_value_locked_eth_new_value
                         .clone()
-                        .sub(pool_total_value_locked_eth_new_value.clone());
+                        .sub(pool_total_value_locked_eth_old_value.clone());
 
                 log::info!(
                     "total value locked eth old: {}",
@@ -541,11 +537,11 @@ pub fn store_totals(
                     keyer::factory_total_value_locked_usd(),
                     &diff,
                 );
-                store.add(
-                    delta.ordinal,
-                    keyer::uniswap_total_value_locked_usd(day_id.to_string()),
-                    &total_value_locked_usd,
-                )
+                // store.add(
+                //     delta.ordinal,
+                //     keyer::uniswap_total_value_locked_usd(day_id.to_string()),
+                //     &total_value_locked_usd,
+                // )
             }
             _ => continue,
         }
@@ -755,13 +751,13 @@ pub fn store_pool_fee_growth_global_x128(events: Events, store: StoreSetBigInt) 
 #[substreams::handlers::store]
 pub fn store_native_total_value_locked(
     event_amounts: uniswap::EventAmounts,
-    store: StoreAddBigDecimal,
+    store: StoreSetBigDecimal, // fixme: why is this an add ???
 ) {
     for event_amount in event_amounts.event_amounts {
         let amount0: BigDecimal = event_amount.amount0_value.unwrap().into();
         let amount1: BigDecimal = event_amount.amount1_value.unwrap().into();
         log::info!("amount 0: {} amount 1: {}", amount0, amount1);
-        store.add_many(
+        store.set_many(
             event_amount.log_ordinal,
             &vec![
                 keyer::token_native_total_value_locked(&event_amount.token0_addr),
@@ -772,7 +768,7 @@ pub fn store_native_total_value_locked(
             ],
             &amount0,
         );
-        store.add_many(
+        store.set_many(
             event_amount.log_ordinal,
             &vec![
                 keyer::token_native_total_value_locked(&event_amount.token1_addr),
@@ -920,36 +916,38 @@ pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigDeci
 #[substreams::handlers::store]
 pub fn store_total_value_locked(
     native_total_value_locked_deltas: Deltas<DeltaBigDecimal>,
+    total_value_locked_by_tokens_store: StoreGetBigDecimal,
     pools_store: StoreGetProto<Pool>,
     eth_prices_store: StoreGetBigDecimal,
-    store: StoreSetBigDecimal,
+    store: StoreAddBigDecimal,
 ) {
-    // fixme: @julien: what is the use for the pool aggregator here ?
     let mut pool_aggregator: HashMap<String, (u64, BigDecimal)> = HashMap::from([]);
 
-    // fixme: are we sure we want to unwrap and fail here ? we can't even go over the first block..
-    // let eth_price_usd = helper::get_eth_price(&eth_prices_store).unwrap();
-
+    // the deltas will contain the amount0 and amount1 needed
+    // to compute the totalValueLockedToken0 and totalValueLockedToken0
     for native_total_value_locked in native_total_value_locked_deltas.deltas {
-        // todo: shouldn't this be fetched out of the deltas?
+        log::info!("\n");
+        log::info!("!!!DELTA KEY: {}", native_total_value_locked.key);
+        log::info!("!!!DELTA oldValue: {}", native_total_value_locked.old_value);
+        log::info!("!!!DELTA newValue: {}", native_total_value_locked.new_value);
+        log::info!("\n");
+
         let eth_price_usd: BigDecimal = match &eth_prices_store.get_last(&keyer::bundle_eth_price())
         {
             None => continue,
             Some(price) => price.with_prec(100),
         };
-        log::debug!(
-            "eth_price_usd: {}, native_total_value_locked.key: {}",
-            eth_price_usd,
-            native_total_value_locked.key
-        );
+        log::debug!("eth_price_usd: {}", eth_price_usd);
+
+        // ----- TOKEN ----- //
         if let Some(token_addr) = keyer::native_token_from_key(&native_total_value_locked.key) {
-            log::info!("native token delta: {:?}", native_total_value_locked);
             let value = &native_total_value_locked.new_value;
             let token_derive_eth: BigDecimal =
                 match eth_prices_store.get_last(&keyer::token_eth_price(&token_addr)) {
                     None => panic!("token eth price not found for token {}", token_addr),
                     Some(price) => price,
                 };
+            log::info!("token_derive_eth {}", token_derive_eth);
 
             //todo: here I think that value is incorrect and not what we think it is
             // the value should be total_value_locked_usd = (totalValueLockedETH * ethPriceUSD)
@@ -963,84 +961,155 @@ pub fn store_total_value_locked(
                 token_addr,
                 total_value_locked_usd
             );
-            store.set(
-                native_total_value_locked.ordinal,
-                keyer::token_usd_total_value_locked(&token_addr),
-                &total_value_locked_usd,
-            );
+            // FIXME
+            // store.set(
+            //     native_total_value_locked.ordinal,
+            //     keyer::token_usd_total_value_locked(&token_addr),
+            //     &total_value_locked_usd,
+            // );
+
+            // ----- POOL ----- //
         } else if let Some((pool_addr, token_addr)) =
             keyer::native_pool_from_key(&native_total_value_locked.key)
         {
             let pool = pools_store.must_get_last(keyer::pool_key(&pool_addr));
-            // we only want to use the token0
-            if pool.token0.as_ref().unwrap().address != token_addr {
-                continue;
-            }
+            log::info!("pool addr {}", pool.address);
+            log::info!("token0 {}", pool.token0_ref().address);
+            log::info!("token1 {}", pool.token1_ref().address);
+            // fixme: why did we only check the token0??
+            // if pool.token0.as_ref().unwrap().address != token_addr {
+            //     continue;
+            // }
             let value: BigDecimal = native_total_value_locked.new_value;
-            let token_derive_eth: BigDecimal =
-                match eth_prices_store.get_last(&keyer::token_eth_price(&token_addr)) {
-                    None => panic!("token eth price not found for token {}", token_addr),
-                    Some(price) => price,
-                };
-            let partial_pool_total_value_locked_eth = value.mul(token_derive_eth);
-            log::info!(
-                "partial pool {} token {} partial total value locked usd: {}",
-                pool_addr,
-                token_addr,
-                partial_pool_total_value_locked_eth,
-            );
+            let token0_derive_eth: BigDecimal = match eth_prices_store
+                .get_last(&keyer::token_eth_price(&pool.token0_ref().address))
+            {
+                None => panic!(
+                    "token eth price not found for token {}",
+                    pool.token0_ref().address
+                ),
+                Some(price) => price,
+            };
+
+            log::info!("token0_derive_eth: {}", token0_derive_eth);
+
+            let token1_derive_eth: BigDecimal = match eth_prices_store
+                .get_last(&keyer::token_eth_price(&pool.token1_ref().address))
+            {
+                None => panic!(
+                    "token eth price not found for token {}",
+                    pool.token1_ref().address
+                ),
+                Some(price) => price,
+            };
+
+            log::info!("token1_derive_eth: {}", token1_derive_eth);
+
+            // log::info!("token_derive_eth {}", token_derive_eth);
+            // let partial_pool_total_value_locked_eth = value.mul(token_derive_eth);
+            // log::info!(
+            //     "partial pool {} token {} \n partial total value locked eth: {}",
+            //     pool_addr,
+            //     token_addr,
+            //     partial_pool_total_value_locked_eth,
+            // );
             let aggregate_key = pool_addr.clone();
 
-            //fixme: @julien: it seems we never actually enter here... as it would only be valid if we have
-            // twice a valid event on the same pool
-            if let Some(pool_agg) = pool_aggregator.get(&aggregate_key) {
-                let count = &pool_agg.0;
-                let rolling_sum = &pool_agg.1;
-                log::info!("found another partial pool value {} token {} count {} partial total value locked usd: {}",
-                    pool_addr,
-                    token_addr,
-                    count,
-                    rolling_sum,
-                );
-                if count >= &(2 as u64) {
-                    panic!(
-                        "{}",
-                        format!("this is unexpected should only see 2 pool keys")
-                    )
+            // todo: fetch totalValueLockedToken0 and total
+            let total_value_locked_token0: BigDecimal = match total_value_locked_by_tokens_store
+                .get_last(&keyer::total_value_locked_by_token(
+                    pool.token0_ref().address(),
+                )) {
+                None => {
+                    panic!("impossible")
                 }
+                Some(val) => val,
+            };
 
-                log::info!(
-                    "partial_pool_total_value_locked_eth: {} and rolling_sum: {}",
-                    partial_pool_total_value_locked_eth,
-                    rolling_sum,
-                );
-                let pool_total_value_locked_eth =
-                    partial_pool_total_value_locked_eth.add(rolling_sum.clone());
-                let pool_total_value_locked_usd = pool_total_value_locked_eth
-                    .clone()
-                    .mul(eth_price_usd.clone());
-                store.set(
-                    native_total_value_locked.ordinal,
-                    keyer::pool_eth_total_value_locked(&pool_addr),
-                    &pool_total_value_locked_eth,
-                );
-                store.set(
-                    native_total_value_locked.ordinal,
-                    keyer::pool_usd_total_value_locked(&pool_addr),
-                    &pool_total_value_locked_usd,
-                );
+            let total_value_locked_token1: BigDecimal = match total_value_locked_by_tokens_store
+                .get_last(&keyer::total_value_locked_by_token(
+                    pool.token1_ref().address(),
+                )) {
+                None => {
+                    panic!("impossible")
+                }
+                Some(val) => val,
+            };
 
-                // todo: here we should remove the pool from the pool_aggregator no ?
+            log::info!("total_value_locked_token0: {}", total_value_locked_token0);
+            log::info!("total_value_locked_token1: {}", total_value_locked_token1);
 
-                continue;
-            }
-            pool_aggregator.insert(
-                aggregate_key.clone(),
-                (1, partial_pool_total_value_locked_eth),
+            let try_total_value_locked_eth = total_value_locked_token0
+                .mul(token0_derive_eth)
+                .add(total_value_locked_token1.mul(token1_derive_eth));
+
+            log::info!("try_total_value_locked_eth {}", try_total_value_locked_eth);
+
+            store.add(
+                native_total_value_locked.ordinal,
+                &keyer::factory_native_total_value_locked(),
+                try_total_value_locked_eth,
             );
-            // todo: should we not loop over the pools here after ?
-            log::info!("partial inserted");
+
+            // fixme: check this: but I think that we can reduce this a lot
+            // if let Some(pool_agg) = pool_aggregator.get(&aggregate_key) {
+            //     let count = &pool_agg.0;
+            //     let rolling_sum = &pool_agg.1;
+            //     log::info!("found another partial pool value {} token {} count {} \n partial total value locked eth: {}",
+            //         pool_addr,
+            //         token_addr,
+            //         count,
+            //         rolling_sum,
+            //     );
+            //     if count >= &(2 as u64) {
+            //         panic!(
+            //             "{}",
+            //             format!("this is unexpected should only see 2 pool keys")
+            //         )
+            //     }
+            //
+            //     log::info!(
+            //         "partial_pool_total_value_locked_eth: {} \n and rolling_sum: {}",
+            //         partial_pool_total_value_locked_eth,
+            //         rolling_sum,
+            //     );
+            //     let pool_total_value_locked_eth =
+            //         partial_pool_total_value_locked_eth.add(rolling_sum.clone());
+            //     let pool_total_value_locked_usd = pool_total_value_locked_eth
+            //         .clone()
+            //         .mul(eth_price_usd.clone());
+            //     log::info!(
+            //         "pool_total_value_locked_eth {}",
+            //         pool_total_value_locked_eth
+            //     );
+            //     log::info!(
+            //         "pool_total_value_locked_usd {}",
+            //         pool_total_value_locked_usd
+            //     );
+            //     store.set(
+            //         native_total_value_locked.ordinal,
+            //         keyer::pool_eth_total_value_locked(&pool_addr),
+            //         &pool_total_value_locked_eth,
+            //     );
+            //     store.set(
+            //         native_total_value_locked.ordinal,
+            //         keyer::pool_usd_total_value_locked(&pool_addr),
+            //         &pool_total_value_locked_usd,
+            //     );
+            //
+            //     // todo: here we should remove the pool from the pool_aggregator no ?
+
+            continue;
         }
+        // pool_aggregator.insert(
+        //     aggregate_key.clone(),
+        //     (1, partial_pool_total_value_locked_eth.clone()),
+        // );
+        // // todo: should we not loop over the pools here after ?
+        // log::info!(
+        //     "partial inserted, partial_pool_total_value_locked_eth {}",
+        //     partial_pool_total_value_locked_eth
+        // );
     }
 }
 
@@ -1216,14 +1285,12 @@ pub fn store_ticks_liquidities(ticks: Ticks, output: StoreAddBigInt) {
                     &BigInt::from(tick.amount.as_ref().unwrap()),
                 );
             } else {
-                // upper
                 output.add(
                     tick.log_ordinal,
                     keyer::tick_liquidities_net(&tick.id),
                     &BigInt::from(tick.amount.as_ref().unwrap()).neg(),
                 );
             }
-
             output.add(
                 tick.log_ordinal,
                 keyer::tick_liquidities_gross(&tick.id),
@@ -1237,14 +1304,12 @@ pub fn store_ticks_liquidities(ticks: Ticks, output: StoreAddBigInt) {
                     &BigInt::from(tick.amount.as_ref().unwrap()).neg(),
                 );
             } else {
-                // upper
                 output.add(
                     tick.log_ordinal,
                     keyer::tick_liquidities_net(&tick.id),
                     &BigInt::from(tick.amount.as_ref().unwrap()),
                 );
             }
-
             output.add(
                 tick.log_ordinal,
                 keyer::tick_liquidities_gross(&tick.id),
@@ -1370,6 +1435,43 @@ pub fn map_positions(
     }
 
     Ok(positions)
+}
+
+#[substreams::handlers::store]
+pub fn store_positions(events: Events, store: StoreAddInt64) {
+    for position in events.positions.unwrap_or_default().positions {
+        match position.convert_position_type() {
+            IncreaseLiquidity => {
+                store.add(
+                    position.log_ordinal,
+                    keyer::position(&position.id, &IncreaseLiquidity.to_string()),
+                    1,
+                );
+            }
+            DecreaseLiquidity => {
+                store.add(
+                    position.log_ordinal,
+                    keyer::position(&position.id, &DecreaseLiquidity.to_string()),
+                    1,
+                );
+            }
+            Collect => {
+                store.add(
+                    position.log_ordinal,
+                    keyer::position(&position.id, &Collect.to_string()),
+                    1,
+                );
+            }
+            Transfer => {
+                store.add(
+                    position.log_ordinal,
+                    keyer::position(&position.id, &Transfer.to_string()),
+                    1,
+                );
+            }
+            _ => {}
+        }
+    }
 }
 
 #[substreams::handlers::store]
@@ -1521,7 +1623,7 @@ pub fn map_position_snapshots(
 #[substreams::handlers::map]
 pub fn map_bundle_entities(
     block: Block,
-    derived_eth_prices_deltas: store::Deltas<DeltaBigDecimal>,
+    derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
 
@@ -1540,10 +1642,10 @@ pub fn map_bundle_entities(
 #[substreams::handlers::map]
 pub fn map_factory_entities(
     block: Block,
-    pool_count_deltas: store::Deltas<DeltaBigInt>,
-    tx_count_deltas: store::Deltas<DeltaBigInt>,
-    swaps_volume_deltas: store::Deltas<DeltaBigDecimal>,
-    totals_deltas: store::Deltas<DeltaBigDecimal>,
+    pool_count_deltas: Deltas<DeltaBigInt>,
+    tx_count_deltas: Deltas<DeltaBigInt>,
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>,
+    totals_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
 
@@ -1619,8 +1721,8 @@ pub fn map_tokens_entities(
 
 #[substreams::handlers::map]
 pub fn map_tick_entities(
-    ticks_deltas: store::Deltas<DeltaProto<Tick>>,
-    ticks_liquidities_deltas: store::Deltas<DeltaBigInt>,
+    ticks_deltas: Deltas<DeltaProto<Tick>>,
+    ticks_liquidities_deltas: Deltas<DeltaBigInt>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
     db::create_or_update_ticks_entity_change(&mut entity_changes, ticks_deltas);
@@ -1631,10 +1733,15 @@ pub fn map_tick_entities(
 #[substreams::handlers::map]
 pub fn map_position_entities(
     events: Events,
-    positions_changes_deltas: store::Deltas<DeltaBigDecimal>,
+    positions_store: StoreGetInt64,
+    positions_changes_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut entity_changes: EntityChanges = Default::default();
-    db::position_create_entity_change(events.positions.unwrap_or_default(), &mut entity_changes);
+    db::position_create_entity_change(
+        events.positions.unwrap_or_default(),
+        positions_store,
+        &mut entity_changes,
+    );
     db::positions_changes_entity_change(&mut entity_changes, positions_changes_deltas);
     Ok(entity_changes)
 }

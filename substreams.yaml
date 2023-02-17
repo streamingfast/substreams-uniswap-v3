@@ -39,8 +39,8 @@ modules:
 
   - name: store_tokens
     kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Erc20Token
+    updatePolicy: add
+    valueType: int64
     inputs:
       - map: map_pools_created
 
@@ -147,7 +147,7 @@ modules:
 
   - name: store_native_total_value_locked
     kind: store
-    updatePolicy: add
+    updatePolicy: set
     valueType: bigdecimal
     inputs:
       - map: map_event_amounts
@@ -176,11 +176,12 @@ modules:
   - name: store_total_value_locked
     kind: store
     initialBlock: 12369621
-    updatePolicy: set
+    updatePolicy: add
     valueType: bigdecimal
     inputs:
       - store: store_native_total_value_locked
         mode: deltas
+      - store: store_total_value_locked_by_tokens
       - store: store_pools
       - store: store_eth_prices
 
@@ -205,6 +206,13 @@ modules:
     valueType: bigint
     inputs:
       - map: map_ticks
+
+  - name: store_positions
+    kind: store
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - map: map_extract_data_types
 
   - name: store_position_changes
     kind: store
@@ -310,6 +318,7 @@ modules:
     initialBlock: 12369621
     inputs:
       - map: map_extract_data_types
+      - store: store_positions
       - store: store_position_changes
         mode: deltas
     output:

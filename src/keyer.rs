@@ -146,6 +146,10 @@ pub fn pool_native_total_value_locked_token(
     format!("pool:{}:{}:native", pool_address, token_address)
 }
 
+pub fn factory_native_total_value_locked() -> String {
+    format!("factory:eth")
+}
+
 // ------------------------------------------------
 //      store_pool_liquidities
 // ------------------------------------------------
@@ -297,6 +301,9 @@ pub fn all_position(id: &String, event_type: &String) -> String {
 // ------------------------------------------------
 //      store_positions_misc
 // ------------------------------------------------
+pub fn position(id: &String, position_type: &String) -> String {
+    format!("position:{}:{}", id, position_type)
+}
 pub fn position_liquidity(id: &String) -> String {
     format!("position:{}:liquidity", id)
 }

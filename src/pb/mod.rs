@@ -1,6 +1,7 @@
 use crate::pb::position_event::PositionEventType;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
+use crate::utils::ZERO_ADDRESS;
 use crate::PositionType::Unset;
 use crate::{
     BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, PoolSqrtPrice,
@@ -8,8 +9,8 @@ use crate::{
 };
 use ethabi::Uint;
 use std::str::FromStr;
-use substreams::log;
 use substreams::scalar::BigDecimal;
+use substreams::{log, Hex};
 
 #[allow(unused_imports)]
 #[allow(dead_code)]
@@ -215,8 +216,6 @@ pub mod position_event {
 }
 
 impl PositionEvent {
-    //todo: create methods to get the data with the various types
-    // which some of them will return nothing
     pub fn get_token_id(&self) -> BigInt {
         return match &self.event {
             PositionEventType::IncreaseLiquidity(evt) => evt.token_id.clone(),
@@ -262,6 +261,15 @@ impl PositionEvent {
                 BigInt::from_str(evt.amount1.to_string().as_str()).unwrap()
             }
             PositionEventType::Transfer(_) => BigInt::from(0 as i32),
+        };
+    }
+
+    pub fn get_owner(&self) -> String {
+        return match &self.event {
+            PositionEventType::IncreaseLiquidity(_)
+            | PositionEventType::DecreaseLiquidity(_)
+            | PositionEventType::Collect(_) => Hex(ZERO_ADDRESS).to_string(),
+            PositionEventType::Transfer(evt) => Hex(&evt.to).to_string(),
         };
     }
 }
