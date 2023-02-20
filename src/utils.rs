@@ -139,6 +139,9 @@ pub fn get_tracked_amount_usd(
         .clone()
         .mul(eth_price_in_usd.clone());
 
+    log::info!("price0_usd: {}", price0_usd);
+    log::info!("price1_usd: {}", price1_usd);
+
     // both are whitelist tokens, return sum of both amounts
     if WHITELIST_TOKENS.contains(&token0_id.as_str())
         && WHITELIST_TOKENS.contains(&token1_id.as_str())

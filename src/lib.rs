@@ -689,6 +689,11 @@ pub fn store_swaps_volume(
                         ],
                         &amount_total_usd_untracked,
                     );
+                    output.add(
+                        event.log_ordinal,
+                        keyer::swap_factory_total_volume_eth(),
+                        &amount_total_eth_tracked.clone(),
+                    );
                     output.add_many(
                         event.log_ordinal,
                         &vec![
@@ -702,18 +707,8 @@ pub fn store_swaps_volume(
                     );
                     output.add(
                         event.log_ordinal,
-                        keyer::swap_factory_total_volume_eth(),
-                        &amount_total_eth_tracked.clone(),
-                    );
-                    output.add(
-                        event.log_ordinal,
                         keyer::swap_factory_total_fees_eth(),
                         &fee_eth,
-                    );
-                    output.add(
-                        event.log_ordinal,
-                        keyer::swap_uniswap_day_data_volume_eth(day_id.to_string()),
-                        &amount_total_eth_tracked,
                     );
                 }
                 _ => {}
