@@ -956,7 +956,9 @@ pub fn store_total_value_locked(
                 token_addr,
                 total_value_locked_usd
             );
-            // FIXME
+            //FIXME: we changed this substreams to become an add, BUT this causes an issue with this
+            // store key because it
+
             // store.set(
             //     native_total_value_locked.ordinal,
             //     keyer::token_usd_total_value_locked(&token_addr),
@@ -1035,14 +1037,19 @@ pub fn store_total_value_locked(
             log::info!("total_value_locked_token1: {}", total_value_locked_token1);
 
             let try_total_value_locked_eth = total_value_locked_token0
-                .mul(token0_derive_eth)
-                .add(total_value_locked_token1.mul(token1_derive_eth));
+                .clone()
+                .mul(token0_derive_eth.clone())
+                .add(
+                    total_value_locked_token1
+                        .clone()
+                        .mul(token1_derive_eth.clone()),
+                );
 
             log::info!("try_total_value_locked_eth {}", try_total_value_locked_eth);
 
             store.add(
                 native_total_value_locked.ordinal,
-                &keyer::factory_native_total_value_locked(),
+                &keyer::factory_native_total_value_locked_eth(),
                 try_total_value_locked_eth,
             );
 
@@ -1105,6 +1112,101 @@ pub fn store_total_value_locked(
         //     "partial inserted, partial_pool_total_value_locked_eth {}",
         //     partial_pool_total_value_locked_eth
         // );
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_total_value_locked_usd(
+    native_total_value_locked_deltas: Deltas<DeltaBigDecimal>,
+    total_value_locked_by_tokens_store: StoreGetBigDecimal,
+    pools_store: StoreGetProto<Pool>,
+    eth_prices_store: StoreGetBigDecimal,
+    store: StoreSetBigDecimal,
+) {
+    for native_total_value_locked in native_total_value_locked_deltas.deltas {
+        let eth_price_usd: BigDecimal = match &eth_prices_store.get_last(&keyer::bundle_eth_price())
+        {
+            None => continue,
+            Some(price) => price.with_prec(100),
+        };
+        log::debug!("eth_price_usd: {}", eth_price_usd);
+        if let Some((pool_addr, token_addr)) =
+            keyer::native_pool_from_key(&native_total_value_locked.key)
+        {
+            let pool = pools_store.must_get_last(keyer::pool_key(&pool_addr));
+
+            let token0_derive_eth: BigDecimal = match eth_prices_store
+                .get_last(&keyer::token_eth_price(&pool.token0_ref().address))
+            {
+                None => panic!(
+                    "token eth price not found for token {}",
+                    pool.token0_ref().address
+                ),
+                Some(price) => price,
+            };
+
+            log::info!("token0_derive_eth: {}", token0_derive_eth);
+
+            let token1_derive_eth: BigDecimal = match eth_prices_store
+                .get_last(&keyer::token_eth_price(&pool.token1_ref().address))
+            {
+                None => panic!(
+                    "token eth price not found for token {}",
+                    pool.token1_ref().address
+                ),
+                Some(price) => price,
+            };
+
+            log::info!("token1_derive_eth: {}", token1_derive_eth);
+
+            let total_value_locked_token0: BigDecimal = match total_value_locked_by_tokens_store
+                .get_last(&keyer::total_value_locked_by_token(
+                    pool.token0_ref().address(),
+                )) {
+                None => {
+                    panic!("impossible")
+                }
+                Some(val) => val,
+            };
+
+            let total_value_locked_token1: BigDecimal = match total_value_locked_by_tokens_store
+                .get_last(&keyer::total_value_locked_by_token(
+                    pool.token1_ref().address(),
+                )) {
+                None => {
+                    panic!("impossible")
+                }
+                Some(val) => val,
+            };
+
+            // todo: this is how we calculate the total_value_locked_usd per token, need to set this
+            // in another substreams
+            let total_value_locked_usd_token0 =
+                total_value_locked_token0.mul(token0_derive_eth.mul(eth_price_usd.clone()));
+            log::info!(
+                "total_value_locked_usd token0 {}",
+                total_value_locked_usd_token0
+            );
+
+            let total_value_locked_usd_token1 =
+                total_value_locked_token1.mul(token1_derive_eth.mul(eth_price_usd));
+            log::info!(
+                "total_value_locked_usd token1 {}",
+                total_value_locked_usd_token1
+            );
+
+            store.set(
+                native_total_value_locked.ordinal,
+                keyer::token_usd_total_value_locked(pool.token0_ref().address()),
+                &total_value_locked_usd_token0,
+            );
+
+            store.set(
+                native_total_value_locked.ordinal,
+                keyer::token_usd_total_value_locked(pool.token1_ref().address()),
+                &total_value_locked_usd_token1,
+            );
+        }
     }
 }
 
@@ -1695,7 +1797,7 @@ pub fn map_tokens_entities(
     swaps_volume_deltas: Deltas<DeltaBigDecimal>,
     tx_count_deltas: Deltas<DeltaBigInt>,
     total_value_locked_by_deltas: Deltas<DeltaBigDecimal>,
-    total_value_locked_deltas: Deltas<DeltaBigDecimal>,
+    total_value_locked_usd_deltas: Deltas<DeltaBigDecimal>,
     derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,
     tokens_whitelist_pools: Deltas<DeltaArray<String>>,
 ) -> Result<EntityChanges, Error> {
@@ -1707,7 +1809,10 @@ pub fn map_tokens_entities(
         &mut entity_changes,
         total_value_locked_by_deltas,
     );
-    db::total_value_locked_usd_token_entity_change(&mut entity_changes, total_value_locked_deltas);
+    db::total_value_locked_usd_token_entity_change(
+        &mut entity_changes,
+        total_value_locked_usd_deltas,
+    );
     db::derived_eth_prices_token_entity_change(&mut entity_changes, derived_eth_prices_deltas);
     db::whitelist_token_entity_change(&mut entity_changes, tokens_whitelist_pools);
 
