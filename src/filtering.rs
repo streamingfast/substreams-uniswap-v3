@@ -302,11 +302,8 @@ pub fn extract_flashes(
     if abi::pool::events::Flash::match_log(&log) {
         let pool_address: String = Hex(&log.address).to_string();
 
-        match pools_store.get_last(pool_key) {
-            None => {
-                panic!("pool {} not found for flash", pool_address)
-            }
-            Some(_) => {
+        match pools_store.has_last(pool_key) {
+            true => {
                 log::info!("pool_address: {}", pool_address);
                 let (fee_growth_global_0x_128, fee_growth_global_1x_128) =
                     rpc::fee_growth_global_x128_call(&pool_address);
@@ -317,6 +314,9 @@ pub fn extract_flashes(
                     fee_growth_global_1x_128: Some(fee_growth_global_1x_128.into()),
                     log_ordinal: log.ordinal,
                 });
+            }
+            false => {
+                panic!("pool {} not found for flash", pool_address)
             }
         }
     }

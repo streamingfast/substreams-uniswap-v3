@@ -1,4 +1,4 @@
-ENDPOINT ?= mainnet.eth.streamingfast.io:443
+ENDPOINT ?= api-unstable.streamingfast.io:443
 GRAPH_CONFIG ?= ../graph-node-dev/config/graphman.toml
 
 .PHONY: build
@@ -7,7 +7,7 @@ build:
 
 .PHONY: stream
 stream: build
-	substreams run -e $(ENDPOINT) substreams.yaml map_transfers -s 12292922 -t +10
+	substreams run -e $(ENDPOINT) substreams.yaml map_extract_data_types -s 12369621 -t +1000
 
 .PHONY: protogen
 protogen:

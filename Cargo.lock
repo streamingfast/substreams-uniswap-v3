@@ -846,9 +846,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "substreams"
-version = "0.5.0"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03f0ce01116b502301749fde9a2c9eecaea6853d11a917a25b21d2922df09775"
+checksum = "717dc739ec4eb2c634b9cf75096289d9099f6b6738c88dccdc97392afd75d6c7"
 dependencies = [
  "anyhow",
  "bigdecimal",
@@ -936,9 +936,9 @@ dependencies = [
 
 [[package]]
 name = "substreams-macro"
-version = "0.5.0"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5e4e6912204417a2565a5b16f23d67e3e6a5b51f246f00b0c13b40f48c44877"
+checksum = "3e227f95f21b589d15dccf9cdd5e310eb21eb21e76e8136f43900f34ee0d90c4"
 dependencies = [
  "proc-macro2",
  "quote",

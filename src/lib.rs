@@ -584,9 +584,9 @@ pub fn store_swaps_volume(
             None => continue,
             Some(pool) => pool,
         };
-        match store_total_tx_counts.get_last(keyer::pool_total_tx_count(&event.pool_address)) {
-            None => {}
-            Some(_) => match event.r#type.unwrap() {
+        match store_total_tx_counts.has_last(keyer::pool_total_tx_count(&event.pool_address)) {
+            false => {}
+            true => match event.r#type.unwrap() {
                 SwapEvent(swap) => {
                     let eth_price_in_usd: BigDecimal =
                         match store_eth_prices.get_last(&keyer::bundle_eth_price()) {

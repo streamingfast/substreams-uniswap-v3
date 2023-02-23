@@ -13,7 +13,7 @@ wasm-bindgen = "0.2.79"
 prost = "0.11.0"
 prost-types = "0.11.0"
 hex = "0.4.3"
-substreams = "^0.5.0"
+substreams = "0.5.4"
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum" }
 substreams-entity-change = "0.3.0"
 num-bigint = "0.4"
