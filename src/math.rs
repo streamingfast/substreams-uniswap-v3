@@ -15,7 +15,7 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
         exponent_abs = exponent.clone().mul(BigInt::one().neg());
     }
 
-    let mut i = BigInt::zero();
+    let mut i = BigInt::one();
     while i.lt(exponent_abs.borrow()) {
         result = result.mul(amount.clone()).with_prec(100);
         i = i.add(BigInt::one());
