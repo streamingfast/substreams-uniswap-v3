@@ -1,7 +1,6 @@
 use crate::BigInt;
 use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul};
-use substreams::log;
 use substreams::scalar::BigDecimal;
 
 pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
