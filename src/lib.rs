@@ -328,18 +328,6 @@ pub fn store_pool_sqrt_price(events: Events, store: StoreSetProto<PoolSqrtPrice>
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_liquidities(events: Events, store: StoreSetBigInt) {
-    for pool_liquidity in events.pool_liquidities.unwrap_or_default().pool_liquidities {
-        let big_int: BigInt = pool_liquidity.liquidity.unwrap().into();
-        store.set(
-            0,
-            keyer::pool_liquidity(&pool_liquidity.pool_address),
-            &big_int,
-        )
-    }
-}
-
-#[substreams::handlers::store]
 pub fn store_prices(events: Events, pools_store: StoreGetProto<Pool>, store: StoreSetBigDecimal) {
     for sqrt_price_update in events.pool_sqrt_prices.unwrap_or_default().pool_sqrt_prices {
         match pools_store.get_last(keyer::pool_key(&sqrt_price_update.pool_address)) {
@@ -398,6 +386,18 @@ pub fn store_prices(events: Events, pools_store: StoreGetProto<Pool>, store: Sto
                 );
             }
         }
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_pool_liquidities(events: Events, store: StoreSetBigInt) {
+    for pool_liquidity in events.pool_liquidities.unwrap_or_default().pool_liquidities {
+        let big_int: BigInt = pool_liquidity.liquidity.unwrap().into();
+        store.set(
+            0,
+            keyer::pool_liquidity(&pool_liquidity.pool_address),
+            &big_int,
+        )
     }
 }
 
@@ -1214,6 +1214,7 @@ pub fn store_total_value_locked_usd(
 pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
     let mut out: Ticks = Ticks { ticks: vec![] };
     for event in events.events.unwrap_or_default().events {
+        log::info!("event: {:?}", event);
         match event.r#type.unwrap() {
             BurnEvent(burn) => {
                 log::debug!("burn event transaction_id: {}", event.transaction_id);

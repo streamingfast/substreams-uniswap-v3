@@ -121,7 +121,7 @@ modules:
   - name: store_total_tx_counts
     kind: store
     updatePolicy: add
-    valueType: int64
+    valueType: bigint
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types

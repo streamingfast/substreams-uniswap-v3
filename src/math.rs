@@ -3,32 +3,6 @@ use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul};
 use substreams::scalar::BigDecimal;
 
-// pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
-//     if exponent.is_zero() {
-//         return BigDecimal::one().with_prec(100);
-//     }
-//     if exponent.is_one() {
-//         return amount;
-//     }
-//     if exponent.lt(&BigInt::zero()) {
-//         return safe_div(
-//             &BigDecimal::one().with_prec(100),
-//             &big_decimal_exponated(amount, exponent.neg()),
-//         );
-//     }
-//
-//     let mut result = amount.clone();
-//     let big_int_one: BigInt = BigInt::one();
-//
-//     let mut i = BigInt::zero();
-//     while i.lt(exponent.borrow()) {
-//         result = result.mul(amount.clone()).with_prec(100);
-//         i = i.add(big_int_one.clone());
-//     }
-//
-//     return result;
-// }
-
 pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
     if exponent.is_zero() {
         return BigDecimal::one();
@@ -41,9 +15,9 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
         exponent_abs = exponent.clone().mul(BigInt::one().neg());
     }
 
-    let mut i = BigInt::zero();
+    let mut i = BigInt::one();
     while i.lt(exponent_abs.borrow()) {
-        result = result.mul(amount.clone());
+        result = result.mul(amount.clone()).with_prec(100);
         i = i.add(BigInt::one());
     }
 
