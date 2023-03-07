@@ -1651,6 +1651,8 @@ pub fn map_position_snapshots(
             ..Default::default()
         };
 
+        //TODO: when the value is not found, do we really want to set the liquidity, deposited_token0, etc.
+        // to 0? We could simply not touch the data point...
         match position_changes_store.get_last(keyer::position_liquidity(&position.id)) {
             Some(liquidity) => snapshot_position.liquidity = Some(liquidity.into()),
             _ => snapshot_position.liquidity = Some(BigDecimal::zero().into()),
