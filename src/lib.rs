@@ -1653,7 +1653,7 @@ pub fn map_position_snapshots(
 
         match position_changes_store.get_last(keyer::position_liquidity(&position.id)) {
             Some(liquidity) => snapshot_position.liquidity = Some(liquidity.into()),
-            _ => snapshot_position.liquidity = None,
+            _ => snapshot_position.liquidity = Some(BigDecimal::zero().into()),
         }
 
         match position_changes_store
