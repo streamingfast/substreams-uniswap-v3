@@ -26,7 +26,7 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
         match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal0X128>(&responses[0]) {
             Some(data) => data,
             None => {
-                panic!("Failed to decode fee growth global 1x128");
+                panic!("Failed to decode fee growth global 0x128");
             }
         };
     let fee_1: BigInt =

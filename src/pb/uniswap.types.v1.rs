@@ -1,265 +1,265 @@
 // @generated
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BigInt {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub value: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BigDecimal {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub value: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Erc20Tokens {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub tokens: ::prost::alloc::vec::Vec<Erc20Token>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Erc20Token {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub symbol: ::prost::alloc::string::String,
-    #[prost(uint64, tag="4")]
+    #[prost(uint64, tag = "4")]
     pub decimals: u64,
-    #[prost(string, tag="5")]
+    #[prost(string, tag = "5")]
     pub total_supply: ::prost::alloc::string::String,
-    #[prost(string, repeated, tag="6")]
+    #[prost(string, repeated, tag = "6")]
     pub whitelist_pools: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Liquidity {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub pool_address: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="2")]
+    #[prost(message, optional, tag = "2")]
     pub value: ::core::option::Option<BigDecimal>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Pools {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub pools: ::prost::alloc::vec::Vec<Pool>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Pool {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
-    #[prost(uint64, tag="3")]
+    #[prost(uint64, tag = "3")]
     pub created_at_timestamp: u64,
-    #[prost(uint64, tag="4")]
+    #[prost(uint64, tag = "4")]
     pub created_at_block_number: u64,
-    #[prost(message, optional, tag="5")]
+    #[prost(message, optional, tag = "5")]
     pub token0: ::core::option::Option<Erc20Token>,
-    #[prost(message, optional, tag="6")]
+    #[prost(message, optional, tag = "6")]
     pub token1: ::core::option::Option<Erc20Token>,
-    #[prost(message, optional, tag="7")]
+    #[prost(message, optional, tag = "7")]
     pub fee_tier: ::core::option::Option<BigInt>,
     /// internals
-    #[prost(int32, tag="30")]
+    #[prost(int32, tag = "30")]
     pub tick_spacing: i32,
-    #[prost(uint64, tag="31")]
+    #[prost(uint64, tag = "31")]
     pub log_ordinal: u64,
-    #[prost(string, tag="32")]
+    #[prost(string, tag = "32")]
     pub transaction_id: ::prost::alloc::string::String,
-    #[prost(bool, tag="33")]
+    #[prost(bool, tag = "33")]
     pub ignore_pool: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Events {
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub pool_sqrt_prices: ::core::option::Option<PoolSqrtPrices>,
-    #[prost(message, optional, tag="2")]
+    #[prost(message, optional, tag = "2")]
     pub pool_liquidities: ::core::option::Option<PoolLiquidities>,
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag = "3")]
     pub events: ::core::option::Option<TokenEvents>,
-    #[prost(message, optional, tag="4")]
+    #[prost(message, optional, tag = "4")]
     pub transactions: ::core::option::Option<Transactions>,
-    #[prost(message, optional, tag="5")]
+    #[prost(message, optional, tag = "5")]
     pub positions: ::core::option::Option<Positions>,
-    #[prost(message, optional, tag="6")]
+    #[prost(message, optional, tag = "6")]
     pub flashes: ::core::option::Option<Flashes>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PoolSqrtPrices {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub pool_sqrt_prices: ::prost::alloc::vec::Vec<PoolSqrtPrice>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PoolSqrtPrice {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub pool_address: ::prost::alloc::string::String,
-    #[prost(uint64, tag="2")]
+    #[prost(uint64, tag = "2")]
     pub ordinal: u64,
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag = "3")]
     pub sqrt_price: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="4")]
+    #[prost(message, optional, tag = "4")]
     pub tick: ::core::option::Option<BigInt>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TokenEvents {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub events: ::prost::alloc::vec::Vec<TokenEvent>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TokenEvent {
-    #[prost(uint64, tag="100")]
+    #[prost(uint64, tag = "100")]
     pub log_ordinal: u64,
-    #[prost(uint64, tag="101")]
+    #[prost(uint64, tag = "101")]
     pub log_index: u64,
-    #[prost(string, tag="102")]
+    #[prost(string, tag = "102")]
     pub pool_address: ::prost::alloc::string::String,
-    #[prost(string, tag="103")]
+    #[prost(string, tag = "103")]
     pub token0: ::prost::alloc::string::String,
-    #[prost(string, tag="104")]
+    #[prost(string, tag = "104")]
     pub token1: ::prost::alloc::string::String,
-    #[prost(string, tag="105")]
+    #[prost(string, tag = "105")]
     pub fee: ::prost::alloc::string::String,
-    #[prost(string, tag="106")]
+    #[prost(string, tag = "106")]
     pub transaction_id: ::prost::alloc::string::String,
-    #[prost(uint64, tag="107")]
+    #[prost(uint64, tag = "107")]
     pub timestamp: u64,
-    #[prost(uint64, tag="108")]
+    #[prost(uint64, tag = "108")]
     pub created_at_block_number: u64,
-    #[prost(oneof="token_event::Type", tags="1, 2, 3")]
+    #[prost(oneof = "token_event::Type", tags = "1, 2, 3")]
     pub r#type: ::core::option::Option<token_event::Type>,
 }
 /// Nested message and enum types in `TokenEvent`.
 pub mod token_event {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Type {
-        #[prost(message, tag="1")]
+        #[prost(message, tag = "1")]
         Swap(super::Swap),
-        #[prost(message, tag="2")]
+        #[prost(message, tag = "2")]
         Burn(super::Burn),
-        #[prost(message, tag="3")]
+        #[prost(message, tag = "3")]
         Mint(super::Mint),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Swap {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub sender: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub recipient: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub origin: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="4")]
+    #[prost(message, optional, tag = "4")]
     pub amount_0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="5")]
+    #[prost(message, optional, tag = "5")]
     pub amount_1: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="6")]
+    #[prost(message, optional, tag = "6")]
     pub sqrt_price: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="7")]
+    #[prost(message, optional, tag = "7")]
     pub liquidity: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="8")]
+    #[prost(message, optional, tag = "8")]
     pub tick: ::core::option::Option<BigInt>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Burn {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub owner: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub origin: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag = "3")]
     pub amount: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="4")]
+    #[prost(message, optional, tag = "4")]
     pub amount_0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="5")]
+    #[prost(message, optional, tag = "5")]
     pub amount_1: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="6")]
+    #[prost(message, optional, tag = "6")]
     pub tick_lower: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="7")]
+    #[prost(message, optional, tag = "7")]
     pub tick_upper: ::core::option::Option<BigInt>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Mint {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub owner: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub sender: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub origin: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="4")]
+    #[prost(message, optional, tag = "4")]
     pub amount_0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="5")]
+    #[prost(message, optional, tag = "5")]
     pub amount_1: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="6")]
+    #[prost(message, optional, tag = "6")]
     pub tick_lower: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="7")]
+    #[prost(message, optional, tag = "7")]
     pub tick_upper: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="8")]
+    #[prost(message, optional, tag = "8")]
     pub amount: ::core::option::Option<BigInt>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EventAmounts {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub event_amounts: ::prost::alloc::vec::Vec<EventAmount>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EventAmount {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub pool_address: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub token0_addr: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag = "3")]
     pub amount0_value: ::core::option::Option<BigDecimal>,
-    #[prost(string, tag="4")]
+    #[prost(string, tag = "4")]
     pub token1_addr: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="5")]
+    #[prost(message, optional, tag = "5")]
     pub amount1_value: ::core::option::Option<BigDecimal>,
     /// internals
-    #[prost(uint64, tag="30")]
+    #[prost(uint64, tag = "30")]
     pub log_ordinal: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PoolLiquidities {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub pool_liquidities: ::prost::alloc::vec::Vec<PoolLiquidity>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PoolLiquidity {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub pool_address: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="2")]
+    #[prost(message, optional, tag = "2")]
     pub liquidity: ::core::option::Option<BigInt>,
     /// internals
-    #[prost(uint64, tag="30")]
+    #[prost(uint64, tag = "30")]
     pub log_ordinal: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Ticks {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub ticks: ::prost::alloc::vec::Vec<Tick>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Tick {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub pool_address: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag = "3")]
     pub idx: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="4")]
+    #[prost(message, optional, tag = "4")]
     pub price0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="5")]
+    #[prost(message, optional, tag = "5")]
     pub price1: ::core::option::Option<BigDecimal>,
-    #[prost(uint64, tag="6")]
+    #[prost(uint64, tag = "6")]
     pub created_at_timestamp: u64,
-    #[prost(uint64, tag="7")]
+    #[prost(uint64, tag = "7")]
     pub created_at_block_number: u64,
-    #[prost(message, optional, tag="8")]
+    #[prost(message, optional, tag = "8")]
     pub fee_growth_outside_0x_128: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="9")]
+    #[prost(message, optional, tag = "9")]
     pub fee_growth_outside_1x_128: ::core::option::Option<BigInt>,
     /// internals
-    #[prost(uint64, tag="10")]
+    #[prost(uint64, tag = "10")]
     pub log_ordinal: u64,
-    #[prost(message, optional, tag="11")]
+    #[prost(message, optional, tag = "11")]
     pub amount: ::core::option::Option<BigInt>,
-    #[prost(enumeration="tick::Origin", tag="12")]
+    #[prost(enumeration = "tick::Origin", tag = "12")]
     pub origin: i32,
-    #[prost(enumeration="tick::Type", tag="13")]
+    #[prost(enumeration = "tick::Type", tag = "13")]
     pub r#type: i32,
 }
 /// Nested message and enum types in `Tick`.
@@ -283,93 +283,93 @@ pub mod tick {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Fees {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub fees: ::prost::alloc::vec::Vec<Fee>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Fee {
-    #[prost(uint32, tag="1")]
+    #[prost(uint32, tag = "1")]
     pub fee: u32,
-    #[prost(int32, tag="2")]
+    #[prost(int32, tag = "2")]
     pub tick_spacing: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Flashes {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub flashes: ::prost::alloc::vec::Vec<Flash>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Flash {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub pool_address: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="2")]
+    #[prost(message, optional, tag = "2")]
     pub fee_growth_global_0x_128: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag = "3")]
     pub fee_growth_global_1x_128: ::core::option::Option<BigInt>,
-    #[prost(uint64, tag="4")]
+    #[prost(uint64, tag = "4")]
     pub log_ordinal: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Transactions {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub transactions: ::prost::alloc::vec::Vec<Transaction>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Transaction {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
-    #[prost(uint64, tag="2")]
+    #[prost(uint64, tag = "2")]
     pub block_number: u64,
-    #[prost(uint64, tag="3")]
+    #[prost(uint64, tag = "3")]
     pub timestamp: u64,
-    #[prost(uint64, tag="4")]
+    #[prost(uint64, tag = "4")]
     pub gas_used: u64,
-    #[prost(message, optional, tag="5")]
+    #[prost(message, optional, tag = "5")]
     pub gas_price: ::core::option::Option<BigInt>,
     /// internals
-    #[prost(uint64, tag="6")]
+    #[prost(uint64, tag = "6")]
     pub log_ordinal: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Positions {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub positions: ::prost::alloc::vec::Vec<Position>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Position {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub owner: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub pool: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
+    #[prost(string, tag = "4")]
     pub token0: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
+    #[prost(string, tag = "5")]
     pub token1: ::prost::alloc::string::String,
-    #[prost(string, tag="6")]
+    #[prost(string, tag = "6")]
     pub tick_lower: ::prost::alloc::string::String,
-    #[prost(string, tag="7")]
+    #[prost(string, tag = "7")]
     pub tick_upper: ::prost::alloc::string::String,
-    #[prost(string, tag="8")]
+    #[prost(string, tag = "8")]
     pub transaction: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="9")]
+    #[prost(message, optional, tag = "9")]
     pub fee_growth_inside_0_last_x_128: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="10")]
+    #[prost(message, optional, tag = "10")]
     pub fee_growth_inside_1_last_x_128: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="11")]
+    #[prost(message, optional, tag = "11")]
     pub liquidity: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="12")]
+    #[prost(message, optional, tag = "12")]
     pub amount0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="13")]
+    #[prost(message, optional, tag = "13")]
     pub amount1: ::core::option::Option<BigDecimal>,
-    #[prost(enumeration="position::PositionType", tag="14")]
+    #[prost(enumeration = "position::PositionType", tag = "14")]
     pub position_type: i32,
-    #[prost(uint64, tag="15")]
+    #[prost(uint64, tag = "15")]
     pub log_ordinal: u64,
-    #[prost(uint64, tag="16")]
+    #[prost(uint64, tag = "16")]
     pub timestamp: u64,
-    #[prost(uint64, tag="17")]
+    #[prost(uint64, tag = "17")]
     pub block_number: u64,
 }
 /// Nested message and enum types in `Position`.
@@ -387,45 +387,45 @@ pub mod position {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SnapshotPositions {
-    #[prost(message, repeated, tag="1")]
+    #[prost(message, repeated, tag = "1")]
     pub snapshot_positions: ::prost::alloc::vec::Vec<SnapshotPosition>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SnapshotPosition {
-    #[prost(string, tag="1")]
+    #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
+    #[prost(string, tag = "2")]
     pub owner: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub pool: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
+    #[prost(string, tag = "4")]
     pub position: ::prost::alloc::string::String,
-    #[prost(uint64, tag="5")]
+    #[prost(uint64, tag = "5")]
     pub block_number: u64,
-    #[prost(uint64, tag="6")]
+    #[prost(uint64, tag = "6")]
     pub timestamp: u64,
-    #[prost(message, optional, tag="7")]
+    #[prost(message, optional, tag = "7")]
     pub liquidity: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="8")]
+    #[prost(message, optional, tag = "8")]
     pub deposited_token0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="9")]
+    #[prost(message, optional, tag = "9")]
     pub deposited_token1: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="10")]
+    #[prost(message, optional, tag = "10")]
     pub withdrawn_token0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="11")]
+    #[prost(message, optional, tag = "11")]
     pub withdrawn_token1: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="12")]
+    #[prost(message, optional, tag = "12")]
     pub collected_fees_token0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="13")]
+    #[prost(message, optional, tag = "13")]
     pub collected_fees_token1: ::core::option::Option<BigDecimal>,
-    #[prost(string, tag="14")]
+    #[prost(string, tag = "14")]
     pub transaction: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="15")]
+    #[prost(message, optional, tag = "15")]
     pub fee_growth_inside_0_last_x_128: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="16")]
+    #[prost(message, optional, tag = "16")]
     pub fee_growth_inside_1_last_x_128: ::core::option::Option<BigInt>,
     /// internal
-    #[prost(uint64, tag="17")]
+    #[prost(uint64, tag = "17")]
     pub log_ordinal: u64,
 }
 /// Encoded file descriptor set for the `uniswap.types.v1` package

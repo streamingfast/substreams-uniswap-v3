@@ -1,4 +1,6 @@
 use crate::pb::position_event::PositionEventType;
+use crate::pb::uniswap::token_event::Type;
+use crate::pb::uniswap::TokenEvent;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
 use crate::utils::ZERO_ADDRESS;
@@ -270,6 +272,41 @@ impl PositionEvent {
             | PositionEventType::DecreaseLiquidity(_)
             | PositionEventType::Collect(_) => Hex(ZERO_ADDRESS).to_string(),
             PositionEventType::Transfer(evt) => Hex(&evt.to).to_string(),
+        };
+    }
+}
+
+pub struct TokenAmounts {
+    pub amount0: BigDecimal,
+    pub amount1: BigDecimal,
+    pub token0_addr: String,
+    pub token1_addr: String,
+}
+
+impl TokenEvent {
+    pub fn get_amounts(&self) -> Option<TokenAmounts> {
+        return match self.r#type.as_ref().unwrap().clone() {
+            Type::Mint(evt) => Some(TokenAmounts {
+                amount0: evt.amount_0.unwrap().into(),
+                amount1: evt.amount_1.unwrap().into(),
+                token0_addr: self.token0.clone(),
+                token1_addr: self.token1.clone(),
+            }),
+            Type::Burn(evt) => Some(TokenAmounts {
+                amount0: <uniswap::BigDecimal as Into<BigDecimal>>::into(evt.amount_0.unwrap())
+                    .neg(),
+                amount1: <uniswap::BigDecimal as Into<BigDecimal>>::into(evt.amount_1.unwrap())
+                    .neg(),
+                // amount1: evt.amount_1.unwrap().into().neg(),
+                token0_addr: self.token0.clone(),
+                token1_addr: self.token1.clone(),
+            }),
+            Type::Swap(evt) => Some(TokenAmounts {
+                amount0: evt.amount_0.unwrap().into(),
+                amount1: evt.amount_1.unwrap().into(),
+                token0_addr: self.token0.clone(),
+                token1_addr: self.token1.clone(),
+            }),
         };
     }
 }

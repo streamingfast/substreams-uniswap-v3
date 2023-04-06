@@ -12,6 +12,7 @@ mod utils;
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
 
+use crate::db::Tables;
 use crate::pb::uniswap;
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
 use crate::pb::uniswap::tick::Type::{Lower, Upper};
@@ -58,8 +59,8 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
             .filter_map(|(event, log)| {
                 log::info!("pool addr: {}", Hex(&event.pool));
 
-                let token0_address: String = Hex(&event.token0).to_string();
-                let token1_address: String = Hex(&event.token1).to_string();
+                let token0_address = Hex(&event.token0).to_string();
+                let token1_address = Hex(&event.token1).to_string();
 
                 //todo: question regarding the ignore_pool line. In the
                 // uniswap-v3 subgraph, they seem to bail out when they
@@ -401,65 +402,6 @@ pub fn store_pool_liquidities(events: Events, store: StoreSetBigInt) {
     }
 }
 
-#[substreams::handlers::map]
-pub fn map_event_amounts(events: Events) -> Result<uniswap::EventAmounts, Error> {
-    let mut event_amounts = vec![];
-    for event in events.events.unwrap_or_default().events {
-        log::debug!("transaction id: {}", event.transaction_id);
-        if event.r#type.is_none() {
-            continue;
-        }
-
-        if event.r#type.is_some() {
-            match event.r#type.unwrap() {
-                BurnEvent(burn) => {
-                    log::debug!("handling burn for pool {}", event.pool_address);
-                    let amount0: BigDecimal = burn.amount_0.unwrap().into();
-                    let amount1: BigDecimal = burn.amount_1.unwrap().into();
-                    event_amounts.push(EventAmount {
-                        pool_address: event.pool_address,
-                        log_ordinal: event.log_ordinal,
-                        token0_addr: event.token0,
-                        amount0_value: Some(amount0.neg().into()),
-                        token1_addr: event.token1,
-                        amount1_value: Some(amount1.neg().into()),
-                        ..Default::default()
-                    });
-                }
-                MintEvent(mint) => {
-                    log::debug!("handling mint for pool {}", event.pool_address);
-                    let amount0: BigDecimal = mint.amount_0.unwrap().into();
-                    let amount1: BigDecimal = mint.amount_1.unwrap().into();
-                    event_amounts.push(EventAmount {
-                        pool_address: event.pool_address,
-                        log_ordinal: event.log_ordinal,
-                        token0_addr: event.token0,
-                        amount0_value: Some(amount0.into()),
-                        token1_addr: event.token1,
-                        amount1_value: Some(amount1.into()),
-                        ..Default::default()
-                    });
-                }
-                SwapEvent(swap) => {
-                    log::debug!("handling swap for pool {}", event.pool_address);
-                    let amount0: BigDecimal = swap.amount_0.unwrap().into();
-                    let amount1: BigDecimal = swap.amount_1.unwrap().into();
-                    event_amounts.push(EventAmount {
-                        pool_address: event.pool_address,
-                        log_ordinal: event.log_ordinal,
-                        token0_addr: event.token0,
-                        amount0_value: Some(amount0.into()),
-                        token1_addr: event.token1,
-                        amount1_value: Some(amount1.into()),
-                        ..Default::default()
-                    });
-                }
-            }
-        }
-    }
-    Ok(uniswap::EventAmounts { event_amounts })
-}
-
 #[substreams::handlers::store]
 pub fn store_totals(
     clock: Clock,
@@ -744,32 +686,40 @@ pub fn store_pool_fee_growth_global_x128(events: Events, store: StoreSetBigInt) 
 }
 
 #[substreams::handlers::store]
+
+// Find a better solution to the early exit in the loop
 pub fn store_native_total_value_locked(
-    event_amounts: uniswap::EventAmounts,
+    events: uniswap::Events,
     store: StoreSetBigDecimal, // fixme: why is this an add ???
 ) {
-    for event_amount in event_amounts.event_amounts {
-        let amount0: BigDecimal = event_amount.amount0_value.unwrap().into();
-        let amount1: BigDecimal = event_amount.amount1_value.unwrap().into();
+    for token_event in events.events.unwrap_or_default().events {
+        let token_amounts_wrapped = token_event.get_amounts();
+        if let None = token_amounts_wrapped {
+            continue;
+        }
+        let token_amounts = token_amounts_wrapped.unwrap();
+        // check whether get_amount0() is None
+        let amount0: BigDecimal = token_amounts.amount0;
+        let amount1: BigDecimal = token_amounts.amount1;
         log::info!("amount 0: {} amount 1: {}", amount0, amount1);
         store.set_many(
-            event_amount.log_ordinal,
+            token_event.log_ordinal,
             &vec![
-                keyer::token_native_total_value_locked(&event_amount.token0_addr),
+                keyer::token_native_total_value_locked(&token_amounts.token0_addr),
                 keyer::pool_native_total_value_locked_token(
-                    &event_amount.pool_address,
-                    &event_amount.token0_addr,
+                    &token_event.pool_address.clone(),
+                    &token_amounts.token0_addr,
                 ),
             ],
             &amount0,
         );
         store.set_many(
-            event_amount.log_ordinal,
+            token_event.log_ordinal,
             &vec![
-                keyer::token_native_total_value_locked(&event_amount.token1_addr),
+                keyer::token_native_total_value_locked(&token_amounts.token1_addr),
                 keyer::pool_native_total_value_locked_token(
-                    &event_amount.pool_address,
-                    &event_amount.token1_addr,
+                    &token_event.pool_address.clone(),
+                    &token_amounts.token1_addr,
                 ),
             ],
             &amount1,
@@ -1218,7 +1168,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
         match event.r#type.unwrap() {
             BurnEvent(burn) => {
                 log::debug!("burn event transaction_id: {}", event.transaction_id);
-                let lower_tick_id: String = format!(
+                let lower_tick_id = format!(
                     "{}#{}",
                     &event.pool_address,
                     burn.tick_lower.as_ref().unwrap().value
@@ -1365,7 +1315,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_ticks(ticks: Ticks, output: StoreSetProto<Tick>) {
+pub fn store_ticks(ticks: Ticks /* input map_tick_entities */, output: StoreSetProto<Tick>) {
     for tick in ticks.ticks {
         output.set(tick.log_ordinal, keyer::ticks(&tick.id), &tick);
     }
@@ -1725,18 +1675,15 @@ pub fn map_bundle_entities(
     block: Block,
     derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
+    let mut tables = Tables::new();
 
     if block.number == 12369621 {
-        db::created_bundle_entity_change(&mut entity_changes);
+        db::created_bundle_entity_change(&mut tables);
     }
 
-    db::bundle_store_eth_price_usd_bundle_entity_change(
-        &mut entity_changes,
-        derived_eth_prices_deltas,
-    );
+    db::bundle_store_eth_price_usd_bundle_entity_change(&mut tables, derived_eth_prices_deltas);
 
-    Ok(entity_changes)
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::map]
@@ -1747,19 +1694,20 @@ pub fn map_factory_entities(
     swaps_volume_deltas: Deltas<DeltaBigDecimal>,
     totals_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
+    let mut tables = Tables::new();
 
     // FIXME: Hard-coded start block, how could we pull that from the manifest?
+    // FIXME: ideally taken from the params of the module
     if block.number == 12369621 {
-        db::factory_created_factory_entity_change(&mut entity_changes)
+        db::factory_created_factory_entity_change(&mut tables)
     }
 
-    db::pool_created_factory_entity_change(&mut entity_changes, pool_count_deltas);
-    db::tx_count_factory_entity_change(&mut entity_changes, tx_count_deltas);
-    db::swap_volume_factory_entity_change(&mut entity_changes, swaps_volume_deltas);
-    db::total_value_locked_factory_entity_change(&mut entity_changes, totals_deltas);
+    db::pool_created_factory_entity_change(&mut tables, pool_count_deltas);
+    db::tx_count_factory_entity_change(&mut tables, tx_count_deltas);
+    db::swap_volume_factory_entity_change(&mut tables, swaps_volume_deltas);
+    db::total_value_locked_factory_entity_change(&mut tables, totals_deltas);
 
-    Ok(entity_changes)
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::map]
@@ -1774,23 +1722,20 @@ pub fn map_pool_entities(
     tx_count_deltas: Deltas<DeltaBigInt>,
     swaps_volume_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
-    db::pools_created_pool_entity_change(pools_created, &mut entity_changes);
-    db::pool_sqrt_price_entity_change(&mut entity_changes, pool_sqrt_price_deltas);
-    db::pool_liquidities_pool_entity_change(&mut entity_changes, pool_liquidities_store_deltas);
-    db::total_value_locked_pool_entity_change(&mut entity_changes, total_value_locked_deltas);
+    let mut tables = Tables::new();
+    db::pools_created_pool_entity_change(pools_created, &mut tables);
+    db::pool_sqrt_price_entity_change(&mut tables, pool_sqrt_price_deltas);
+    db::pool_liquidities_pool_entity_change(&mut tables, pool_liquidities_store_deltas);
+    db::total_value_locked_pool_entity_change(&mut tables, total_value_locked_deltas);
     db::total_value_locked_by_token_pool_entity_change(
-        &mut entity_changes,
+        &mut tables,
         total_value_locked_by_tokens_deltas,
     );
-    db::pool_fee_growth_global_x128_entity_change(
-        &mut entity_changes,
-        pool_fee_growth_global_x128_deltas,
-    );
-    db::price_pool_entity_change(&mut entity_changes, price_deltas);
-    db::tx_count_pool_entity_change(&mut entity_changes, tx_count_deltas);
-    db::swap_volume_pool_entity_change(&mut entity_changes, swaps_volume_deltas);
-    Ok(entity_changes)
+    db::pool_fee_growth_global_x128_entity_change(&mut tables, pool_fee_growth_global_x128_deltas);
+    db::price_pool_entity_change(&mut tables, price_deltas);
+    db::tx_count_pool_entity_change(&mut tables, tx_count_deltas);
+    db::swap_volume_pool_entity_change(&mut tables, swaps_volume_deltas);
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::map]
@@ -1804,22 +1749,16 @@ pub fn map_tokens_entities(
     derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,
     tokens_whitelist_pools: Deltas<DeltaArray<String>>,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
-    db::tokens_created_token_entity_change(&mut entity_changes, pools, tokens_store);
-    db::swap_volume_token_entity_change(&mut entity_changes, swaps_volume_deltas);
-    db::tx_count_token_entity_change(&mut entity_changes, tx_count_deltas);
-    db::total_value_locked_by_token_token_entity_change(
-        &mut entity_changes,
-        total_value_locked_by_deltas,
-    );
-    db::total_value_locked_usd_token_entity_change(
-        &mut entity_changes,
-        total_value_locked_usd_deltas,
-    );
-    db::derived_eth_prices_token_entity_change(&mut entity_changes, derived_eth_prices_deltas);
-    db::whitelist_token_entity_change(&mut entity_changes, tokens_whitelist_pools);
+    let mut tables = Tables::new();
+    db::tokens_created_token_entity_change(&mut tables, pools, tokens_store);
+    db::swap_volume_token_entity_change(&mut tables, swaps_volume_deltas);
+    db::tx_count_token_entity_change(&mut tables, tx_count_deltas);
+    db::total_value_locked_by_token_token_entity_change(&mut tables, total_value_locked_by_deltas);
+    db::total_value_locked_usd_token_entity_change(&mut tables, total_value_locked_usd_deltas);
+    db::derived_eth_prices_token_entity_change(&mut tables, derived_eth_prices_deltas);
+    db::whitelist_token_entity_change(&mut tables, tokens_whitelist_pools);
 
-    Ok(entity_changes)
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::map]
@@ -1827,10 +1766,10 @@ pub fn map_tick_entities(
     ticks_deltas: Deltas<DeltaProto<Tick>>,
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
-    db::create_or_update_ticks_entity_change(&mut entity_changes, ticks_deltas);
-    db::ticks_liquidities_tick_entity_change(&mut entity_changes, ticks_liquidities_deltas);
-    Ok(entity_changes)
+    let mut tables = Tables::new();
+    db::create_or_update_ticks_entity_change(&mut tables, ticks_deltas);
+    db::ticks_liquidities_tick_entity_change(&mut tables, ticks_liquidities_deltas);
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::map]
@@ -1839,30 +1778,31 @@ pub fn map_position_entities(
     positions_store: StoreGetInt64,
     positions_changes_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
+    let mut tables = Tables::new();
     db::position_create_entity_change(
         events.positions.unwrap_or_default(),
         positions_store,
-        &mut entity_changes,
+        &mut tables,
     );
-    db::positions_changes_entity_change(&mut entity_changes, positions_changes_deltas);
-    Ok(entity_changes)
+    db::positions_changes_entity_change(&mut tables, positions_changes_deltas);
+    Ok(tables.to_entity_changes())
 }
 
+// Add only the odd snapshot_positions elements in this function.
 #[substreams::handlers::map]
 pub fn map_position_snapshot_entities(
     snapshot_positions: SnapshotPositions,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
-    db::snapshot_position_entity_change(snapshot_positions, &mut entity_changes);
-    Ok(entity_changes)
+    let mut tables = Tables::new();
+    db::snapshot_position_entity_change(snapshot_positions, &mut tables);
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::map]
 pub fn map_transaction_entities(events: Events) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
-    db::transaction_entity_change(events.transactions.unwrap_or_default(), &mut entity_changes);
-    Ok(entity_changes)
+    let mut tables = Tables::new();
+    db::transaction_entity_change(events.transactions.unwrap_or_default(), &mut tables);
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::map]
@@ -1871,28 +1811,23 @@ pub fn map_swaps_mints_burns_entities(
     tx_count_store: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
 ) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
+    let mut tables = Tables::new();
     db::swaps_mints_burns_created_entity_change(
         events.events.unwrap_or_default(),
         tx_count_store,
         store_eth_prices,
-        &mut entity_changes,
+        &mut tables,
     );
-    Ok(entity_changes)
+    Ok(tables.to_entity_changes())
 }
 
 #[substreams::handlers::map]
 pub fn map_flash_entities(events: Events) -> Result<EntityChanges, Error> {
-    let mut entity_changes: EntityChanges = Default::default();
-    db::flashes_update_pool_fee_entity_change(
-        events.flashes.unwrap_or_default(),
-        &mut entity_changes,
-    );
-    Ok(entity_changes)
+    let mut tables = Tables::new();
+    db::flashes_update_pool_fee_entity_change(events.flashes.unwrap_or_default(), &mut tables);
+    Ok(tables.to_entity_changes())
 }
 
-//todo: check if we want to check the block ordinal here and sort by the ordinal
-// or simply stream out all the entity changes
 #[substreams::handlers::map]
 pub fn graph_out(
     factory_entities: EntityChanges,

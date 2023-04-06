@@ -99,14 +99,6 @@ modules:
     inputs:
       - map: map_extract_data_types
 
-  - name: map_event_amounts
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_extract_data_types
-    output:
-      type: proto:uniswap.types.v1.EventAmounts
-
   - name: store_totals
     kind: store
     initialBlock: 12369621
@@ -150,7 +142,7 @@ modules:
     updatePolicy: set
     valueType: bigdecimal
     inputs:
-      - map: map_event_amounts
+      - map: map_extract_data_types
 
   - name: store_eth_prices
     kind: store

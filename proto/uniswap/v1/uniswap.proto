@@ -120,21 +120,6 @@ message Mint {
   BigInt amount = 8;
 }
 
-message EventAmounts {
-  repeated EventAmount event_amounts =1;
-}
-
-message EventAmount {
-  string pool_address = 1;
-  string token0_addr = 2;
-  BigDecimal amount0_value = 3;
-  string token1_addr = 4;
-  BigDecimal amount1_value = 5;
-
-  // internals
-  uint64 log_ordinal = 30;
-}
-
 message PoolLiquidities {
   repeated PoolLiquidity pool_liquidities = 1;
 }
