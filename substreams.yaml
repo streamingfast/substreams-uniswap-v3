@@ -239,7 +239,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - source: sf.ethereum.type.v2.Block
+      - source: sf.substreams.v1.Clock
       - store: store_eth_prices
         mode: deltas
     output:
@@ -249,7 +249,7 @@ modules:
     kind: map
     initialBlock: 12369621
     inputs:
-      - source: sf.ethereum.type.v2.Block
+      - source: sf.substreams.v1.Clock
       - store: store_pool_count
         mode: deltas
       - store: store_total_tx_counts

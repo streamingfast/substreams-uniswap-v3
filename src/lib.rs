@@ -1672,12 +1672,12 @@ pub fn map_position_snapshots(
 
 #[substreams::handlers::map]
 pub fn map_bundle_entities(
-    block: Block,
+    clock: Clock,
     derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
 
-    if block.number == 12369621 {
+    if clock.number == 12369621 {
         db::created_bundle_entity_change(&mut tables);
     }
 
@@ -1688,7 +1688,7 @@ pub fn map_bundle_entities(
 
 #[substreams::handlers::map]
 pub fn map_factory_entities(
-    block: Block,
+    clock: Clock,
     pool_count_deltas: Deltas<DeltaBigInt>,
     tx_count_deltas: Deltas<DeltaBigInt>,
     swaps_volume_deltas: Deltas<DeltaBigDecimal>,
@@ -1698,7 +1698,7 @@ pub fn map_factory_entities(
 
     // FIXME: Hard-coded start block, how could we pull that from the manifest?
     // FIXME: ideally taken from the params of the module
-    if block.number == 12369621 {
+    if clock.number == 12369621 {
         db::factory_created_factory_entity_change(&mut tables)
     }
 
