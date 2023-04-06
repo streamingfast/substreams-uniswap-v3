@@ -273,9 +273,7 @@ modules:
         mode: deltas
       - store: store_prices
         mode: deltas
-      - store: store_prices # DEBUG THIS
-        mode: deltas
-      - store: store_prices # THIS SHOULD BE OKAY, it's in GET mode.
+
       #- store: store_total_tx_counts
       #  mode: deltas
       #- store: store_swaps_volume

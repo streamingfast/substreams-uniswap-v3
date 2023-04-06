@@ -446,10 +446,11 @@ pub fn store_totals(
                 )
             }
             "usd" => {
-                let bundle_eth_price: BigDecimal = match store_eth_prices.get_last("bundle") {
-                    None => continue,
-                    Some(price) => price,
-                };
+                let bundle_eth_price: BigDecimal =
+                    match store_eth_prices.get_at(delta.ordinal, "bundle") {
+                        None => continue, // FIXME(abourget): should we return zero?
+                        Some(price) => price,
+                    };
                 log::debug!("eth_price_usd: {}", bundle_eth_price);
 
                 let total_value_locked_usd: BigDecimal = pool_total_value_locked_eth_new_value
@@ -530,25 +531,28 @@ pub fn store_swaps_volume(
             false => {}
             true => match event.r#type.unwrap() {
                 SwapEvent(swap) => {
-                    let eth_price_in_usd: BigDecimal =
-                        match store_eth_prices.get_last(&keyer::bundle_eth_price()) {
-                            None => {
-                                panic!("bundle eth price not found")
-                            }
-                            Some(price) => price,
-                        };
+                    let eth_price_in_usd: BigDecimal = match store_eth_prices
+                        .get_at(event.log_ordinal, &keyer::bundle_eth_price())
+                    {
+                        None => {
+                            panic!("bundle eth price not found")
+                        }
+                        Some(price) => price,
+                    };
 
-                    let token0_derived_eth_price: BigDecimal =
-                        match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
-                            None => continue,
-                            Some(price) => price,
-                        };
+                    let token0_derived_eth_price: BigDecimal = match store_eth_prices
+                        .get_at(event.log_ordinal, keyer::token_eth_price(&event.token0))
+                    {
+                        None => continue,
+                        Some(price) => price,
+                    };
 
-                    let token1_derived_eth_price: BigDecimal =
-                        match store_eth_prices.get_last(keyer::token_eth_price(&event.token1)) {
-                            None => continue,
-                            Some(price) => price,
-                        };
+                    let token1_derived_eth_price: BigDecimal = match store_eth_prices
+                        .get_at(event.log_ordinal, keyer::token_eth_price(&event.token1))
+                    {
+                        None => continue,
+                        Some(price) => price,
+                    };
 
                     let mut amount0_abs: BigDecimal = BigDecimal::from(swap.amount_0.unwrap());
                     if amount0_abs.lt(&BigDecimal::from(0 as u64)) {
@@ -870,28 +874,29 @@ pub fn store_total_value_locked(
 
     // the deltas will contain the amount0 and amount1 needed
     // to compute the totalValueLockedToken0 and totalValueLockedToken0
-    for native_total_value_locked in native_total_value_locked_deltas.deltas {
+    for delta in native_total_value_locked_deltas.deltas {
         log::info!("\n");
-        log::info!("!!!DELTA KEY: {}", native_total_value_locked.key);
-        log::info!("!!!DELTA oldValue: {}", native_total_value_locked.old_value);
-        log::info!("!!!DELTA newValue: {}", native_total_value_locked.new_value);
+        log::info!("!!!DELTA KEY: {}", delta.key);
+        log::info!("!!!DELTA oldValue: {}", delta.old_value);
+        log::info!("!!!DELTA newValue: {}", delta.new_value);
         log::info!("\n");
 
-        let eth_price_usd: BigDecimal = match &eth_prices_store.get_last(&keyer::bundle_eth_price())
-        {
-            None => continue,
-            Some(price) => price.with_prec(100),
-        };
+        let eth_price_usd: BigDecimal =
+            match &eth_prices_store.get_at(delta.ordinal, &keyer::bundle_eth_price()) {
+                None => continue,
+                Some(price) => price.with_prec(100),
+            };
         log::debug!("eth_price_usd: {}", eth_price_usd);
 
         // ----- TOKEN ----- //
-        if let Some(token_addr) = keyer::native_token_from_key(&native_total_value_locked.key) {
-            let value = &native_total_value_locked.new_value;
-            let token_derive_eth: BigDecimal =
-                match eth_prices_store.get_last(&keyer::token_eth_price(&token_addr)) {
-                    None => panic!("token eth price not found for token {}", token_addr),
-                    Some(price) => price,
-                };
+        if let Some(token_addr) = keyer::native_token_from_key(&delta.key) {
+            let value = &delta.new_value;
+            let token_derive_eth: BigDecimal = match eth_prices_store
+                .get_at(delta.ordinal, &keyer::token_eth_price(&token_addr))
+            {
+                None => panic!("token eth price not found for token {}", token_addr),
+                Some(price) => price,
+            };
             log::info!("token_derive_eth {}", token_derive_eth);
 
             //todo: here I think that value is incorrect and not what we think it is
@@ -916,9 +921,7 @@ pub fn store_total_value_locked(
             // );
 
             // ----- POOL ----- //
-        } else if let Some((pool_addr, token_addr)) =
-            keyer::native_pool_from_key(&native_total_value_locked.key)
-        {
+        } else if let Some((pool_addr, token_addr)) = keyer::native_pool_from_key(&delta.key) {
             let pool = pools_store.must_get_last(keyer::pool_key(&pool_addr));
             log::info!("pool addr {}", pool.address);
             log::info!("token0 {}", pool.token0_ref().address);
@@ -927,10 +930,11 @@ pub fn store_total_value_locked(
             // if pool.token0.as_ref().unwrap().address != token_addr {
             //     continue;
             // }
-            let value: BigDecimal = native_total_value_locked.new_value;
-            let token0_derive_eth: BigDecimal = match eth_prices_store
-                .get_last(&keyer::token_eth_price(&pool.token0_ref().address))
-            {
+            let value: BigDecimal = delta.new_value;
+            let token0_derive_eth: BigDecimal = match eth_prices_store.get_at(
+                delta.ordinal,
+                &keyer::token_eth_price(&pool.token0_ref().address),
+            ) {
                 None => panic!(
                     "token eth price not found for token {}",
                     pool.token0_ref().address
@@ -940,9 +944,10 @@ pub fn store_total_value_locked(
 
             log::info!("token0_derive_eth: {}", token0_derive_eth);
 
-            let token1_derive_eth: BigDecimal = match eth_prices_store
-                .get_last(&keyer::token_eth_price(&pool.token1_ref().address))
-            {
+            let token1_derive_eth: BigDecimal = match eth_prices_store.get_at(
+                delta.ordinal,
+                &keyer::token_eth_price(&pool.token1_ref().address),
+            ) {
                 None => panic!(
                     "token eth price not found for token {}",
                     pool.token1_ref().address
@@ -964,9 +969,10 @@ pub fn store_total_value_locked(
 
             // todo: fetch totalValueLockedToken0 and total
             let total_value_locked_token0: BigDecimal = match total_value_locked_by_tokens_store
-                .get_last(&keyer::total_value_locked_by_token(
-                    pool.token0_ref().address(),
-                )) {
+                .get_at(
+                    delta.ordinal,
+                    &keyer::total_value_locked_by_token(pool.token0_ref().address()),
+                ) {
                 None => {
                     panic!("impossible")
                 }
@@ -974,9 +980,10 @@ pub fn store_total_value_locked(
             };
 
             let total_value_locked_token1: BigDecimal = match total_value_locked_by_tokens_store
-                .get_last(&keyer::total_value_locked_by_token(
-                    pool.token1_ref().address(),
-                )) {
+                .get_at(
+                    delta.ordinal,
+                    &keyer::total_value_locked_by_token(pool.token1_ref().address()),
+                ) {
                 None => {
                     panic!("impossible")
                 }
@@ -998,7 +1005,7 @@ pub fn store_total_value_locked(
             log::info!("try_total_value_locked_eth {}", try_total_value_locked_eth);
 
             store.add(
-                native_total_value_locked.ordinal,
+                delta.ordinal,
                 &keyer::factory_native_total_value_locked_eth(),
                 try_total_value_locked_eth,
             );
@@ -1073,21 +1080,20 @@ pub fn store_total_value_locked_usd(
     eth_prices_store: StoreGetBigDecimal,
     store: StoreSetBigDecimal,
 ) {
-    for native_total_value_locked in native_total_value_locked_deltas.deltas {
-        let eth_price_usd: BigDecimal = match &eth_prices_store.get_last(&keyer::bundle_eth_price())
-        {
-            None => continue,
-            Some(price) => price.with_prec(100),
-        };
+    for delta in native_total_value_locked_deltas.deltas {
+        let eth_price_usd: BigDecimal =
+            match &eth_prices_store.get_at(delta.ordinal, &keyer::bundle_eth_price()) {
+                None => continue,
+                Some(price) => price.with_prec(100),
+            };
         log::debug!("eth_price_usd: {}", eth_price_usd);
-        if let Some((pool_addr, token_addr)) =
-            keyer::native_pool_from_key(&native_total_value_locked.key)
-        {
+        if let Some((pool_addr, token_addr)) = keyer::native_pool_from_key(&delta.key) {
             let pool = pools_store.must_get_last(keyer::pool_key(&pool_addr));
 
-            let token0_derive_eth: BigDecimal = match eth_prices_store
-                .get_last(&keyer::token_eth_price(&pool.token0_ref().address))
-            {
+            let token0_derive_eth: BigDecimal = match eth_prices_store.get_at(
+                delta.ordinal,
+                &keyer::token_eth_price(&pool.token0_ref().address),
+            ) {
                 None => panic!(
                     "token eth price not found for token {}",
                     pool.token0_ref().address
@@ -1097,9 +1103,10 @@ pub fn store_total_value_locked_usd(
 
             log::info!("token0_derive_eth: {}", token0_derive_eth);
 
-            let token1_derive_eth: BigDecimal = match eth_prices_store
-                .get_last(&keyer::token_eth_price(&pool.token1_ref().address))
-            {
+            let token1_derive_eth: BigDecimal = match eth_prices_store.get_at(
+                delta.ordinal,
+                &keyer::token_eth_price(&pool.token1_ref().address),
+            ) {
                 None => panic!(
                     "token eth price not found for token {}",
                     pool.token1_ref().address
@@ -1110,9 +1117,10 @@ pub fn store_total_value_locked_usd(
             log::info!("token1_derive_eth: {}", token1_derive_eth);
 
             let total_value_locked_token0: BigDecimal = match total_value_locked_by_tokens_store
-                .get_last(&keyer::total_value_locked_by_token(
-                    pool.token0_ref().address(),
-                )) {
+                .get_at(
+                    delta.ordinal,
+                    &keyer::total_value_locked_by_token(pool.token0_ref().address()),
+                ) {
                 None => {
                     panic!("impossible")
                 }
@@ -1120,9 +1128,10 @@ pub fn store_total_value_locked_usd(
             };
 
             let total_value_locked_token1: BigDecimal = match total_value_locked_by_tokens_store
-                .get_last(&keyer::total_value_locked_by_token(
-                    pool.token1_ref().address(),
-                )) {
+                .get_at(
+                    delta.ordinal,
+                    &keyer::total_value_locked_by_token(pool.token1_ref().address()),
+                ) {
                 None => {
                     panic!("impossible")
                 }
@@ -1146,13 +1155,13 @@ pub fn store_total_value_locked_usd(
             );
 
             store.set(
-                native_total_value_locked.ordinal,
+                delta.ordinal,
                 keyer::token_usd_total_value_locked(pool.token0_ref().address()),
                 &total_value_locked_usd_token0,
             );
 
             store.set(
-                native_total_value_locked.ordinal,
+                delta.ordinal,
                 keyer::token_usd_total_value_locked(pool.token1_ref().address()),
                 &total_value_locked_usd_token1,
             );
@@ -1385,10 +1394,10 @@ pub fn map_positions(
         {
             let token_id: String = event.token_id.to_string();
             if !enriched_positions.contains_key(&token_id) {
-                match all_positions_store.get_last(keyer::all_position(
-                    &token_id,
-                    &IncreaseLiquidity.to_string(),
-                )) {
+                match all_positions_store.get_at(
+                    log.ordinal(),
+                    keyer::all_position(&token_id, &IncreaseLiquidity.to_string()),
+                ) {
                     None => {
                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
                         continue;
@@ -1404,9 +1413,10 @@ pub fn map_positions(
         } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
             let token_id: String = event.token_id.to_string();
             let mut position = if !enriched_positions.contains_key(&token_id) {
-                match all_positions_store
-                    .get_last(keyer::all_position(&token_id, &Collect.to_string()))
-                {
+                match all_positions_store.get_at(
+                    log.ordinal(),
+                    keyer::all_position(&token_id, &Collect.to_string()),
+                ) {
                     None => {
                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
                         continue;
@@ -1434,10 +1444,13 @@ pub fn map_positions(
         {
             let token_id: String = event.token_id.to_string();
             if !enriched_positions.contains_key(&token_id) {
-                match all_positions_store.get_last(keyer::all_position(
-                    &event.token_id.to_string(),
-                    &DecreaseLiquidity.to_string(),
-                )) {
+                match all_positions_store.get_at(
+                    log.ordinal(),
+                    keyer::all_position(
+                        &event.token_id.to_string(),
+                        &DecreaseLiquidity.to_string(),
+                    ),
+                ) {
                     None => {
                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
                         continue;
@@ -1453,9 +1466,10 @@ pub fn map_positions(
         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
             let token_id: String = event.token_id.to_string();
             let mut position = if !enriched_positions.contains_key(&token_id) {
-                match all_positions_store
-                    .get_last(keyer::all_position(&token_id, &Transfer.to_string()))
-                {
+                match all_positions_store.get_at(
+                    log.ordinal(),
+                    keyer::all_position(&token_id, &Transfer.to_string()),
+                ) {
                     None => {
                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
                         continue;
@@ -1603,59 +1617,68 @@ pub fn map_position_snapshots(
 
         //TODO: when the value is not found, do we really want to set the liquidity, deposited_token0, etc.
         // to 0? We could simply not touch the data point...
-        match position_changes_store.get_last(keyer::position_liquidity(&position.id)) {
+        match position_changes_store.get_at(
+            position.log_ordinal,
+            keyer::position_liquidity(&position.id),
+        ) {
             Some(liquidity) => snapshot_position.liquidity = Some(liquidity.into()),
             _ => snapshot_position.liquidity = Some(BigDecimal::zero().into()),
         }
 
-        match position_changes_store
-            .get_last(keyer::position_deposited_token(&position.id, "Token0"))
-        {
+        match position_changes_store.get_at(
+            position.log_ordinal,
+            keyer::position_deposited_token(&position.id, "Token0"),
+        ) {
             Some(deposited_token0) => {
                 snapshot_position.deposited_token0 = Some(deposited_token0.into());
             }
             _ => snapshot_position.deposited_token0 = Some(BigDecimal::zero().into()),
         }
 
-        match position_changes_store
-            .get_last(keyer::position_deposited_token(&position.id, "Token1"))
-        {
+        match position_changes_store.get_at(
+            position.log_ordinal,
+            keyer::position_deposited_token(&position.id, "Token1"),
+        ) {
             Some(deposited_token1) => {
                 snapshot_position.deposited_token1 = Some(deposited_token1.into());
             }
             _ => snapshot_position.deposited_token1 = Some(BigDecimal::zero().into()),
         }
 
-        match position_changes_store
-            .get_last(keyer::position_withdrawn_token(&position.id, "Token0"))
-        {
+        match position_changes_store.get_at(
+            position.log_ordinal,
+            keyer::position_withdrawn_token(&position.id, "Token0"),
+        ) {
             Some(withdrawn_token0) => {
                 snapshot_position.withdrawn_token0 = Some(withdrawn_token0.into());
             }
             _ => snapshot_position.withdrawn_token0 = Some(BigDecimal::zero().into()),
         }
 
-        match position_changes_store
-            .get_last(keyer::position_withdrawn_token(&position.id, "Token1"))
-        {
+        match position_changes_store.get_at(
+            position.log_ordinal,
+            keyer::position_withdrawn_token(&position.id, "Token1"),
+        ) {
             Some(withdrawn_token1) => {
                 snapshot_position.withdrawn_token1 = Some(withdrawn_token1.into());
             }
             _ => snapshot_position.withdrawn_token1 = Some(BigDecimal::zero().into()),
         }
 
-        match position_changes_store
-            .get_last(keyer::position_collected_fees_token(&position.id, "Token0"))
-        {
+        match position_changes_store.get_at(
+            position.log_ordinal,
+            keyer::position_collected_fees_token(&position.id, "Token0"),
+        ) {
             Some(collected_fees_token0) => {
                 snapshot_position.collected_fees_token0 = Some(collected_fees_token0.into());
             }
             _ => snapshot_position.collected_fees_token0 = Some(BigDecimal::zero().into()),
         }
 
-        match position_changes_store
-            .get_last(keyer::position_collected_fees_token(&position.id, "Token1"))
-        {
+        match position_changes_store.get_at(
+            position.log_ordinal,
+            keyer::position_collected_fees_token(&position.id, "Token1"),
+        ) {
             Some(collected_fees_token1) => {
                 snapshot_position.collected_fees_token1 = Some(collected_fees_token1.into());
             }
