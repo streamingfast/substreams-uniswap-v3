@@ -235,20 +235,12 @@ modules:
     output:
       type: proto:uniswap.types.v1.SnapshotPositions
 
-  - name: map_bundle_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.substreams.v1.Clock
-      - store: store_eth_prices
-        mode: deltas
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_factory_entities
+  - name: graph_out
     kind: map
     initialBlock: 12369621
     inputs:
+      ###- map: map_factory_entities
       - source: sf.substreams.v1.Clock
       - store: store_pool_count
         mode: deltas
@@ -258,13 +250,16 @@ modules:
         mode: deltas
       - store: store_totals
         mode: deltas
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_pool_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
+      ###- map: map_bundle_entities
+      #- source: sf.substreams.v1.Clock
+      - store: store_eth_prices
+        mode: deltas
+
+      ###- map: map_transaction_entities
+      - map: map_extract_data_types
+
+      ###- map: map_pool_entities
       - map: map_pools_created
       - store: store_pool_sqrt_price
         mode: deltas
@@ -278,103 +273,52 @@ modules:
         mode: deltas
       - store: store_prices
         mode: deltas
-      - store: store_total_tx_counts
+      - store: store_prices # DEBUG THIS
         mode: deltas
-      - store: store_swaps_volume
-        mode: deltas
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
+      - store: store_prices # THIS SHOULD BE OKAY, it's in GET mode.
+      #- store: store_total_tx_counts
+      #  mode: deltas
+      #- store: store_swaps_volume
+      #  mode: deltas
 
-  - name: map_tokens_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_pools_created
+      ###- map: map_tokens_entities
+      #- map: map_pools_created
       - store: store_tokens
-      - store: store_swaps_volume
-        mode: deltas
-      - store: store_total_tx_counts
-        mode: deltas
-      - store: store_total_value_locked_by_tokens
-        mode: deltas
+      #- store: store_swaps_volume
+      #  mode: deltas
+      #- store: store_total_tx_counts
+      #  mode: deltas
+      #- store: store_total_value_locked_by_tokens
+      #  mode: deltas
       - store: store_total_value_locked_usd
         mode: deltas
-      - store: store_eth_prices
-        mode: deltas
+      #- store: store_eth_prices
+      #  mode: deltas
       - store: store_tokens_whitelist_pools
         mode: deltas
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_tick_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
+      ###- map: map_tick_entities
       - store: store_ticks
         mode: deltas
       - store: store_ticks_liquidities
         mode: deltas
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_position_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_extract_data_types
+      ###- map: map_position_entities
+      #- map: map_extract_data_types
       - store: store_positions
       - store: store_position_changes
         mode: deltas
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_position_snapshot_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
+      ###- map: map_position_snapshot_entities
       - map: map_position_snapshots
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_transaction_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_extract_data_types
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
+      ###- map: map_flash_entities
+      #- map: map_extract_data_types
 
-  - name: map_swaps_mints_burns_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_extract_data_types
+      ###- map: map_swaps_mints_burns_entities
+      #- map: map_extract_data_types
       - store: store_total_tx_counts
       - store: store_eth_prices
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_flash_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_extract_data_types
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
-
-  - name: graph_out
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_factory_entities
-      - map: map_bundle_entities
-      - map: map_transaction_entities
-      - map: map_pool_entities
-      - map: map_tokens_entities
-      - map: map_tick_entities
-      - map: map_position_entities
-      - map: map_position_snapshot_entities
-      - map: map_flash_entities
-      - map: map_swaps_mints_burns_entities
     output:
       type: proto:substreams.entity.v1.EntityChanges

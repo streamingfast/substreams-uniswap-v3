@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::ops::{Div, Mul};
 use std::str::FromStr;
 
+use substreams::errors::Error;
+use substreams::pb::substreams::Clock;
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
@@ -16,12 +18,15 @@ use substreams_entity_change::pb::entity::{
 
 use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::position::PositionType;
-use crate::pb::uniswap::{Pool, Position};
-use crate::uniswap::tick::Origin;
-use crate::{
-    keyer, utils, BurnEvent, Erc20Token, Flashes, MintEvent, PoolSqrtPrice, Pools, Positions,
-    SnapshotPositions, SwapEvent, Tick, TokenEvents, Transactions,
+use crate::pb::uniswap::token_event::Type::{
+    Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent,
 };
+use crate::uniswap::tick::Origin;
+use crate::uniswap::{
+    Erc20Token, Events, Flashes, Pool, PoolSqrtPrice, Pools, Position, Positions, SnapshotPosition,
+    SnapshotPositions, Tick, TokenEvents, Transactions,
+};
+use crate::{keyer, utils};
 
 pub struct Tables {
     // Map from table name to the primary keys within that table
@@ -103,6 +108,171 @@ impl Row {
         self.columns.insert(field.name, field.new_value.unwrap());
         self
     }
+}
+
+#[substreams::handlers::map]
+pub fn graph_out(
+    clock: Clock,
+    pool_count_deltas: Deltas<DeltaBigInt>, /* store_pool_count */
+    tx_count_deltas: Deltas<DeltaBigInt>,   /* store_total_tx_counts deltas */
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>, /* store_swaps_volume */
+    totals_deltas: Deltas<DeltaBigDecimal>, /* store_totals */
+    derived_eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
+    events: Events,                         /* map_extract_data_types */
+    pools_created: Pools,                   /* map_pools_created */
+    pool_sqrt_price_deltas: Deltas<DeltaProto<PoolSqrtPrice>>, /* store_pool_sqrt_price */
+    pool_liquidities_store_deltas: Deltas<DeltaBigInt>, /* store_pool_liquidities */
+    total_value_locked_deltas: Deltas<DeltaBigDecimal>, /* store_total_value_locked */
+    total_value_locked_by_tokens_deltas: Deltas<DeltaBigDecimal>, /* store_total_value_locked_by_tokens */
+    pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
+    price_deltas: Deltas<DeltaBigDecimal>,                   /* store_prices */
+    tokens_store: StoreGetInt64,                             /* store_tokens */
+    total_value_locked_usd_deltas: Deltas<DeltaBigDecimal>,  /* store_total_value_locked_usd */
+    tokens_whitelist_pools: Deltas<DeltaArray<String>>,      /* store_tokens_whitelist_pools */
+    ticks_deltas: Deltas<DeltaProto<Tick>>,                  /* store_ticks */
+    ticks_liquidities_deltas: Deltas<DeltaBigInt>,           /* store_ticks_liquidities */
+    positions_store: StoreGetInt64,                          /* store_positions */
+    positions_changes_deltas: Deltas<DeltaBigDecimal>,       /* store_position_changes */
+    snapshot_positions: SnapshotPositions,                   /* map_position_snapshots */
+    tx_count_store: StoreGetBigInt,                          /* store_total_tx_counts */
+    store_eth_prices: StoreGetBigDecimal,                    /* store_eth_prices */
+) -> Result<EntityChanges, Error> {
+    let mut tables = Tables::new();
+
+    if clock.number == 12369621 {
+        created_bundle_entity_change(&mut tables);
+    }
+    bundle_store_eth_price_usd_bundle_entity_change(&mut tables, derived_eth_prices_deltas);
+
+    Ok(tables.to_entity_changes())
+}
+
+// Map to entities
+
+pub fn map_bundle_entities(clock: Clock, derived_eth_prices_deltas: Deltas<DeltaBigDecimal>) {
+    // UNFOLD
+    if clock.number == 12369621 {
+        created_bundle_entity_change(tables);
+    }
+
+    bundle_store_eth_price_usd_bundle_entity_change(tables, derived_eth_prices_deltas);
+}
+
+pub fn map_factory_entities(
+    tables: &mut Tables,
+    clock: Clock,
+    pool_count_deltas: Deltas<DeltaBigInt>,
+    tx_count_deltas: Deltas<DeltaBigInt>,
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>,
+    totals_deltas: Deltas<DeltaBigDecimal>,
+) {
+    // UNFOLD
+
+    // FIXME: Hard-coded start block, how could we pull that from the manifest?
+    // FIXME: ideally taken from the params of the module
+    if clock.number == 12369621 {
+        factory_created_factory_entity_change(tables)
+    }
+
+    pool_created_factory_entity_change(tables, pool_count_deltas);
+    tx_count_factory_entity_change(tables, tx_count_deltas);
+    swap_volume_factory_entity_change(tables, swaps_volume_deltas);
+    total_value_locked_factory_entity_change(tables, totals_deltas);
+}
+
+pub fn map_pool_entities(
+    tables: &mut Tables,
+    pools_created: Pools,
+    pool_sqrt_price_deltas: Deltas<DeltaProto<PoolSqrtPrice>>,
+    pool_liquidities_store_deltas: Deltas<DeltaBigInt>,
+    total_value_locked_deltas: Deltas<DeltaBigDecimal>,
+    total_value_locked_by_tokens_deltas: Deltas<DeltaBigDecimal>,
+    pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>,
+    price_deltas: Deltas<DeltaBigDecimal>,
+    tx_count_deltas: Deltas<DeltaBigInt>,
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>,
+) {
+    pools_created_pool_entity_change(pools_created, tables);
+    pool_sqrt_price_entity_change(tables, pool_sqrt_price_deltas);
+    pool_liquidities_pool_entity_change(tables, pool_liquidities_store_deltas);
+    total_value_locked_pool_entity_change(tables, total_value_locked_deltas);
+    total_value_locked_by_token_pool_entity_change(tables, total_value_locked_by_tokens_deltas);
+    pool_fee_growth_global_x128_entity_change(tables, pool_fee_growth_global_x128_deltas);
+    price_pool_entity_change(tables, price_deltas);
+    tx_count_pool_entity_change(tables, tx_count_deltas);
+    swap_volume_pool_entity_change(tables, swaps_volume_deltas);
+}
+
+pub fn map_tokens_entities(
+    tables: &mut Tables,
+    pools: Pools,
+    tokens_store: StoreGetInt64,
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>,
+    tx_count_deltas: Deltas<DeltaBigInt>,
+    total_value_locked_by_tokens_deltas: Deltas<DeltaBigDecimal>,
+    total_value_locked_usd_deltas: Deltas<DeltaBigDecimal>,
+    derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,
+    tokens_whitelist_pools: Deltas<DeltaArray<String>>,
+) {
+    tokens_created_token_entity_change(tables, pools, tokens_store);
+    swap_volume_token_entity_change(tables, swaps_volume_deltas);
+    tx_count_token_entity_change(tables, tx_count_deltas);
+    total_value_locked_by_token_token_entity_change(tables, total_value_locked_by_tokens_deltas);
+    total_value_locked_usd_token_entity_change(tables, total_value_locked_usd_deltas);
+    derived_eth_prices_token_entity_change(tables, derived_eth_prices_deltas);
+    whitelist_token_entity_change(tables, tokens_whitelist_pools);
+}
+
+pub fn map_tick_entities(
+    tables: &mut Tables,
+    ticks_deltas: Deltas<DeltaProto<Tick>>,
+    ticks_liquidities_deltas: Deltas<DeltaBigInt>,
+) {
+    create_or_update_ticks_entity_change(tables, ticks_deltas);
+    ticks_liquidities_tick_entity_change(tables, ticks_liquidities_deltas);
+}
+
+pub fn map_position_entities(
+    tables: &mut Tables,
+    events: Events,
+    positions_store: StoreGetInt64,
+    positions_changes_deltas: Deltas<DeltaBigDecimal>,
+) {
+    position_create_entity_change(
+        tables,
+        events.positions.unwrap_or_default(),
+        positions_store,
+    );
+    positions_changes_entity_change(tables, positions_changes_deltas);
+}
+
+// Add only the odd snapshot_positions elements in this function.
+pub fn map_position_snapshot_entities(snapshot_positions: SnapshotPositions) {
+    // UNFOLD
+    snapshot_position_entity_change(tables, snapshot_positions);
+}
+
+pub fn map_transaction_entities(events: Events) {
+    // UNFOLD
+    transaction_entity_change(tables, events.transactions.unwrap_or_default());
+}
+
+pub fn map_swaps_mints_burns_entities(
+    events: Events,
+    tx_count_store: StoreGetBigInt,
+    store_eth_prices: StoreGetBigDecimal,
+) {
+    // UNFOLD
+    swaps_mints_burns_created_entity_change(
+        tables,
+        events.events.unwrap_or_default(),
+        tx_count_store,
+        store_eth_prices,
+    );
+}
+
+pub fn map_flash_entities(events: Events) {
+    flashes_update_pool_fee_entity_change(tables, events.flashes.unwrap_or_default());
 }
 
 // -------------------
@@ -683,9 +853,9 @@ fn update_tick_entity_change(tables: &mut Tables, old_tick: Tick, new_tick: Tick
 //  Map Position Entities
 // --------------------
 pub fn position_create_entity_change(
+    tables: &mut Tables,
     positions: Positions,
     positions_store: StoreGetInt64,
-    tables: &mut Tables,
 ) {
     for position in positions.positions {
         match position.convert_position_type() {
@@ -798,7 +968,7 @@ fn add_position_entity_change(tables: &mut Tables, position: Position) {
 // --------------------
 //  Map Snapshot Position Entities
 // --------------------
-pub fn snapshot_position_entity_change(snapshot_positions: SnapshotPositions, tables: &mut Tables) {
+pub fn snapshot_position_entity_change(tables: &mut Tables, snapshot_positions: SnapshotPositions) {
     for snapshot_position in snapshot_positions.snapshot_positions {
         tables
             .update_row("PositionSnapshot", snapshot_position.id.clone().as_str())
@@ -851,7 +1021,7 @@ pub fn snapshot_position_entity_change(snapshot_positions: SnapshotPositions, ta
 // --------------------
 //  Map Transaction Entities
 // --------------------
-pub fn transaction_entity_change(transactions: Transactions, tables: &mut Tables) {
+pub fn transaction_entity_change(tables: &mut Tables, transactions: Transactions) {
     for transaction in transactions.transactions {
         let gas_price = match transaction.gas_price {
             None => BigInt::zero(),
@@ -872,10 +1042,10 @@ pub fn transaction_entity_change(transactions: Transactions, tables: &mut Tables
 //  Map Swaps Mints Burns Entities
 // --------------------
 pub fn swaps_mints_burns_created_entity_change(
+    tables: &mut Tables,
     events: TokenEvents,
     tx_count_store: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
-    tables: &mut Tables,
 ) {
     for event in events.events {
         if event.r#type.is_none() {
@@ -1029,7 +1199,7 @@ pub fn swaps_mints_burns_created_entity_change(
 // --------------------
 //  Map Flashes Entities
 // --------------------
-pub fn flashes_update_pool_fee_entity_change(flashes: Flashes, tables: &mut Tables) {
+pub fn flashes_update_pool_fee_entity_change(tables: &mut Tables, flashes: Flashes) {
     for flash in flashes.flashes {
         tables
             .update_row("Pool", flash.pool_address.as_str())
