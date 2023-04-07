@@ -57,7 +57,7 @@ modules:
     inputs:
       - map: map_pools_created
     output:
-      type: proto:uniswap.types.v1.Erc20Tokens
+      type: proto:uniswap.types.v1.ERC20Tokens
 
   - name: store_tokens_whitelist_pools
     kind: store
