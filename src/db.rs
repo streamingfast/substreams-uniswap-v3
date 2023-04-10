@@ -216,7 +216,7 @@ pub fn graph_out(
 //  Map Bundle Entities
 // -------------------
 pub fn created_bundle_entity_change(tables: &mut Tables) {
-    let bd = BigDecimal::from(10 as i32);
+    let bd = BigDecimal::from(0 as i32);
     tables.update_row("Bundle", "1").set("ethPriceUSD", bd);
 }
 
@@ -990,32 +990,36 @@ pub fn swaps_mints_burns_created_entity_change(
         }
 
         if event.r#type.is_some() {
-            let transaction_count: i32 =
-                match tx_count_store.get_last(keyer::pool_total_tx_count(&event.pool_address)) {
-                    Some(data) => data.to_u64() as i32,
-                    None => 0,
-                };
+            let transaction_count: i32 = match tx_count_store.get_at(
+                event.log_ordinal,
+                keyer::pool_total_tx_count(&event.pool_address),
+            ) {
+                Some(data) => data.to_u64() as i32,
+                None => 0,
+            };
 
             let transaction_id: String = format!("{}#{}", event.transaction_id, transaction_count);
 
-            let token0_derived_eth_price =
-                match store_eth_prices.get_last(keyer::token_eth_price(&event.token0)) {
-                    // initializePool has occurred beforehand so there should always be a price
-                    // maybe just ? instead of returning 1 and bubble up the error if there is one
-                    None => BigDecimal::zero(),
-                    Some(price) => price,
-                };
+            let token0_derived_eth_price = match store_eth_prices
+                .get_at(event.log_ordinal, keyer::token_eth_price(&event.token0))
+            {
+                // initializePool has occurred beforehand so there should always be a price
+                // maybe just ? instead of returning 1 and bubble up the error if there is one
+                None => BigDecimal::zero(),
+                Some(price) => price,
+            };
 
-            let token1_derived_eth_price: BigDecimal =
-                match store_eth_prices.get_last(keyer::token_eth_price(&event.token1)) {
-                    // initializePool has occurred beforehand so there should always be a price
-                    // maybe just ? instead of returning 1 and bubble up the error if there is one
-                    None => BigDecimal::zero(),
-                    Some(price) => price,
-                };
+            let token1_derived_eth_price: BigDecimal = match store_eth_prices
+                .get_at(event.log_ordinal, keyer::token_eth_price(&event.token1))
+            {
+                // initializePool has occurred beforehand so there should always be a price
+                // maybe just ? instead of returning 1 and bubble up the error if there is one
+                None => BigDecimal::zero(),
+                Some(price) => price,
+            };
 
             let bundle_eth_price: BigDecimal =
-                match store_eth_prices.get_last(keyer::bundle_eth_price()) {
+                match store_eth_prices.get_at(event.log_ordinal, keyer::bundle_eth_price()) {
                     // initializePool has occurred beforehand so there should always be a price
                     // maybe just ? instead of returning 1 and bubble up the error if there is one
                     None => BigDecimal::zero(),

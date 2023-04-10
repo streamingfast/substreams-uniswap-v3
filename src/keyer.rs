@@ -154,7 +154,7 @@ pub fn factory_native_total_value_locked_eth() -> String {
 //      store_pool_liquidities
 // ------------------------------------------------
 pub fn pool_liquidity(pool_address: &String) -> String {
-    format!("pool:{}:liquidity", pool_address)
+    format!("liquidity:{}", pool_address)
 }
 
 // ------------------------------------------------

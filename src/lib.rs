@@ -733,12 +733,12 @@ pub fn store_native_total_value_locked(
 
 #[substreams::handlers::store]
 pub fn store_eth_prices(
-    events: Events,
-    pools_store: StoreGetProto<Pool>,
-    prices_store: StoreGetBigDecimal,
-    tokens_whitelist_pools_store: StoreGetRaw,
-    total_native_value_locked_store: StoreGetBigDecimal,
-    pool_liquidities_store: StoreGetBigInt,
+    events: Events,                                      /* map_extract_data_types */
+    pools_store: StoreGetProto<Pool>,                    /* store_pools */
+    prices_store: StoreGetBigDecimal,                    /* store_prices */
+    tokens_whitelist_pools_store: StoreGetRaw,           /* store_tokens_whitelist_pools */
+    total_native_value_locked_store: StoreGetBigDecimal, /* store_native_total_value_locked */
+    pool_liquidities_store: StoreGetBigInt,              /* store_pool_liquidities */
     store: StoreSetBigDecimal,
 ) {
     for pool_sqrt_price in events.pool_sqrt_prices.unwrap_or_default().pool_sqrt_prices {

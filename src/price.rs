@@ -142,14 +142,15 @@ pub fn find_eth_per_token(
                 token1.address
             );
 
-            let liquidity: BigInt =
-                match pool_liquidities_store.get_last(&keyer::pool_liquidity(&pool.address)) {
-                    None => {
-                        log::debug!("No liquidity for pool {}", pool.address);
-                        BigInt::zero()
-                    }
-                    Some(price) => price,
-                };
+            let liquidity: BigInt = match pool_liquidities_store
+                .get_at(log_ordinal, &keyer::pool_liquidity(&pool.address))
+            {
+                None => {
+                    log::debug!("No liquidity for pool {}", pool.address);
+                    BigInt::zero()
+                }
+                Some(price) => price,
+            };
 
             if liquidity.gt(&BigInt::zero()) {
                 if &token0.address == token_address {
@@ -159,10 +160,13 @@ pub fn find_eth_per_token(
                         token1.symbol
                     );
                     let native_locked_value: BigDecimal = match total_native_value_locked_store
-                        .get_last(&keyer::pool_native_total_value_locked_token(
-                            &pool.address,
-                            &token1.address,
-                        )) {
+                        .get_at(
+                            log_ordinal,
+                            &keyer::pool_native_total_value_locked_token(
+                                &pool.address,
+                                &token1.address,
+                            ),
+                        ) {
                         None => BigDecimal::zero().with_prec(100),
                         Some(price) => price.with_prec(100),
                     };
@@ -233,10 +237,13 @@ pub fn find_eth_per_token(
                         token1.symbol
                     );
                     let native_locked_value: BigDecimal = match total_native_value_locked_store
-                        .get_last(&keyer::pool_native_total_value_locked_token(
-                            &pool.address,
-                            &token0.address,
-                        )) {
+                        .get_at(
+                            log_ordinal,
+                            &keyer::pool_native_total_value_locked_token(
+                                &pool.address,
+                                &token0.address,
+                            ),
+                        ) {
                         None => BigDecimal::zero().with_prec(100),
                         Some(price) => price.with_prec(100),
                     };
