@@ -1,6 +1,6 @@
 use crate::pb::position_event::PositionEventType;
-use crate::pb::uniswap::token_event::Type;
-use crate::pb::uniswap::TokenEvent;
+use crate::pb::uniswap::pool_event::Type;
+use crate::pb::uniswap::PoolEvent;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
 use crate::utils::ZERO_ADDRESS;
@@ -283,7 +283,7 @@ pub struct TokenAmounts {
     pub token1_addr: String,
 }
 
-impl TokenEvent {
+impl PoolEvent {
     pub fn get_amounts(&self) -> Option<TokenAmounts> {
         return match self.r#type.as_ref().unwrap().clone() {
             Type::Mint(evt) => Some(TokenAmounts {

@@ -50,7 +50,7 @@ message Pool {
 message Events {
   PoolSqrtPrices pool_sqrt_prices = 1;
   PoolLiquidities pool_liquidities = 2;
-  TokenEvents events = 3;
+  PoolEvents events = 3;
   Transactions transactions = 4;
   Positions positions = 5;
   Flashes flashes = 6;
@@ -67,11 +67,11 @@ message PoolSqrtPrice {
   BigInt tick = 4;
 }
 
-message TokenEvents {
-  repeated TokenEvent events = 1;
+message PoolEvents {
+  repeated PoolEvent events = 1;
 }
 
-message TokenEvent {
+message PoolEvent {
   oneof type {
     Swap swap = 1;
     Burn burn = 2;
@@ -162,6 +162,7 @@ message Tick {
   };
   Origin origin = 12;
   Type type = 13;
+  bool just_initialized = 14;
 }
 
 message Fees {

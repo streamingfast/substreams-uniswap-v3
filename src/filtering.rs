@@ -8,21 +8,23 @@ use crate::pb::uniswap::{
 use crate::pb::PositionEvent;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
 use crate::{
-    abi, rpc, uniswap, utils, BurnEvent, EventTrait, MintEvent, Pool, Swap, SwapEvent, TokenEvent,
-    TokenEvents,
+    abi, rpc, storage, uniswap, utils, BurnEvent, EventTrait, MintEvent, Pool, PoolEvent,
+    PoolEvents, Swap, SwapEvent,
 };
+use storage::tick_info_mapping_initialized_changed;
 use substreams::prelude::{BigInt, StoreGet, StoreGetProto};
 use substreams::{log, Hex};
 use substreams_ethereum::pb::eth::v2::{Log, StorageChange, TransactionTrace};
 
-pub fn extract_token_events(
-    token_events: &mut TokenEvents,
+pub fn extract_pool_events(
+    pool_events: &mut PoolEvents,
     transaction_id: &String,
     origin: &String,
     log: &Log,
     pool: &Pool,
     timestamp_seconds: u64,
     block_number: u64,
+    storage_changes: &Vec<StorageChange>,
 ) {
     if let Some(swap) = Swap::match_and_decode(log) {
         if !pool.should_handle_swap() {
@@ -37,7 +39,7 @@ pub fn extract_token_events(
         let amount0 = swap.amount0.to_decimal(token0.decimals);
         let amount1 = swap.amount1.to_decimal(token1.decimals);
 
-        token_events.events.push(TokenEvent {
+        pool_events.events.push(PoolEvent {
             log_ordinal: log.ordinal,
             log_index: log.block_index as u64,
             pool_address: pool.address.to_string(),
@@ -74,7 +76,14 @@ pub fn extract_token_events(
         let amount0 = mint.amount0.to_decimal(token0.decimals);
         let amount1 = mint.amount1.to_decimal(token1.decimals);
 
-        token_events.events.push(TokenEvent {
+        if tick_info_mapping_initialized_changed(storage_changes, mint.tick_lower) {
+            pool_events.events.push(TickCreatedEvent {})
+        }
+        if tick_info_mapping_initialized_changed(storage_changes, mint.tick_upper) {
+            pool_events.events.push(TickCreatedEvent {})
+        }
+
+        pool_events.events.push(PoolEvent {
             log_ordinal: log.ordinal,
             log_index: log.block_index as u64,
             pool_address: pool.address.to_string(),
@@ -108,7 +117,7 @@ pub fn extract_token_events(
         let amount0 = amount0_bi.to_decimal(token0.decimals);
         let amount1 = amount1_bi.to_decimal(token1.decimals);
 
-        token_events.events.push(TokenEvent {
+        pool_events.events.push(PoolEvent {
             log_ordinal: log.ordinal,
             log_index: log.block_index as u64,
             pool_address: pool.address.to_string(),
@@ -141,7 +150,8 @@ pub fn extract_pool_liquidities(
         if !pool.should_handle_swap() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+        if let Some(pl) =
+            storage::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
             pool_liquidities.pool_liquidities.push(pl)
         }
@@ -149,7 +159,8 @@ pub fn extract_pool_liquidities(
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+        if let Some(pl) =
+            storage::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
             pool_liquidities.pool_liquidities.push(pl)
         }
@@ -157,7 +168,8 @@ pub fn extract_pool_liquidities(
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+        if let Some(pl) =
+            storage::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
             pool_liquidities.pool_liquidities.push(pl)
         }

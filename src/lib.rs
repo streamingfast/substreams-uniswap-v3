@@ -7,6 +7,7 @@ mod math;
 mod pb;
 mod price;
 mod rpc;
+mod storage;
 mod utils;
 
 use crate::abi::pool::events::Swap;
@@ -14,14 +15,14 @@ use crate::ethpb::v2::{Block, StorageChange};
 
 use crate::db::Tables;
 use crate::pb::uniswap;
-use crate::pb::uniswap::tick::Origin::{Burn, Mint};
-use crate::pb::uniswap::tick::Type::{Lower, Upper};
-use crate::pb::uniswap::token_event::Type::{
+use crate::pb::uniswap::pool_event::Type::{
     Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent,
 };
+use crate::pb::uniswap::tick::Origin::{Burn, Mint};
+use crate::pb::uniswap::tick::Type::{Lower, Upper};
 use crate::pb::uniswap::{
-    Erc20Token, Erc20Tokens, EventAmount, Pool, PoolLiquidities, PoolLiquidity, PoolSqrtPrice,
-    PoolSqrtPrices, Pools, Tick, Ticks, TokenEvent, TokenEvents,
+    Erc20Token, Erc20Tokens, Pool, PoolEvent, PoolEvents, PoolLiquidities, PoolLiquidity,
+    PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
 };
 use crate::price::WHITELIST_TOKENS;
 use crate::uniswap::position::PositionType;
@@ -197,7 +198,7 @@ pub fn map_extract_data_types(
 
     let mut pool_sqrt_prices = PoolSqrtPrices::default();
     let mut pool_liquidities = PoolLiquidities::default();
-    let mut token_events = TokenEvents::default();
+    let mut pool_events = PoolEvents::default();
     let mut transactions = Transactions::default();
     let mut positions = Positions::default();
     let mut flashes = Flashes::default();
@@ -236,14 +237,15 @@ pub fn map_extract_data_types(
                         // PoolLiquidities
 
                         // TokenEvents
-                        filtering::extract_token_events(
-                            &mut token_events,
+                        filtering::extract_pool_events(
+                            &mut pool_events,
                             &transactions_id,
                             &Hex(&trx.from).to_string(),
                             log,
                             &pool,
                             timestamp,
                             block.number,
+                            &call.storage_changes,
                         );
                         // TokenEvents
 
@@ -294,10 +296,10 @@ pub fn map_extract_data_types(
         .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
     events.pool_liquidities = Some(pool_liquidities);
 
-    token_events
+    pool_events
         .events
         .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
-    events.events = Some(token_events);
+    events.events = Some(pool_events);
 
     transactions
         .transactions
@@ -690,14 +692,13 @@ pub fn store_pool_fee_growth_global_x128(events: Events, store: StoreSetBigInt) 
 }
 
 #[substreams::handlers::store]
-
 // Find a better solution to the early exit in the loop
 pub fn store_native_total_value_locked(
-    events: uniswap::Events,
+    events: Events,
     store: StoreSetBigDecimal, // fixme: why is this an add ???
 ) {
-    for token_event in events.events.unwrap_or_default().events {
-        let token_amounts_wrapped = token_event.get_amounts();
+    for pool_event in events.events.unwrap_or_default().events {
+        let token_amounts_wrapped = pool_event.get_amounts();
         if let None = token_amounts_wrapped {
             continue;
         }
@@ -707,22 +708,22 @@ pub fn store_native_total_value_locked(
         let amount1: BigDecimal = token_amounts.amount1;
         log::info!("amount 0: {} amount 1: {}", amount0, amount1);
         store.set_many(
-            token_event.log_ordinal,
+            pool_event.log_ordinal,
             &vec![
                 keyer::token_native_total_value_locked(&token_amounts.token0_addr),
                 keyer::pool_native_total_value_locked_token(
-                    &token_event.pool_address.clone(),
+                    &pool_event.pool_address.clone(),
                     &token_amounts.token0_addr,
                 ),
             ],
             &amount0,
         );
         store.set_many(
-            token_event.log_ordinal,
+            pool_event.log_ordinal,
             &vec![
                 keyer::token_native_total_value_locked(&token_amounts.token1_addr),
                 keyer::pool_native_total_value_locked_token(
-                    &token_event.pool_address.clone(),
+                    &pool_event.pool_address.clone(),
                     &token_amounts.token1_addr,
                 ),
             ],
@@ -1171,6 +1172,56 @@ pub fn store_total_value_locked_usd(
 
 #[substreams::handlers::map]
 pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
+    // type TickInfo = StructAccessor{
+    //     fields: vec![
+    //         FieldAccessor<Uint256> { slot: 1, offset: 0, name: "feeGrowthOutside0X128"},
+    //         FieldAccessor<Uint256> { slot: 2, offset: 0, name: "feeGrowthOutside0X128"},
+    //         FieldAccessor<Bool> { slot: 3, offset: 31, name: "initialized"},
+    //     ],
+    // }
+    // type TickInfoMap = MapAccessor<Uint24, TickInfo>{slot: 1};
+    // type UniswapV3Pool = StructAccessor{
+    //     fields: vec![
+    //         TickInfoMap{slot: 1, name: "ticks"},
+    //     ],
+    // }
+    //
+    // Option<StorageChange<Bool>>
+    //
+    // StorageChange<Uint256>;
+    //
+    // type BoundStorageKeyPath<TickInfo> struct {
+    //     storage_changes: []StorageChanges,
+    //     currentKey: Vec<u8>
+    // }
+    // UniswapV3Pool.bind(storage_changes).map_ticks(tick_idx).get_initialized();
+
+    // } Info {
+    //     // the total position liquidity that references this tick
+    //     uint128 liquidityGross;
+    //     // amount of net liquidity added (subtracted) when tick is crossed from left to right (right to left),
+    //     int128 liquidityNet;
+    //     // fee growth per unit of liquidity on the _other_ side of this tick (relative to the current tick)
+    //     // only has relative meaning, not absolute — the value depends on when the tick is initialized
+    //     uint256 feeGrowthOutside0X128;
+    //     uint256 feeGrowthOutside1X128;
+    //     // the cumulative tick value on the other side of the tick
+    //     int56 tickCumulativeOutside;
+    //     // the seconds per unit of liquidity on the _other_ side of this tick (relative to the current tick)
+    //     // only has relative meaning, not absolute — the value depends on when the tick is initialized
+    //     uint160 secondsPerLiquidityOutsideX128;
+    //     // the seconds spent on the other side of the tick (relative to the current tick)
+    //     // only has relative meaning, not absolute — the value depends on when the tick is initialized
+    //     uint32 secondsOutside;
+    //     // true iff the tick is initialized, i.e. the value is exactly equivalent to the expression liquidityGross != 0
+    //     // these 8 bits are set to prevent fresh sstores when crossing newly initialized ticks
+    //     bool initialized;
+    // }
+    // trx.store_changes
+    //     .get_key(accessor.get(tick.tickIdx).field("initialized"))
+    //     .unwrap()
+    //     .value;
+
     let mut out: Ticks = Ticks { ticks: vec![] };
     for event in events.events.unwrap_or_default().events {
         log::info!("event: {:?}", event);
@@ -1209,6 +1260,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     amount: burn.amount.clone(),
                     r#type: Lower as i32,
                     origin: Burn as i32,
+                    just_initialized: false,
                 };
 
                 let upper_tick_id: String = format!(
@@ -1223,6 +1275,11 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                 );
                 let upper_upper_price1 =
                     math::safe_div(&BigDecimal::from(1 as i32), &upper_tick_price0);
+
+                // TODO: pick up the `initialized = true` when the Tick is created, so we can
+                // avoid having a store merely to know that it is a creation.
+                //
+                // KILL this RPC by fetching the state changes for the Position or the Tick.
 
                 let upper_tick_result =
                     rpc::fee_growth_outside_x128_call(&event.pool_address, &upper_tick_idx);
@@ -1241,6 +1298,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     amount: burn.amount,
                     r#type: Upper as i32,
                     origin: Burn as i32,
+                    just_initialized: false,
                 };
 
                 out.ticks.push(tick_lower);
@@ -1280,6 +1338,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     amount: mint.amount.clone(),
                     r#type: Lower as i32,
                     origin: Mint as i32,
+                    just_initialized: false,
                 };
 
                 let upper_tick_id: String = format!(
@@ -1312,6 +1371,7 @@ pub fn map_ticks(events: Events) -> Result<Ticks, Error> {
                     amount: mint.amount,
                     r#type: Upper as i32,
                     origin: Mint as i32,
+                    just_initialized: false,
                 };
 
                 out.ticks.push(tick_lower);

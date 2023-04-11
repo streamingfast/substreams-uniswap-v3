@@ -17,14 +17,14 @@ use substreams_entity_change::pb::entity::{
 };
 
 use crate::pb::position_event::PositionEventType;
-use crate::pb::uniswap::position::PositionType;
-use crate::pb::uniswap::token_event::Type::{
+use crate::pb::uniswap::pool_event::Type::{
     Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent,
 };
+use crate::pb::uniswap::position::PositionType;
 use crate::uniswap::tick::Origin;
 use crate::uniswap::{
-    Erc20Token, Events, Flashes, Pool, PoolSqrtPrice, Pools, Position, Positions, SnapshotPosition,
-    SnapshotPositions, Tick, TokenEvents, Transactions,
+    Erc20Token, Events, Flashes, Pool, PoolEvents, PoolSqrtPrice, Pools, Position, Positions,
+    SnapshotPosition, SnapshotPositions, Tick, Transactions,
 };
 use crate::{keyer, utils};
 
@@ -534,7 +534,10 @@ pub fn tokens_created_token_entity_change(
     tokens_store: StoreGetInt64,
 ) {
     for pool in &pools.pools {
-        match tokens_store.get_last(&keyer::token_key(pool.token0_ref().address())) {
+        match tokens_store.get_at(
+            pool.log_ordinal,
+            &keyer::token_key(pool.token0_ref().address()),
+        ) {
             Some(value) => {
                 if value.eq(&1) {
                     add_token_entity_change(tables, pool.token0_ref(), pool.log_ordinal);
@@ -545,7 +548,10 @@ pub fn tokens_created_token_entity_change(
             }
         }
 
-        match tokens_store.get_last(&keyer::token_key(pool.token1_ref().address())) {
+        match tokens_store.get_at(
+            pool.log_ordinal,
+            &keyer::token_key(pool.token1_ref().address()),
+        ) {
             Some(value) => {
                 if value.eq(&1) {
                     add_token_entity_change(tables, pool.token1_ref(), pool.log_ordinal);
@@ -864,7 +870,10 @@ fn add_or_skip_position_entity_change(
     tables: &mut Tables,
     position: Position,
 ) {
-    match positions_store.get_last(&keyer::position(&position.id, &position_type.to_string())) {
+    match positions_store.get_at(
+        position.log_ordinal,
+        keyer::position(&position.id, &position_type.to_string()),
+    ) {
         None => {}
         Some(value) => {
             if value.eq(&1) {
@@ -980,7 +989,7 @@ pub fn transaction_entity_change(tables: &mut Tables, transactions: Transactions
 // --------------------
 pub fn swaps_mints_burns_created_entity_change(
     tables: &mut Tables,
-    events: TokenEvents,
+    events: PoolEvents,
     tx_count_store: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
 ) {

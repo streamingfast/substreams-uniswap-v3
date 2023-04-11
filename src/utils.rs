@@ -81,25 +81,6 @@ pub fn get_static_uniswap_tokens(token_address: &[u8]) -> Option<Erc20Token> {
     }
 }
 
-pub fn extract_pool_liquidity(
-    log_ordinal: u64,
-    pool_address: &Vec<u8>,
-    storage_changes: &Vec<StorageChange>,
-) -> Option<PoolLiquidity> {
-    for storage_change in storage_changes {
-        if pool_address.eq(&storage_change.address) {
-            if storage_change.key[storage_change.key.len() - 1] == 4 {
-                return Some(PoolLiquidity {
-                    pool_address: Hex(&pool_address).to_string(),
-                    liquidity: Some(BigInt::from_signed_bytes_be(&storage_change.new_value).into()),
-                    log_ordinal,
-                });
-            }
-        }
-    }
-    None
-}
-
 pub fn calculate_amount_usd(
     amount0: &BigDecimal,
     amount1: &BigDecimal,
