@@ -3,7 +3,7 @@ use crate::pb::uniswap::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
 use crate::pb::uniswap::{
-    Flash, Flashes, PoolLiquidities, PoolSqrtPrice, PoolSqrtPrices, Positions, Transactions,
+    Flash, Flashes, PoolLiquidities, PoolSqrtPrice, PoolSqrtPrices, Positions, Transactions, FeeGrowthUpdates
 };
 use crate::pb::PositionEvent;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
@@ -175,6 +175,47 @@ pub fn extract_pool_liquidities(
         }
     }
 }
+
+
+pub fn extract_fee_growth_update(
+    fee_growth_updates: &mut FeeGrowthUpdates,
+    log: &Log,
+    storage_changes: &Vec<StorageChange>,
+    pool: &Pool,
+) {
+    if let Some(_) = Swap::match_and_decode(&log) {
+        if !pool.should_handle_swap() {
+            return;
+        }
+        for pl in utils::extract_pool_fee_growth_updates(log.ordinal, &log.address, storage_changes)
+        {
+            fee_growth_updates.fee_growth_global.push(pl)
+        }
+    } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
+        if !pool.should_handle_mint_and_burn() {
+            return;
+        }
+        for pl in utils::extract_pool_fee_growth_updates(log.ordinal, &log.address, storage_changes)
+        {
+            fee_growth_updates.fee_growth_global.push(pl)
+        }
+    } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
+        if !pool.should_handle_mint_and_burn() {
+            return;
+        }
+        for pl in utils::extract_pool_fee_growth_updates(log.ordinal, &log.address, storage_changes)
+        {
+            fee_growth_updates.fee_growth_global.push(pl)
+        }
+    } else if let Some(_) = abi::pool::events::Flash::match_and_decode(&log) {
+        for pl in utils::extract_pool_fee_growth_updates(log.ordinal, &log.address, storage_changes)
+        {
+            fee_growth_updates.fee_growth_global.push(pl)
+        }
+    }
+}
+
+
 
 pub fn extract_pool_sqrt_prices(
     pool_sqrt_prices: &mut PoolSqrtPrices,

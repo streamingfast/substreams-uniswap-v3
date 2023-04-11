@@ -50,12 +50,42 @@ message Pool {
 message Events {
   PoolSqrtPrices pool_sqrt_prices = 1;
   PoolLiquidities pool_liquidities = 2;
+  FeeGrowthUpdates fee_growth_updates = 7;
   PoolEvents events = 3;
   Transactions transactions = 4;
   Positions positions = 5;
   Flashes flashes = 6;
+
 }
 
+message FeeGrowthUpdates {
+  repeated Global fee_growth_global = 1;
+  repeated Inside fee_growth_inside = 2;
+  repeated Outside fee_growth_outside = 3;
+
+  message Global {
+    string pool_address = 1;
+    uint64 ordinal = 2;
+    uint32 token_idx = 3;
+    BigInt new_value = 4;
+  }
+
+  message Inside {
+    //    string id = 6;
+    string pool_address = 1;
+    int32 tick_idx = 2;
+    uint64 ordinal = 3;
+    BigInt new_value = 4;
+  }
+
+  message Outside {
+    string pool_address = 1;
+    int32 tick_lower = 2;
+    int32 tick_upper = 3;
+    uint64 ordinal = 4;
+    BigInt new_value = 5;
+  }
+}
 message PoolSqrtPrices {
   repeated PoolSqrtPrice pool_sqrt_prices = 1;
 }
@@ -70,6 +100,7 @@ message PoolSqrtPrice {
 message PoolEvents {
   repeated PoolEvent events = 1;
 }
+
 
 message PoolEvent {
   oneof type {

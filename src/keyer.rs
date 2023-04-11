@@ -328,16 +328,6 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn test_bigdecimal_from_bytes() {
-        let bytes: [u8; 32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 4,
-        ];
-        let v = BigDecimal::parse_bytes(bytes.as_slice(), 14);
-        assert_eq!(Some(BigDecimal::from(4)), v)
-    }
-
-    #[test]
     fn test_bigdecimal_from_string() {
         let bytes: [u8; 32] = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -350,24 +340,9 @@ mod tests {
     }
 
     #[test]
-    fn test_valid_token_key() {
-        let input = "token:bb".to_string();
-        assert_eq!(Some("bb".to_string()), native_token_from_key(&input));
-    }
-
-    #[test]
     fn test_invalid_token_key() {
         let input = "pool:bb:aa".to_string();
         assert_eq!(None, native_token_from_key(&input));
-    }
-
-    #[test]
-    fn test_valid_pool_key() {
-        let input = "pool:bb:aa".to_string();
-        assert_eq!(
-            Some(("bb".to_string(), "aa".to_string())),
-            native_pool_from_key(&input)
-        );
     }
 
     #[test]

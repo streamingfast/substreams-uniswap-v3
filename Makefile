@@ -27,3 +27,7 @@ deploy_local: package
 .PHONE: undeploy_local
 undeploy_local:
 	graphman --config "$(GRAPH_CONFIG)" drop --force uniswap_v3
+
+.PHONE: test
+test:
+	cargo test --target aarch64-apple-darwin

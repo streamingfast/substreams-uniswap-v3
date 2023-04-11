@@ -198,6 +198,7 @@ pub fn map_extract_data_types(
 
     let mut pool_sqrt_prices = PoolSqrtPrices::default();
     let mut pool_liquidities = PoolLiquidities::default();
+    let mut fee_growth_updates = FeeGrowthUpdates::default();
     let mut pool_events = PoolEvents::default();
     let mut transactions = Transactions::default();
     let mut positions = Positions::default();
@@ -235,6 +236,17 @@ pub fn map_extract_data_types(
                             &pool,
                         );
                         // PoolLiquidities
+
+
+                        // FeeGrowthUpdate
+                        filtering::extract_fee_growth_update(
+                            &mut  fee_growth_updates,
+                            log,
+                            &call.storage_changes,
+                            &pool,
+                        );
+                        // FeeGrowthUpdate
+
 
                         // TokenEvents
                         filtering::extract_pool_events(
@@ -295,6 +307,18 @@ pub fn map_extract_data_types(
         .pool_liquidities
         .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
     events.pool_liquidities = Some(pool_liquidities);
+
+
+    fee_growth_updates
+        .fee_growth_global
+        .sort_by(|x, y| x.ordinal.cmp(&y.ordinal));
+    fee_growth_updates
+        .fee_growth_inside
+        .sort_by(|x, y| x.ordinal.cmp(&y.ordinal));
+    fee_growth_updates
+        .fee_growth_outside
+        .sort_by(|x, y| x.ordinal.cmp(&y.ordinal));
+    events.fee_growth_updates = Some(fee_growth_updates);
 
     pool_events
         .events

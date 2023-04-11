@@ -1,3 +1,4 @@
+use std::num::ParseIntError;
 use crate::ethpb::v2::TransactionTrace;
 use crate::pb::PositionEvent;
 use crate::uniswap::position::PositionType;
@@ -12,6 +13,7 @@ use std::str;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
+use crate::pb::uniswap::fee_growth_updates;
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
 pub const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
@@ -80,6 +82,55 @@ pub fn get_static_uniswap_tokens(token_address: &[u8]) -> Option<Erc20Token> {
         _ => None,
     }
 }
+
+pub fn extract_pool_fee_growth_updates(
+    log_ordinal: u64,
+    pool_address: &Vec<u8>,
+    storage_changes: &Vec<StorageChange>,
+) -> Vec<fee_growth_updates::Global> {
+    let mut fee_growth_global = vec![];
+
+    let fee_growth_global_0 = hex!("0000000000000000000000000000000000000000000000000000000000000001");
+    let fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
+
+    if let Some(storage_change) = get_storage_change(pool_address, fee_growth_global_0, storage_changes) {
+        fee_growth_global.push(fee_growth_updates::Global{
+            pool_address: Hex(&pool_address).to_string(),
+            ordinal: log_ordinal,
+            token_idx: 0,
+            new_value: Some(BigInt::from_signed_bytes_be(&storage_change.new_value).into()),
+        })
+    }
+
+    if let Some(storage_change) = get_storage_change(pool_address, fee_growth_global_1, storage_changes) {
+        fee_growth_global.push(fee_growth_updates::Global{
+            pool_address: Hex(&pool_address).to_string(),
+            ordinal: log_ordinal,
+            token_idx: 1,
+            new_value: Some(BigInt::from_signed_bytes_be(&storage_change.new_value).into()),
+        })
+
+    }
+
+    return fee_growth_global
+}
+
+pub fn get_storage_change<'a>(
+    emitter_address: &'a Vec<u8>,
+    key: [u8;32],
+    storage_changes: &'a Vec<StorageChange>,
+) -> Option<&'a StorageChange> {
+    for storage_change in storage_changes {
+        if emitter_address.eq(&storage_change.address) {
+            if key.to_vec() == storage_change.key {
+                return Some(storage_change);
+            }
+        }
+    }
+    return None;
+}
+
+
 
 pub fn calculate_amount_usd(
     amount0: &BigDecimal,
