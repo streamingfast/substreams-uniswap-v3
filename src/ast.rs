@@ -65,7 +65,7 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
-    pub fn get_slot0_sqrt_price_x96(&self) -> Option<BigInt> {
+    pub fn get_slot0_sqrt_price_x96(&self) -> Option<(BigInt, BigInt)> {
         let slot = BigInt::from(0);
         let slot_bytes = to_h256_from_bigint(&slot);
         let mut output = [0u8; 32];
@@ -92,8 +92,10 @@ impl<'a> UniswapPoolStorage<'a> {
         let offset = 0;
         let number_of_bytes = 20;
 
-        let data = read_bytes(storage.new_value.to_vec(), offset,number_of_bytes);
-        Some(BigInt::from_unsigned_bytes_be(data.as_slice()))
+        let old_data = read_bytes(storage.old_value.to_vec(), offset,number_of_bytes);
+        let new_data = read_bytes(storage.new_value.to_vec(), offset,number_of_bytes);
+        Some((BigInt::from_unsigned_bytes_be(old_data.as_slice()), BigInt::from_unsigned_bytes_be(new_data.as_slice())))
+
     }
 
     pub fn get_ticks_initialized(&self, tick_idx: &BigInt) -> Option<(bool, bool)> {
@@ -101,7 +103,6 @@ impl<'a> UniswapPoolStorage<'a> {
         let initialized_slot_in_struct = BigInt::from(3);
         let slot_bytes = to_h256_from_bigint(&slot);
         let mut output = [0u8; 32];
-
 
 
         // if mapping or array dynamic do more {
@@ -162,7 +163,7 @@ mod tests {
 
         let storage = UniswapPoolStorage::new(&storage_changes);
         let v_opt = storage.get_slot0_sqrt_price_x96();
-        assert_eq!(Some(BigInt::from_str("79228181456392528199336208736").unwrap()),v_opt);
+        assert_eq!(Some((BigInt::from_str("79228162514264337593543950336").unwrap(),BigInt::from_str("79228181456392528199336208736").unwrap())),v_opt);
     }
 
     #[test]

@@ -28,7 +28,6 @@ pub fn read_bytes(buf: Vec<u8>, offset: usize, number_of_bytes: usize) -> Vec<u8
         panic!("number of bytes {number_of_bytes} with offset {offset} exceeds buffer size {buf_size}", number_of_bytes = number_of_bytes, offset = offset, buf_size = buf.len())
     }
     let start = start_opt.unwrap();
-    println!("{} - {} - {}", buf_length, start, end);
 
     let out = &buf[start..=end];
     return out.to_vec()
