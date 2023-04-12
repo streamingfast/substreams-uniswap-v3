@@ -1,5 +1,6 @@
+extern crate core;
+
 pub mod abi;
-mod ast;
 mod db;
 mod eth;
 mod filtering;
@@ -8,15 +9,12 @@ mod math;
 mod pb;
 mod price;
 mod rpc;
-mod slotlayout;
-mod storage;
 mod tables;
 mod utils;
+mod storage;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
-
-use crate::db;
 use crate::pb::uniswap;
 use crate::pb::uniswap::pool_event::Type::{
     Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent,

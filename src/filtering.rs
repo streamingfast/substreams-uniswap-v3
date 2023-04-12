@@ -11,7 +11,7 @@ use crate::{
     abi, rpc, storage, uniswap, utils, BurnEvent, EventTrait, MintEvent, Pool, PoolEvent,
     PoolEvents, Swap, SwapEvent,
 };
-use storage::tick_info_mapping_initialized_changed;
+use utils::tick_info_mapping_initialized_changed;
 use substreams::prelude::{BigInt, StoreGet, StoreGetProto};
 use substreams::{log, Hex};
 use substreams_ethereum::pb::eth::v2::{Log, StorageChange, TransactionTrace};

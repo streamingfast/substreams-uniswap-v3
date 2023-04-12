@@ -1,11 +1,9 @@
 use std::num::ParseIntError;
 use crate::ethpb::v2::TransactionTrace;
-use crate::pb::PositionEvent;
+use crate::pb::{PositionEvent, uniswap};
 use crate::uniswap::position::PositionType;
 use crate::uniswap::Transaction;
-use crate::{
-    keyer, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, WHITELIST_TOKENS,
-};
+use crate::{keyer, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, WHITELIST_TOKENS, storage};
 
 use crate::uniswap::BigInt as PbBigInt;
 use std::ops::{Add, Mul};
@@ -93,23 +91,25 @@ pub fn extract_pool_fee_growth_updates(
     let fee_growth_global_0 = hex!("0000000000000000000000000000000000000000000000000000000000000001");
     let fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
 
-    if let Some(storage_change) = get_storage_change(pool_address, fee_growth_global_0, storage_changes) {
+    let storage = storage::UniswapPoolStorage::new_with_contract_addr_vec(storage_changes, pool_address);
+
+
+    if let Some((old_value, new_value)) = storage.get_fee_growth_global0x128() {
         fee_growth_global.push(fee_growth_updates::Global{
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
             token_idx: 0,
-            new_value: Some(BigInt::from_signed_bytes_be(&storage_change.new_value).into()),
+            new_value: Some(new_value.into()),
         })
     }
 
-    if let Some(storage_change) = get_storage_change(pool_address, fee_growth_global_1, storage_changes) {
+    if let Some((old_value, new_value)) = storage.get_fee_growth_global1x128() {
         fee_growth_global.push(fee_growth_updates::Global{
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
             token_idx: 1,
-            new_value: Some(BigInt::from_signed_bytes_be(&storage_change.new_value).into()),
+            new_value: Some(new_value.into()),
         })
-
     }
 
     return fee_growth_global
@@ -313,3 +313,44 @@ pub fn extract_pool_liquidity(
     }
     None
 }
+
+pub fn tick_info_mapping_initialized_changed(
+    storage_changes: &Vec<StorageChange>,
+    tick_index: &BigInt,
+) -> bool {
+    return false;
+    // let mut hasher = Keccak::v256();
+    // let mut output = [0u8];
+    //
+    // let mut tick_index_slot = H256::from_slice(&tick_index.to_signed_bytes_le());
+    // hasher.update(&tick_index_slot.as_bytes()); // slot for `mapping(uint24 => Tick.Info) ticks`
+    // hasher.update(&H256::from_low_u64_be(3).as_bytes());
+    // hasher.finalize(&mut output);
+    //
+    // // Take the THIRD slot after `output`
+    // let mut next_key = BigInt::from_signed_bytes_le(&output);
+    // next_key = next_key.add(BigInt::from(2));
+    // let mut offset3_key = H256::from_slice(&next_key.to_signed_bytes_le());
+    //
+    // let mut hasher2 = Keccak::v256();
+    // hasher2.update(&output);
+    // hasher2.update(&offset3_key.as_bytes());
+    // hasher2.finalize(&mut output);
+    //
+    // let storage_change = storage_changes
+    //     .iter()
+    //     .find(|storage_change| storage_change.key.eq(&output));
+    //
+    // log::debug!("{}, {:?}", tick_index, storage_change);
+    //
+    // if storage_change.is_none() {
+    //     return false;
+    // }
+    //
+    // // TODO: Now analyze the `value` in the returned storage change
+    // // if the offset 31 (the last byte really, the boolean representing the `initialized` field)
+    // // has CHANGED between `old_value` and `new_value`, then return `true`.
+    //
+    // return storage_change.is_some();
+}
+
