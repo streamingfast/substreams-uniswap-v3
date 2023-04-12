@@ -1,4 +1,6 @@
+use crate::pb::uniswap;
 use crate::utils;
+use substreams::scalar::BigInt;
 use substreams::Hex;
 
 // ------------------------------------------------
@@ -283,12 +285,14 @@ pub fn ticks(key: &String) -> String {
 // ------------------------------------------------
 //      store_ticks_liquidities
 // ------------------------------------------------
-pub fn tick_liquidities_net(key: &String) -> String {
-    format!("tick:{}:liquidityNet", key)
+pub fn tick_liquidities_net(pool: &String, tick_idx: &uniswap::BigInt) -> String {
+    let value = BigInt::from(tick_idx);
+    format!("tick:{}:{}:liquidityNet", pool, value)
 }
 
-pub fn tick_liquidities_gross(key: &String) -> String {
-    format!("tick:{}:liquidityGross", key)
+pub fn tick_liquidities_gross(pool: &String, tick_idx: &uniswap::BigInt) -> String {
+    let value = BigInt::from(tick_idx);
+    format!("tick:{}:{}:liquidityGross", pool, value)
 }
 
 // ------------------------------------------------

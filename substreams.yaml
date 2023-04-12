@@ -29,6 +29,10 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:uniswap.types.v1.Pools
+    doc: |
+      Dynamic data sources pattern for Uniswap V3 pools.
+      
+      Try with: 
 
   - name: store_pools
     kind: store
@@ -189,27 +193,35 @@ modules:
       - store: store_pools
       - store: store_eth_prices
 
-  - name: map_ticks
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_extract_data_types
-    output:
-      type: proto:uniswap.types.v1.Ticks
+#  - name: map_ticks
+#    kind: map
+#    initialBlock: 12369621
+#    inputs:
+#      - map: map_extract_data_types
+#    output:
+#      type: proto:uniswap.types.v1.Ticks
 
-  - name: store_ticks
-    kind: store
-    updatePolicy: set
-    valueType: proto:uniswap.types.v1.Tick
-    inputs:
-      - map: map_ticks
+#  - name: store_ticks
+#    kind: store
+#    updatePolicy: set
+#    valueType: proto:uniswap.types.v1.Tick
+#    inputs:
+#      - map: map_ticks
 
   - name: store_ticks_liquidities
     kind: store
     updatePolicy: add
     valueType: bigint
     inputs:
-      - map: map_ticks
+      - map: map_extract_data_types
+    doc: |
+      ### Hello world
+      
+      This is how you use this:
+      
+      ```
+      substreams gui blah blah
+      ```
 
   - name: store_positions
     kind: store
@@ -296,8 +308,6 @@ modules:
         mode: deltas
 
       ###- map: map_tick_entities
-      - store: store_ticks
-        mode: deltas
       - store: store_ticks_liquidities
         mode: deltas
 
