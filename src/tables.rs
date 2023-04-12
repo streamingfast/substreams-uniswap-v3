@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use substreams::pb::substreams::store_delta::Operation::Delete;
 use substreams_entity_change::change::ToField;
 use substreams_entity_change::pb::entity::entity_change::Operation;
 use substreams_entity_change::pb::entity::{EntityChange, EntityChanges, Field, Value};
@@ -18,15 +19,19 @@ impl Tables {
     pub fn update_row(&mut self, table: &str, key: &str) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
         let row = rows.pks.entry(key.to_string()).or_insert(Row::new());
+        if row.operation == Operation::Delete {
+            panic!("cannot delete a row on an update operation")
+        }
         row.operation = Operation::Update;
         row
     }
 
-    pub fn delete_row(&mut self, table: &str, key: &str) {
+    pub fn delete_row(&mut self, table: &str, key: &str) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
         let row = rows.pks.entry(key.to_string()).or_insert(Row::new());
         row.operation = Operation::Delete;
         row.columns = HashMap::new();
+        row
     }
 
     // Convert Tables into an EntityChanges protobuf object
@@ -68,6 +73,8 @@ pub struct Row {
     pub operation: Operation,
     // Map of field name to its last change
     pub columns: HashMap<String, Value>,
+    // Finalized: Last update or delete
+    pub finalized: bool,
 }
 
 impl Row {
@@ -75,12 +82,21 @@ impl Row {
         Row {
             operation: Operation::Unset,
             columns: HashMap::new(),
+            finalized: false,
         }
     }
 
     pub fn set<N: AsRef<str>, T: ToField>(&mut self, name: N, change: T) -> &mut Self {
+        if self.operation == Operation::Delete {
+            panic!("cannot set fields on a delete operation")
+        }
         let field = change.to_field(name);
         self.columns.insert(field.name, field.new_value.unwrap());
+        self
+    }
+
+    pub fn mark_final(&mut self) -> &mut Self {
+        self.finalized = true;
         self
     }
 }

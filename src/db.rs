@@ -1,9 +1,7 @@
-use std::collections::HashMap;
 use std::ops::{Div, Mul};
 use std::str::FromStr;
 
-use substreams::errors::Error;
-use substreams::pb::substreams::{store_delta, Clock};
+use substreams::pb::substreams::store_delta;
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
@@ -22,6 +20,7 @@ use crate::pb::uniswap::pool_event::Type::{
     Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent,
 };
 use crate::pb::uniswap::position::PositionType;
+use crate::rpc::create_uniswap_token;
 use crate::tables::Tables;
 use crate::uniswap::tick::Origin;
 use crate::uniswap::{
@@ -1007,6 +1006,28 @@ pub fn flashes_update_pool_fee_entity_change(tables: &mut Tables, flashes: Flash
 // --------------------
 //  Map Uniswap Day Data Entities
 // --------------------
+pub fn uniswap_day_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
+    for delta in deltas.deltas.iter() {
+        if !delta.key.starts_with("uniswap_day_data") {
+            continue;
+        }
+
+        let day_id: i64 = delta
+            .key
+            .as_str()
+            .split(":")
+            .last()
+            .unwrap()
+            .parse::<i64>()
+            .unwrap();
+        let day_start_timestamp = (day_id * 86400) as i32;
+        if delta.new_value.eq(&BigInt::one()) {
+            create_uniswap_day_data(tables, day_id, day_start_timestamp, &delta);
+            return;
+        }
+    }
+}
+
 pub fn uniswap_day_data_tx_count_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in deltas.deltas.iter() {
         if !delta.key.starts_with("uniswap_day_data") {
@@ -1032,6 +1053,24 @@ pub fn uniswap_day_data_tx_count_entity_change(tables: &mut Tables, deltas: &Del
     }
 }
 
+fn create_uniswap_day_data(
+    tables: &mut Tables,
+    day_id: i64,
+    day_start_timestamp: i32,
+    delta: &DeltaBigInt,
+) {
+    tables
+        .update_row("UniswapDayData", day_id.to_string().as_str())
+        .set("id", day_id.to_string())
+        .set("date", day_start_timestamp)
+        .set("volumeETH", BigDecimal::zero())
+        .set("volumeUSD", BigDecimal::zero())
+        .set("volumeUSDUntracked", BigDecimal::zero())
+        .set("totalValueLockedUSD", BigDecimal::zero())
+        .set("feesUSD", BigDecimal::zero())
+        .set("txCount", delta);
+}
+
 pub fn uniswap_day_data_totals_entity_change(
     tables: &mut Tables,
     deltas: &Deltas<DeltaBigDecimal>,
@@ -1052,7 +1091,7 @@ pub fn uniswap_day_data_totals_entity_change(
 
         tables
             .update_row("UniswapDayData", day_id.to_string().as_str())
-            .set("tvlUSD", delta);
+            .set("totalValueLockedUSD", delta);
     }
 }
 
@@ -1068,11 +1107,16 @@ pub fn uniswap_day_data_volumes_entity_change(
         let day_id = delta.key.as_str().split(":").nth(1).unwrap();
 
         let name = match delta.key.as_str().split(":").last().unwrap() {
-            "volumeETH" => "volumeETH",
-            "volumeUSD" => "volumeUSD",
-            "feesUSD" => "feesUSD",
+            "volumeETH" => "volumeETH", // TODO: validate data
+            "volumeUSD" => "volumeUSD", // TODO: validate data
+            "feesUSD" => "feesUSD",     // TODO: validate data
             _ => continue,
         };
+
+        if delta.operation == store_delta::Operation::Delete {
+            tables.delete_row("UniswapDayData", day_id).mark_final();
+            return;
+        }
 
         tables.update_row("UniswapDayData", day_id).set(name, delta);
     }

@@ -9,9 +9,9 @@ mod math;
 mod pb;
 mod price;
 mod rpc;
+mod storage;
 mod tables;
 mod utils;
-mod storage;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
@@ -529,6 +529,7 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
             keyer::token_total_tx_count(&event.token1),
             keyer::factory_total_tx_count(),
             keyer::uniswap_data_data_tx_count(day_id.to_string()),
+            // here if the id is 1, we will need to send a create
         ];
         output.add_many(event.log_ordinal, &keys, &BigInt::from(1 as i32));
     }
@@ -1879,6 +1880,25 @@ pub fn graph_out(
     // Flashes:
     db::flashes_update_pool_fee_entity_change(&mut tables, events.flashes.unwrap_or_default());
 
+    // Uniswap day data:
+    db::uniswap_day_data_create_entity_change(&mut tables, &tx_count_deltas);
+    db::uniswap_day_data_tx_count_entity_change(&mut tables, &tx_count_deltas);
+    db::uniswap_day_data_totals_entity_change(&mut tables, &totals_deltas);
+    db::uniswap_day_data_volumes_entity_change(&mut tables, &swaps_volume_deltas);
+
+    Ok(tables.to_entity_changes())
+}
+
+#[substreams::handlers::map]
+pub fn map_uniswap_day_data_entities(
+    tx_count_deltas: Deltas<DeltaBigInt>, /* store_total_tx_counts deltas */
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>, /* store_swaps_volume */
+    totals_deltas: Deltas<DeltaBigDecimal>, /* store_totals */
+) -> Result<EntityChanges, Error> {
+    let mut tables = Tables::new();
+
+    // todo: need to create the first uniswap day data for given day
+    db::uniswap_day_data_create_entity_change(&mut tables, &tx_count_deltas);
     db::uniswap_day_data_tx_count_entity_change(&mut tables, &tx_count_deltas);
     db::uniswap_day_data_totals_entity_change(&mut tables, &totals_deltas);
     db::uniswap_day_data_volumes_entity_change(&mut tables, &swaps_volume_deltas);

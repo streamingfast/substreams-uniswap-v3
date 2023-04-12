@@ -378,3 +378,23 @@ type Swap @entity {
     # index within the txn
     logIndex: BigInt
 }
+
+# Data accumulated and condensed into day stats for all of Uniswap
+type UniswapDayData @entity {
+    # timestamp rounded to current day by dividing by 86400
+    id: ID!
+    # timestamp rounded to current day by dividing by 86400
+    date: Int!
+    # total daily volume in Uniswap derived in terms of ETH
+    volumeETH: BigDecimal!
+    # total daily volume in Uniswap derived in terms of USD
+    volumeUSD: BigDecimal!
+    # total daily volume in Uniswap derived in terms of USD untracked
+    volumeUSDUntracked: BigDecimal!
+    # tvl in terms of USD
+    totalValueLockedUSD: BigDecimal!
+    # fees in USD
+    feesUSD: BigDecimal!
+    # number of daily transactions
+    txCount: BigInt!
+}
