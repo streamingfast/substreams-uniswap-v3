@@ -8,7 +8,9 @@ mod pb;
 mod price;
 mod rpc;
 mod storage;
+mod slotlayout;
 mod utils;
+mod ast;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};

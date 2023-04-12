@@ -151,7 +151,7 @@ pub fn extract_pool_liquidities(
             return;
         }
         if let Some(pl) =
-            storage::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+            utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
             pool_liquidities.pool_liquidities.push(pl)
         }
@@ -160,7 +160,7 @@ pub fn extract_pool_liquidities(
             return;
         }
         if let Some(pl) =
-            storage::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+            utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
             pool_liquidities.pool_liquidities.push(pl)
         }
@@ -169,7 +169,7 @@ pub fn extract_pool_liquidities(
             return;
         }
         if let Some(pl) =
-            storage::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+            utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
             pool_liquidities.pool_liquidities.push(pl)
         }
