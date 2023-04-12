@@ -109,6 +109,42 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
+    pub fn get_ticks_fee_growth_outside_0X128(&self, tick_idx: &BigInt) -> Option<(BigInt, BigInt)> {
+        let ticks_slot = BigInt::from(5);
+        let tick_info_struct_initialized_slot = BigInt::from(1);
+        let offset = 0;
+        let number_of_bytes = 32;
+
+        // ----
+        let ticker_struct_slot = calc_map_slot(&left_pad_from_bigint(&tick_idx),&left_pad_from_bigint(&ticks_slot));
+        let slot_key = calc_struct_slot(&ticker_struct_slot,tick_info_struct_initialized_slot);
+        // ----
+
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+            Some((BigInt::from_unsigned_bytes_be(old_data), BigInt::from_unsigned_bytes_be(new_data)))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_ticks_fee_growth_outside_1X128(&self, tick_idx: &BigInt) -> Option<(BigInt, BigInt)> {
+        let ticks_slot = BigInt::from(5);
+        let tick_info_struct_initialized_slot = BigInt::from(2);
+        let offset = 0;
+        let number_of_bytes = 32;
+
+        // ----
+        let ticker_struct_slot = calc_map_slot(&left_pad_from_bigint(&tick_idx),&left_pad_from_bigint(&ticks_slot));
+        let slot_key = calc_struct_slot(&ticker_struct_slot,tick_info_struct_initialized_slot);
+        // ----
+
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+            Some((BigInt::from_unsigned_bytes_be(old_data), BigInt::from_unsigned_bytes_be(new_data)))
+        } else {
+            None
+        }
+    }
+
     fn get_storage_changes(&self, slot_key: [u8;32], offset: usize, number_of_bytes: usize) -> Option<(&[u8],&[u8])> {
         let storage_change_opt = self.storage_changes
             .iter()
