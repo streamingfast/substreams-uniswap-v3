@@ -1,4 +1,5 @@
 pub mod abi;
+mod ast;
 mod db;
 mod eth;
 mod filtering;
@@ -7,23 +8,27 @@ mod math;
 mod pb;
 mod price;
 mod rpc;
-mod storage;
 mod slotlayout;
+mod storage;
+mod tables;
 mod utils;
-mod ast;
 
 use crate::abi::pool::events::Swap;
 use crate::ethpb::v2::{Block, StorageChange};
 
-use crate::db::Tables;
+use crate::db;
 use crate::pb::uniswap;
 use crate::pb::uniswap::pool_event::Type::{
     Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent,
 };
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
 use crate::pb::uniswap::tick::Type::{Lower, Upper};
-use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, PoolEvent, PoolEvents, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks, FeeGrowthUpdates};
+use crate::pb::uniswap::{
+    Erc20Token, Erc20Tokens, FeeGrowthUpdates, Pool, PoolEvent, PoolEvents, PoolLiquidities,
+    PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
+};
 use crate::price::WHITELIST_TOKENS;
+use crate::tables::Tables;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
@@ -236,16 +241,14 @@ pub fn map_extract_data_types(
                         );
                         // PoolLiquidities
 
-
                         // FeeGrowthUpdate
                         filtering::extract_fee_growth_update(
-                            &mut  fee_growth_updates,
+                            &mut fee_growth_updates,
                             log,
                             &call.storage_changes,
                             &pool,
                         );
                         // FeeGrowthUpdate
-
 
                         // TokenEvents
                         filtering::extract_pool_events(
@@ -306,7 +309,6 @@ pub fn map_extract_data_types(
         .pool_liquidities
         .sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
     events.pool_liquidities = Some(pool_liquidities);
-
 
     fee_growth_updates
         .fee_growth_global
@@ -505,11 +507,11 @@ pub fn store_totals(
                     keyer::factory_total_value_locked_usd(),
                     &diff,
                 );
-                // store.add(
-                //     delta.ordinal,
-                //     keyer::uniswap_total_value_locked_usd(day_id.to_string()),
-                //     &total_value_locked_usd,
-                // )
+                store.add(
+                    delta.ordinal,
+                    keyer::uniswap_total_value_locked_usd(day_id.to_string()),
+                    &total_value_locked_usd,
+                )
             }
             _ => continue,
         }
@@ -1774,4 +1776,114 @@ pub fn map_position_snapshots(
     }
 
     Ok(snapshot_positions)
+}
+
+#[substreams::handlers::map]
+pub fn graph_out(
+    clock: Clock,
+    pool_count_deltas: Deltas<DeltaBigInt>, /* store_pool_count */
+    tx_count_deltas: Deltas<DeltaBigInt>,   /* store_total_tx_counts deltas */
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>, /* store_swaps_volume */
+    totals_deltas: Deltas<DeltaBigDecimal>, /* store_totals */
+    derived_eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
+    events: Events,                         /* map_extract_data_types */
+    pools_created: Pools,                   /* map_pools_created */
+    pool_sqrt_price_deltas: Deltas<DeltaProto<PoolSqrtPrice>>, /* store_pool_sqrt_price */
+    pool_liquidities_store_deltas: Deltas<DeltaBigInt>, /* store_pool_liquidities */
+    total_value_locked_deltas: Deltas<DeltaBigDecimal>, /* store_total_value_locked */
+    total_value_locked_by_tokens_deltas: Deltas<DeltaBigDecimal>, /* store_total_value_locked_by_tokens */
+    pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
+    price_deltas: Deltas<DeltaBigDecimal>,                   /* store_prices */
+    tokens_store: StoreGetInt64,                             /* store_tokens */
+    total_value_locked_usd_deltas: Deltas<DeltaBigDecimal>,  /* store_total_value_locked_usd */
+    tokens_whitelist_pools: Deltas<DeltaArray<String>>,      /* store_tokens_whitelist_pools */
+    ticks_deltas: Deltas<DeltaProto<Tick>>,                  /* store_ticks */
+    ticks_liquidities_deltas: Deltas<DeltaBigInt>,           /* store_ticks_liquidities */
+    positions_store: StoreGetInt64,                          /* store_positions */
+    positions_changes_deltas: Deltas<DeltaBigDecimal>,       /* store_position_changes */
+    snapshot_positions: SnapshotPositions,                   /* map_position_snapshots */
+    tx_count_store: StoreGetBigInt,                          /* store_total_tx_counts */
+    store_eth_prices: StoreGetBigDecimal,                    /* store_eth_prices */
+) -> Result<EntityChanges, Error> {
+    let mut tables = Tables::new();
+
+    if clock.number == 12369621 {
+        // FIXME: Hard-coded start block, how could we pull that from the manifest?
+        // FIXME: ideally taken from the params of the module
+        db::factory_created_factory_entity_change(&mut tables);
+        db::created_bundle_entity_change(&mut tables);
+    }
+    // Bundle
+    db::bundle_store_eth_price_usd_bundle_entity_change(&mut tables, &derived_eth_prices_deltas);
+
+    // Factory:
+    db::pool_created_factory_entity_change(&mut tables, &pool_count_deltas);
+    db::tx_count_factory_entity_change(&mut tables, &tx_count_deltas);
+    db::swap_volume_factory_entity_change(&mut tables, &swaps_volume_deltas);
+    db::total_value_locked_factory_entity_change(&mut tables, &totals_deltas);
+
+    // Pool:
+    db::pools_created_pool_entity_change(&mut tables, &pools_created);
+    db::pool_sqrt_price_entity_change(&mut tables, pool_sqrt_price_deltas);
+    db::pool_liquidities_pool_entity_change(&mut tables, pool_liquidities_store_deltas);
+    db::pool_fee_growth_global_entity_change(
+        &mut tables,
+        events.fee_growth_updates.unwrap().fee_growth_global,
+    );
+    db::total_value_locked_pool_entity_change(&mut tables, total_value_locked_deltas);
+    db::total_value_locked_by_token_pool_entity_change(
+        &mut tables,
+        &total_value_locked_by_tokens_deltas,
+    );
+    db::pool_fee_growth_global_x128_entity_change(&mut tables, pool_fee_growth_global_x128_deltas);
+    db::price_pool_entity_change(&mut tables, price_deltas);
+    db::tx_count_pool_entity_change(&mut tables, &tx_count_deltas);
+    db::swap_volume_pool_entity_change(&mut tables, &swaps_volume_deltas);
+
+    // Tokens:
+    db::tokens_created_token_entity_change(&mut tables, &pools_created, tokens_store);
+    db::swap_volume_token_entity_change(&mut tables, &swaps_volume_deltas);
+    db::tx_count_token_entity_change(&mut tables, &tx_count_deltas);
+    db::total_value_locked_by_token_token_entity_change(
+        &mut tables,
+        &total_value_locked_by_tokens_deltas,
+    );
+    db::total_value_locked_usd_token_entity_change(&mut tables, total_value_locked_usd_deltas);
+    db::derived_eth_prices_token_entity_change(&mut tables, &derived_eth_prices_deltas);
+    db::whitelist_token_entity_change(&mut tables, tokens_whitelist_pools);
+
+    // Tick:
+    db::create_or_update_ticks_entity_change(&mut tables, ticks_deltas);
+    db::ticks_liquidities_tick_entity_change(&mut tables, ticks_liquidities_deltas);
+
+    // Position:
+    db::position_create_entity_change(
+        &mut tables,
+        events.positions.unwrap_or_default(),
+        positions_store,
+    );
+    db::positions_changes_entity_change(&mut tables, positions_changes_deltas);
+
+    // PositionSnapshot:
+    db::snapshot_position_entity_change(&mut tables, snapshot_positions);
+
+    // Transaction:
+    db::transaction_entity_change(&mut tables, events.transactions.unwrap_or_default());
+
+    // Swap, Mint, Burn:
+    db::swaps_mints_burns_created_entity_change(
+        &mut tables,
+        events.events.unwrap_or_default(),
+        tx_count_store,
+        store_eth_prices,
+    );
+
+    // Flashes:
+    db::flashes_update_pool_fee_entity_change(&mut tables, events.flashes.unwrap_or_default());
+
+    db::uniswap_day_data_tx_count_entity_change(&mut tables, &tx_count_deltas);
+    db::uniswap_day_data_totals_entity_change(&mut tables, &totals_deltas);
+    db::uniswap_day_data_volumes_entity_change(&mut tables, &swaps_volume_deltas);
+
+    Ok(tables.to_entity_changes())
 }
