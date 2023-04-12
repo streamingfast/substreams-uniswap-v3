@@ -3,7 +3,7 @@ use std::ops::{Div, Mul};
 use std::str::FromStr;
 
 use substreams::errors::Error;
-use substreams::pb::substreams::Clock;
+use substreams::pb::substreams::{Clock, store_delta};
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
@@ -27,6 +27,7 @@ use crate::uniswap::{
     SnapshotPosition, SnapshotPositions, Tick, Transactions,
 };
 use crate::{keyer, utils};
+use crate::pb::uniswap::fee_growth_updates;
 
 pub struct Tables {
     // Map from table name to the primary keys within that table
@@ -158,6 +159,7 @@ pub fn graph_out(
     pools_created_pool_entity_change(&mut tables, &pools_created);
     pool_sqrt_price_entity_change(&mut tables, pool_sqrt_price_deltas);
     pool_liquidities_pool_entity_change(&mut tables, pool_liquidities_store_deltas);
+    pool_fee_growth_global_entity_change(&mut tables, events.fee_growth_updates.unwrap().fee_growth_global);
     total_value_locked_pool_entity_change(&mut tables, total_value_locked_deltas);
     total_value_locked_by_token_pool_entity_change(
         &mut tables,
@@ -411,6 +413,26 @@ pub fn pool_liquidities_pool_entity_change(tables: &mut Tables, deltas: Deltas<D
         tables
             .update_row("Pool", &format!("0x{}", pool_address.as_str()))
             .set("liquidity", delta);
+    }
+}
+
+pub fn pool_fee_growth_global_entity_change(tables: &mut Tables, updates: Vec<fee_growth_updates::Global>) {
+    for update in updates {
+        let row = tables.update_row("Pool", &format!("0x{}", update.pool_address.as_str()));
+            let delta = DeltaBigInt{
+                operation: store_delta::Operation::Update,
+                ordinal: update.ordinal,
+                key: "".to_string(),
+                old_value: BigInt::zero(),
+                new_value: BigInt::from(update.new_value.unwrap()),
+            };
+
+            if update.token_idx == 0 {
+                row.set("feeGrowthGlobal0X128", delta);
+            } else if update.token_idx == 1 {
+                row.set("feeGrowthGlobal1X128", delta);
+            }
+
     }
 }
 
