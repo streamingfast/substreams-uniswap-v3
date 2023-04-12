@@ -20,10 +20,7 @@ use crate::pb::uniswap::pool_event::Type::{
 };
 use crate::pb::uniswap::tick::Origin::{Burn, Mint};
 use crate::pb::uniswap::tick::Type::{Lower, Upper};
-use crate::pb::uniswap::{
-    Erc20Token, Erc20Tokens, Pool, PoolEvent, PoolEvents, PoolLiquidities, PoolLiquidity,
-    PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks,
-};
+use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, PoolEvent, PoolEvents, PoolLiquidities, PoolLiquidity, PoolSqrtPrice, PoolSqrtPrices, Pools, Tick, Ticks, FeeGrowthUpdates};
 use crate::price::WHITELIST_TOKENS;
 use crate::uniswap::position::PositionType;
 use crate::uniswap::position::PositionType::{

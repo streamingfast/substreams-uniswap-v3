@@ -8,7 +8,7 @@ use tiny_keccak::{Hasher, Keccak};
 
 pub fn tick_info_mapping_initialized_changed(
     storage_changes: &Vec<StorageChange>,
-    tick_index: BigInt,
+    tick_index: &BigInt,
 ) -> bool {
     let mut hasher = Keccak::v256();
     let mut output = [0u8];

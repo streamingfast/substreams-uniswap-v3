@@ -76,11 +76,11 @@ pub fn extract_pool_events(
         let amount0 = mint.amount0.to_decimal(token0.decimals);
         let amount1 = mint.amount1.to_decimal(token1.decimals);
 
-        if tick_info_mapping_initialized_changed(storage_changes, mint.tick_lower) {
-            pool_events.events.push(TickCreatedEvent {})
+        if tick_info_mapping_initialized_changed(storage_changes, &mint.tick_lower) {
+            pool_events.events.push(PoolEvent::default())
         }
-        if tick_info_mapping_initialized_changed(storage_changes, mint.tick_upper) {
-            pool_events.events.push(TickCreatedEvent {})
+        if tick_info_mapping_initialized_changed(storage_changes, &mint.tick_upper) {
+            pool_events.events.push(PoolEvent::default())
         }
 
         pool_events.events.push(PoolEvent {
