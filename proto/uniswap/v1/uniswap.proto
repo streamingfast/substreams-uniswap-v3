@@ -48,222 +48,186 @@ message Pool {
 }
 
 message Events {
-  PoolSqrtPrices pool_sqrt_prices = 1;
-  PoolLiquidities pool_liquidities = 2;
-  FeeGrowthUpdates fee_growth_updates = 7;
-  PoolEvents events = 3;
-  Transactions transactions = 4;
-  Positions positions = 5;
-  Flashes flashes = 6;
+  repeated PoolSqrtPrice pool_sqrt_prices = 1;
+  repeated PoolLiquidity pool_liquidities = 2;
+  repeated FeeGrowthGlobal fee_growth_global_updates = 7;
+  repeated FeeGrowthInside fee_growth_inside_updates = 10;
+  repeated FeeGrowthOutside fee_growth_outside_updates = 11;
+  repeated PoolEvent pool_events = 3;
+  repeated Transaction transactions = 4;
+  repeated Position positions = 5;
+  repeated Flash flashes = 6;
+  repeated TickCreated ticks_created = 8;
+  repeated TickUpdated ticks_updated = 9;
 
-}
-
-message FeeGrowthUpdates {
-  repeated Global fee_growth_global = 1;
-  repeated Inside fee_growth_inside = 2;
-  repeated Outside fee_growth_outside = 3;
-
-  message Global {
+  message FeeGrowthGlobal {
     string pool_address = 1;
     uint64 ordinal = 2;
     uint32 token_idx = 3;
     BigInt new_value = 4;
   }
 
-  message Inside {
-    //    string id = 6;
+  message FeeGrowthInside {
     string pool_address = 1;
     int32 tick_idx = 2;
     uint64 ordinal = 3;
     BigInt new_value = 4;
   }
 
-  message Outside {
+  message FeeGrowthOutside {
     string pool_address = 1;
     int32 tick_lower = 2;
     int32 tick_upper = 3;
     uint64 ordinal = 4;
     BigInt new_value = 5;
   }
-}
-message PoolSqrtPrices {
-  repeated PoolSqrtPrice pool_sqrt_prices = 1;
-}
 
-message PoolSqrtPrice {
-  string pool_address = 1;
-  uint64 ordinal = 2;
-  BigInt sqrt_price = 3;
-  BigInt tick = 4;
-}
+  message TickCreated {
+    string pool_address = 2;
+    BigInt idx = 3;
+    BigDecimal price0 = 4;
+    BigDecimal price1 = 5;
+    uint64 created_at_timestamp = 6;
+    uint64 created_at_block_number = 7;
 
-message PoolEvents {
-  repeated PoolEvent events = 1;
-}
+    // internals
+    uint64 log_ordinal = 10;
+    BigInt amount = 11;
+    Origin origin = 12;
+    Type type = 13;
 
-
-message PoolEvent {
-  oneof type {
-    Swap swap = 1;
-    Burn burn = 2;
-    Mint mint = 3;
+    enum Type {
+      TYPE_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
+      LOWER = 1;
+      UPPER = 2;
+    };
+    enum Origin {
+      ORIGIN_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
+      MINT = 1;
+      BURN = 2;
+    };
   }
-  uint64 log_ordinal = 100;
-  uint64 log_index = 101;
-  string pool_address = 102;
-  string token0 = 103;
-  string token1 = 104;
-  string fee = 105;
-  string transaction_id = 106;
-  uint64 timestamp = 107;
-  uint64 created_at_block_number = 108;
-}
 
-message Swap {
-  string sender = 1;
-  string recipient = 2;
-  string origin = 3;
-  BigDecimal amount_0 = 4;
-  BigDecimal amount_1 = 5;
-  BigInt sqrt_price = 6;
-  BigInt liquidity = 7;
-  BigInt tick = 8;
-}
+  message TickUpdated {
+    string pool_address = 2;
+    BigInt idx = 3;
 
-message Burn {
-  string owner = 1;
-  string origin = 2;
-  BigInt amount = 3;
-  BigDecimal amount_0 = 4;
-  BigDecimal amount_1 = 5;
-  BigInt tick_lower = 6;
-  BigInt tick_upper = 7;
-}
-
-message Mint {
-  string owner = 1;
-  string sender = 2;
-  string origin = 3;
-  BigDecimal amount_0 = 4;
-  BigDecimal amount_1 = 5;
-  BigInt tick_lower = 6;
-  BigInt tick_upper = 7;
-  BigInt amount = 8;
-}
-
-message PoolLiquidities {
-  repeated PoolLiquidity pool_liquidities = 1;
-}
-
-message PoolLiquidity {
-  string pool_address = 1;
-  BigInt liquidity = 2;
-
-  // internals
-  uint64 log_ordinal = 30;
-}
-
-message Ticks {
-  repeated Tick ticks = 1;
-}
-
-message Tick {
-  string id = 1;
-  string pool_address = 2;
-  BigInt idx = 3;
-  BigDecimal price0 = 4;
-  BigDecimal price1 = 5;
-  uint64 created_at_timestamp = 6;
-  uint64 created_at_block_number = 7;
-  BigInt fee_growth_outside_0X_128 = 8;
-  BigInt fee_growth_outside_1X_128 = 9;
-
-  // internals
-  uint64 log_ordinal = 10;
-  BigInt amount = 11;
-  enum Type {
-    TYPE_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
-    LOWER = 1;
-    UPPER = 2;
-  };
-  enum Origin {
-    ORIGIN_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
-    MINT = 1;
-    BURN = 2;
-  };
-  Origin origin = 12;
-  Type type = 13;
-  bool just_initialized = 14;
-}
-
-message Fees {
-  repeated Fee fees = 1;
-}
-
-message Fee {
-  uint32 fee = 1;
-  int32 tick_spacing = 2;
-}
-
-message Flashes {
-  repeated Flash flashes = 1;
-}
-
-message Flash {
-  string pool_address = 1;
-  BigInt fee_growth_global_0X_128 = 2;
-  BigInt fee_growth_global_1X_128 = 3;
-  uint64 log_ordinal = 4;
-}
-
-
-message Transactions {
-  repeated Transaction transactions = 1;
-}
-
-message Transaction {
-  string id = 1;
-  uint64 block_number = 2;
-  uint64 timestamp = 3;
-  uint64 gas_used = 4;
-  BigInt gas_price = 5;
-
-  // internals
-  uint64 log_ordinal = 6;
-}
-
-message Positions {
-  repeated Position positions = 1;
-}
-
-message Position {
-  string id = 1;
-  string owner = 2;
-  string pool = 3;
-  string token0 = 4;
-  string token1 = 5;
-  string tick_lower = 6;
-  string tick_upper = 7;
-  string transaction = 8;
-  BigInt fee_growth_inside_0_last_X_128 = 9;
-  BigInt fee_growth_inside_1_last_X_128 = 10;
-  BigInt liquidity = 11;
-  BigDecimal amount0 = 12;
-  BigDecimal amount1 = 13;
-
-  // internals
-  enum PositionType {
-    UNSET = 0;
-    INCREASE_LIQUIDITY = 1;
-    COLLECT = 2;
-    DECREASE_LIQUIDITY = 3;
-    TRANSFER = 4;
+    BigInt fee_growth_outside_0X_128 = 8;
+    BigInt fee_growth_outside_1X_128 = 9;
   }
-  PositionType position_type = 14;
-  uint64 log_ordinal = 15;
-  uint64 timestamp = 16;
-  uint64 block_number = 17;
+
+  message PoolSqrtPrice {
+    string pool_address = 1;
+    uint64 ordinal = 2;
+    BigInt sqrt_price = 3;
+    BigInt tick = 4;
+  }
+
+  message PoolEvent {
+    oneof type {
+      Swap swap = 1;
+      Burn burn = 2;
+      Mint mint = 3;
+    }
+    uint64 log_ordinal = 100;
+    uint64 log_index = 101;
+    string pool_address = 102;
+    string token0 = 103;
+    string token1 = 104;
+    string fee = 105;
+    string transaction_id = 106;
+    uint64 timestamp = 107;
+    uint64 created_at_block_number = 108;
+
+    message Swap {
+      string sender = 1;
+      string recipient = 2;
+      string origin = 3;
+      BigDecimal amount_0 = 4;
+      BigDecimal amount_1 = 5;
+      BigInt sqrt_price = 6;
+      BigInt liquidity = 7;
+      BigInt tick = 8;
+    }
+
+    message Burn {
+      string owner = 1;
+      string origin = 2;
+      BigInt amount = 3;
+      BigDecimal amount_0 = 4;
+      BigDecimal amount_1 = 5;
+      BigInt tick_lower = 6;
+      BigInt tick_upper = 7;
+    }
+
+    message Mint {
+      string owner = 1;
+      string sender = 2;
+      string origin = 3;
+      BigDecimal amount_0 = 4;
+      BigDecimal amount_1 = 5;
+      BigInt tick_lower = 6;
+      BigInt tick_upper = 7;
+      BigInt amount = 8;
+    }
+  }
+
+  message PoolLiquidity {
+    string pool_address = 1;
+    BigInt liquidity = 2;
+
+    // internals
+    uint64 log_ordinal = 30;
+  }
+
+  message Flash {
+    string pool_address = 1;
+    BigInt fee_growth_global_0X_128 = 2;
+    BigInt fee_growth_global_1X_128 = 3;
+    uint64 log_ordinal = 4;
+  }
+
+  message Transaction {
+    string id = 1;
+    uint64 block_number = 2;
+    uint64 timestamp = 3;
+    uint64 gas_used = 4;
+    BigInt gas_price = 5;
+
+    // internals
+    uint64 log_ordinal = 6;
+  }
+
+  message Position {
+    string id = 1;
+    string owner = 2;
+    string pool = 3;
+    string token0 = 4;
+    string token1 = 5;
+    string tick_lower = 6;
+    string tick_upper = 7;
+    string transaction = 8;
+    BigInt fee_growth_inside_0_last_X_128 = 9;
+    BigInt fee_growth_inside_1_last_X_128 = 10;
+    BigInt liquidity = 11;
+    BigDecimal amount0 = 12;
+    BigDecimal amount1 = 13;
+
+    // internals
+    enum PositionType {
+      UNSET = 0;
+      INCREASE_LIQUIDITY = 1;
+      COLLECT = 2;
+      DECREASE_LIQUIDITY = 3;
+      TRANSFER = 4;
+    }
+    PositionType position_type = 14;
+    uint64 log_ordinal = 15;
+    uint64 timestamp = 16;
+    uint64 block_number = 17;
+  }
 }
+
 
 message SnapshotPositions {
   repeated SnapshotPosition snapshot_positions = 1;

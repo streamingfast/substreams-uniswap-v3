@@ -1,14 +1,11 @@
 use crate::pb::position_event::PositionEventType;
-use crate::pb::uniswap::pool_event::Type;
-use crate::pb::uniswap::PoolEvent;
-use crate::uniswap::position::PositionType;
+use crate::pb::uniswap::events::pool_event::Type;
+use crate::pb::uniswap::events::PoolEvent;
+use crate::uniswap::events::position::PositionType;
+use crate::uniswap::events::{PoolSqrtPrice, Position};
 use crate::uniswap::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
 use crate::utils::ZERO_ADDRESS;
-use crate::PositionType::Unset;
-use crate::{
-    BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, PoolSqrtPrice,
-    Position, Transfer,
-};
+use crate::{BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Transfer};
 use ethabi::Uint;
 use std::str::FromStr;
 use substreams::scalar::BigDecimal;
@@ -188,11 +185,15 @@ impl Erc20Token {
 impl Position {
     pub fn convert_position_type(&self) -> PositionType {
         match self.position_type {
-            pt if pt == Unset as i32 => return Unset,
-            pt if pt == IncreaseLiquidity as i32 => return IncreaseLiquidity,
-            pt if pt == DecreaseLiquidity as i32 => return DecreaseLiquidity,
-            pt if pt == Collect as i32 => return Collect,
-            pt if pt == Transfer as i32 => return Transfer,
+            pt if pt == PositionType::Unset as i32 => return PositionType::Unset,
+            pt if pt == PositionType::IncreaseLiquidity as i32 => {
+                return PositionType::IncreaseLiquidity
+            }
+            pt if pt == PositionType::DecreaseLiquidity as i32 => {
+                return PositionType::DecreaseLiquidity
+            }
+            pt if pt == PositionType::Collect as i32 => return PositionType::Collect,
+            pt if pt == PositionType::Transfer as i32 => return PositionType::Transfer,
             _ => panic!("unhandled operation: {}", self.position_type),
         }
     }
@@ -324,13 +325,13 @@ impl PositionType {
 
     pub fn get_position_type(i: i32) -> PositionType {
         return if i == 1 {
-            IncreaseLiquidity
+            PositionType::IncreaseLiquidity
         } else if i == 2 {
-            Collect
+            PositionType::Collect
         } else if i == 3 {
-            DecreaseLiquidity
+            PositionType::DecreaseLiquidity
         } else if i == 4 {
-            Transfer
+            PositionType::Transfer
         } else {
             panic!("Unset should never have occurred");
         };

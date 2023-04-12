@@ -1,17 +1,14 @@
-use std::num::ParseIntError;
 use crate::ethpb::v2::TransactionTrace;
-use crate::pb::{PositionEvent, uniswap};
-use crate::uniswap::position::PositionType;
-use crate::uniswap::Transaction;
-use crate::{keyer, rpc, Erc20Token, Pool, PoolLiquidity, Position, StorageChange, WHITELIST_TOKENS, storage};
-
+use crate::pb::uniswap::events;
+use crate::pb::PositionEvent;
+use crate::uniswap::events::position::PositionType;
+use crate::uniswap::events::Transaction;
 use crate::uniswap::BigInt as PbBigInt;
+use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
 use std::ops::{Add, Mul};
-use std::str;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
-use crate::pb::uniswap::fee_growth_updates;
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
 pub const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
@@ -81,21 +78,23 @@ pub fn get_static_uniswap_tokens(token_address: &[u8]) -> Option<Erc20Token> {
     }
 }
 
-pub fn extract_pool_fee_growth_updates(
+pub fn extract_pool_fee_growth_global_updates(
     log_ordinal: u64,
     pool_address: &Vec<u8>,
     storage_changes: &Vec<StorageChange>,
-) -> Vec<fee_growth_updates::Global> {
+) -> Vec<events::FeeGrowthGlobal> {
     let mut fee_growth_global = vec![];
 
-    let fee_growth_global_0 = hex!("0000000000000000000000000000000000000000000000000000000000000001");
-    let fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
+    let fee_growth_global_0 =
+        hex!("0000000000000000000000000000000000000000000000000000000000000001");
+    let fee_growth_global_1 =
+        hex!("0000000000000000000000000000000000000000000000000000000000000002");
 
-    let storage = storage::UniswapPoolStorage::new_with_contract_addr_vec(storage_changes, pool_address);
-
+    let storage =
+        storage::UniswapPoolStorage::new_with_contract_addr_vec(storage_changes, pool_address);
 
     if let Some((old_value, new_value)) = storage.get_fee_growth_global0x128() {
-        fee_growth_global.push(fee_growth_updates::Global{
+        fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
             token_idx: 0,
@@ -104,7 +103,7 @@ pub fn extract_pool_fee_growth_updates(
     }
 
     if let Some((old_value, new_value)) = storage.get_fee_growth_global1x128() {
-        fee_growth_global.push(fee_growth_updates::Global{
+        fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
             token_idx: 1,
@@ -112,12 +111,12 @@ pub fn extract_pool_fee_growth_updates(
         })
     }
 
-    return fee_growth_global
+    return fee_growth_global;
 }
 
 pub fn get_storage_change<'a>(
     emitter_address: &'a Vec<u8>,
-    key: [u8;32],
+    key: [u8; 32],
     storage_changes: &'a Vec<StorageChange>,
 ) -> Option<&'a StorageChange> {
     for storage_change in storage_changes {
@@ -129,8 +128,6 @@ pub fn get_storage_change<'a>(
     }
     return None;
 }
-
-
 
 pub fn calculate_amount_usd(
     amount0: &BigDecimal,
@@ -241,7 +238,7 @@ pub fn get_position(
     timestamp: u64,
     block_number: u64,
     event: PositionEvent,
-) -> Option<Position> {
+) -> Option<events::Position> {
     if let Some(positions_call_result) = rpc::positions_call(log_address, event.get_token_id()) {
         let token_id_0_bytes = positions_call_result.0;
         let token_id_1_bytes = positions_call_result.1;
@@ -270,7 +267,7 @@ pub fn get_position(
         let amount0 = event.get_amount0().to_decimal(pool.token0_ref().decimals);
         let amount1 = event.get_amount1().to_decimal(pool.token1_ref().decimals);
 
-        return Some(Position {
+        return Some(events::Position {
             id: event.get_token_id().to_string(),
             owner: event.get_owner(),
             pool: pool.address.clone(),
@@ -299,11 +296,11 @@ pub fn extract_pool_liquidity(
     log_ordinal: u64,
     pool_address: &Vec<u8>,
     storage_changes: &Vec<StorageChange>,
-) -> Option<PoolLiquidity> {
+) -> Option<events::PoolLiquidity> {
     for storage_change in storage_changes {
         if pool_address.eq(&storage_change.address) {
             if storage_change.key[storage_change.key.len() - 1] == 4 {
-                return Some(PoolLiquidity {
+                return Some(events::PoolLiquidity {
                     pool_address: Hex(&pool_address).to_string(),
                     liquidity: Some(BigInt::from_signed_bytes_be(&storage_change.new_value).into()),
                     log_ordinal,
@@ -353,4 +350,3 @@ pub fn tick_info_mapping_initialized_changed(
     //
     // return storage_change.is_some();
 }
-

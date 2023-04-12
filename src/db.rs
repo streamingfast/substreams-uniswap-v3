@@ -6,27 +6,17 @@ use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
     DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
-    StoreGetBigInt, StoreGetProto,
+    StoreGetBigInt,
 };
 use substreams::{log, Hex};
-use substreams_entity_change::change::ToField;
-use substreams_entity_change::pb::entity::{
-    entity_change::Operation, EntityChange, EntityChanges, Field, Value,
-};
 
-use crate::pb::position_event::PositionEventType;
-use crate::pb::uniswap::fee_growth_updates;
-use crate::pb::uniswap::pool_event::Type::{
+use crate::pb::uniswap::events;
+use crate::pb::uniswap::events::pool_event::Type::{
     Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent,
 };
-use crate::pb::uniswap::position::PositionType;
-use crate::rpc::create_uniswap_token;
+use crate::pb::uniswap::events::position::PositionType;
 use crate::tables::Tables;
-use crate::uniswap::tick::Origin;
-use crate::uniswap::{
-    Erc20Token, Events, Flashes, Pool, PoolEvents, PoolSqrtPrice, Pools, Position, Positions,
-    SnapshotPosition, SnapshotPositions, Tick, Transactions,
-};
+use crate::uniswap::{Erc20Token, Pools, SnapshotPositions};
 use crate::{keyer, utils};
 
 // -------------------
@@ -192,7 +182,7 @@ pub fn pools_created_pool_entity_change(tables: &mut Tables, pools: &Pools) {
 
 pub fn pool_sqrt_price_entity_change(
     tables: &mut Tables,
-    deltas: Deltas<DeltaProto<PoolSqrtPrice>>,
+    deltas: Deltas<DeltaProto<events::PoolSqrtPrice>>,
 ) {
     for delta in deltas.deltas {
         let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
@@ -233,22 +223,20 @@ pub fn pool_liquidities_pool_entity_change(tables: &mut Tables, deltas: Deltas<D
 
 pub fn pool_fee_growth_global_entity_change(
     tables: &mut Tables,
-    updates: Vec<fee_growth_updates::Global>,
+    updates: Vec<events::FeeGrowthGlobal>,
 ) {
     for update in updates {
         let row = tables.update_row("Pool", &format!("0x{}", update.pool_address.as_str()));
-        let delta = DeltaBigInt {
-            operation: store_delta::Operation::Update,
-            ordinal: update.ordinal,
-            key: "".to_string(),
-            old_value: BigInt::zero(),
-            new_value: BigInt::from(update.new_value.unwrap()),
-        };
-
         if update.token_idx == 0 {
-            row.set("feeGrowthGlobal0X128", delta);
+            row.set(
+                "feeGrowthGlobal0X128",
+                BigInt::from(&update.new_value.unwrap()),
+            );
         } else if update.token_idx == 1 {
-            row.set("feeGrowthGlobal1X128", delta);
+            row.set(
+                "feeGrowthGlobal1X128",
+                BigInt::from(&update.new_value.unwrap()),
+            );
         }
     }
 }
@@ -538,25 +526,11 @@ fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token, log_ordinal:
 // --------------------
 //  Map Tick Entities
 // --------------------
-pub fn create_or_update_ticks_entity_change(tables: &mut Tables, deltas: Deltas<DeltaProto<Tick>>) {
-    for delta in deltas.deltas {
-        let new_tick: Tick = delta.new_value;
-        let old_tick: Tick = delta.old_value;
-
-        if old_tick.id.eq("") {
-            // does this makes sense?
-            if new_tick.origin == Origin::Mint as i32 {
-                create_tick_entity_change(tables, new_tick)
-            }
-        } else {
-            update_tick_entity_change(tables, old_tick, new_tick);
-        }
-    }
-}
 
 pub fn ticks_liquidities_tick_entity_change(tables: &mut Tables, deltas: Deltas<DeltaBigInt>) {
     for delta in deltas.deltas {
-        let tick_id = delta.key.as_str().split(":").nth(1).unwrap().to_string();
+        let pool_id = delta.key.as_str().split(":").nth(1).unwrap().to_string();
+        let tick_idx = delta.key.as_str().split(":").nth(2).unwrap().to_string();
 
         let name = match delta.key.as_str().split(":").last().unwrap() {
             "liquidityNet" => "liquidityNet",
@@ -564,71 +538,65 @@ pub fn ticks_liquidities_tick_entity_change(tables: &mut Tables, deltas: Deltas<
             _ => continue,
         };
 
-        tables.update_row("Tick", tick_id.as_str()).set(name, delta);
+        tables
+            .update_row("Tick", &format!("{}#{}", pool_id, tick_idx))
+            .set(name, delta);
     }
 }
 
-fn create_tick_entity_change(tables: &mut Tables, tick: Tick) {
-    tables
-        .update_row("Tick", tick.id.clone().as_str())
-        .set("id", tick.id)
-        .set("poolAddress", tick.pool_address.clone())
-        .set("tickIdx", BigInt::from(tick.idx.unwrap()))
-        .set("pool", &format!("0x{}", tick.pool_address))
-        .set("liquidityGross", BigInt::zero())
-        .set("liquidityNet", BigInt::zero())
-        .set("price0", BigDecimal::from(tick.price0.unwrap()))
-        .set("price1", BigDecimal::from(tick.price1.unwrap()))
-        .set("volumeToken0", BigDecimal::zero())
-        .set("volumeToken1", BigDecimal::zero())
-        .set("volumeUSD", BigDecimal::zero())
-        .set("untrackedVolumeUSD", BigDecimal::zero())
-        .set("feesUSD", BigDecimal::zero())
-        .set("collectedFeesToken0", BigDecimal::zero())
-        .set("collectedFeesToken1", BigDecimal::zero())
-        .set("collectedFeesUSD", BigDecimal::zero())
-        .set(
-            "createdAtTimestamp",
-            BigInt::from(tick.created_at_timestamp),
-        )
-        .set(
-            "createdAtBlockNumber",
-            BigInt::from(tick.created_at_block_number),
-        )
-        .set("liquidityProviderCount", BigInt::zero())
-        .set(
-            "feeGrowthOutside0X128",
-            BigInt::from(tick.fee_growth_outside_0x_128.unwrap()),
-        )
-        .set(
-            "feeGrowthOutside1X128",
-            BigInt::from(tick.fee_growth_outside_1x_128.unwrap()),
+pub fn create_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickCreated>) {
+    for tick in ticks {
+        let id = format!(
+            "{}#{}",
+            tick.pool_address,
+            BigInt::from(tick.idx.as_ref().unwrap())
         );
+        tables
+            .update_row("Tick", id.clone().as_str())
+            .set("id", &id.clone())
+            .set("poolAddress", tick.pool_address.clone())
+            .set("tickIdx", BigInt::from(tick.idx.as_ref().unwrap()))
+            .set("pool", &format!("0x{}", tick.pool_address))
+            .set("liquidityGross", BigInt::zero())
+            .set("liquidityNet", BigInt::zero())
+            .set("price0", BigDecimal::from(tick.price0.unwrap()))
+            .set("price1", BigDecimal::from(tick.price1.unwrap()))
+            .set("volumeToken0", BigDecimal::zero())
+            .set("volumeToken1", BigDecimal::zero())
+            .set("volumeUSD", BigDecimal::zero())
+            .set("untrackedVolumeUSD", BigDecimal::zero())
+            .set("feesUSD", BigDecimal::zero())
+            .set("collectedFeesToken0", BigDecimal::zero())
+            .set("collectedFeesToken1", BigDecimal::zero())
+            .set("collectedFeesUSD", BigDecimal::zero())
+            .set(
+                "createdAtTimestamp",
+                BigInt::from(tick.created_at_timestamp),
+            )
+            .set(
+                "createdAtBlockNumber",
+                BigInt::from(tick.created_at_block_number),
+            )
+            .set("liquidityProviderCount", BigInt::zero())
+            .set("feeGrowthOutside0X128", BigInt::zero())
+            .set("feeGrowthOutside1X128", BigInt::zero());
+    }
 }
 
-fn update_tick_entity_change(tables: &mut Tables, old_tick: Tick, new_tick: Tick) {
-    tables
-        .update_row("Tick", new_tick.id.as_str())
-        .set(
-            "feeGrowthOutside0X128",
-            DeltaBigInt {
-                operation: substreams::pb::substreams::store_delta::Operation::Update,
-                ordinal: new_tick.log_ordinal,
-                key: "".to_string(),
-                old_value: BigInt::from(old_tick.fee_growth_outside_0x_128.unwrap()),
-                new_value: BigInt::from(new_tick.fee_growth_outside_0x_128.unwrap()),
-            },
-        )
-        .set(
-            "feeGrowthOutside1X128",
-            DeltaBigInt {
-                operation: substreams::pb::substreams::store_delta::Operation::Update,
-                ordinal: new_tick.log_ordinal,
-                key: "".to_string(),
-                old_value: BigInt::from(old_tick.fee_growth_outside_1x_128.unwrap()),
-                new_value: BigInt::from(new_tick.fee_growth_outside_1x_128.unwrap()),
-            },
-        );
+pub fn update_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickUpdated>) {
+    for tick in ticks {
+        let id = format!("{}#{}", tick.pool_address, BigInt::from(tick.idx.unwrap()));
+        tables
+            .update_row("Tick", id.clone().as_str())
+            .set(
+                "feeGrowthOutside0X128",
+                BigInt::from(tick.fee_growth_outside_0x_128.unwrap()),
+            )
+            .set(
+                "feeGrowthOutside1X128",
+                BigInt::from(tick.fee_growth_outside_1x_128.unwrap()),
+            );
+    }
 }
 
 // --------------------
@@ -636,10 +604,10 @@ fn update_tick_entity_change(tables: &mut Tables, old_tick: Tick, new_tick: Tick
 // --------------------
 pub fn position_create_entity_change(
     tables: &mut Tables,
-    positions: Positions,
+    positions: Vec<events::Position>,
     positions_store: StoreGetInt64,
 ) {
-    for position in positions.positions {
+    for position in positions {
         match position.convert_position_type() {
             //TODO: Check https://github.com/streamingfast/substreams-uniswap-v3/issues/6
             // to merge positions of the same id. Probably gonna need a map[string][Position]
@@ -707,7 +675,7 @@ fn add_or_skip_position_entity_change(
     position_type: PositionType,
     positions_store: &StoreGetInt64,
     tables: &mut Tables,
-    position: Position,
+    position: events::Position,
 ) {
     match positions_store.get_at(
         position.log_ordinal,
@@ -722,7 +690,7 @@ fn add_or_skip_position_entity_change(
     }
 }
 
-fn add_position_entity_change(tables: &mut Tables, position: Position) {
+fn add_position_entity_change(tables: &mut Tables, position: events::Position) {
     tables
         .update_row("Position", position.id.clone().as_str())
         .set("id", position.id)
@@ -806,8 +774,8 @@ pub fn snapshot_position_entity_change(tables: &mut Tables, snapshot_positions: 
 // --------------------
 //  Map Transaction Entities
 // --------------------
-pub fn transaction_entity_change(tables: &mut Tables, transactions: Transactions) {
-    for transaction in transactions.transactions {
+pub fn transaction_entity_change(tables: &mut Tables, transactions: Vec<events::Transaction>) {
+    for transaction in transactions {
         let gas_price = match transaction.gas_price {
             None => BigInt::zero(),
             Some(price) => BigInt::from(price),
@@ -828,11 +796,11 @@ pub fn transaction_entity_change(tables: &mut Tables, transactions: Transactions
 // --------------------
 pub fn swaps_mints_burns_created_entity_change(
     tables: &mut Tables,
-    events: PoolEvents,
+    events: Vec<events::PoolEvent>,
     tx_count_store: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
 ) {
-    for event in events.events {
+    for event in events {
         if event.r#type.is_none() {
             continue;
         }
@@ -988,8 +956,8 @@ pub fn swaps_mints_burns_created_entity_change(
 // --------------------
 //  Map Flashes Entities
 // --------------------
-pub fn flashes_update_pool_fee_entity_change(tables: &mut Tables, flashes: Flashes) {
-    for flash in flashes.flashes {
+pub fn flashes_update_pool_fee_entity_change(tables: &mut Tables, flashes: Vec<events::Flash>) {
+    for flash in flashes {
         tables
             .update_row("Pool", flash.pool_address.as_str())
             .set(

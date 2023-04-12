@@ -1,15 +1,14 @@
 use crate::pb::position_event::PositionEventType;
-use crate::pb::uniswap::position::PositionType::{
+use crate::pb::uniswap::events;
+use crate::pb::uniswap::events::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
-use crate::pb::uniswap::{
-    Flash, Flashes, PoolLiquidities, PoolSqrtPrice, PoolSqrtPrices, Positions, Transactions, FeeGrowthUpdates
-};
+use crate::pb::uniswap::events::{FeeGrowthGlobal, Flash, PoolSqrtPrice};
 use crate::pb::PositionEvent;
+use crate::uniswap::events::PoolEvent;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
 use crate::{
-    abi, rpc, storage, uniswap, utils, BurnEvent, EventTrait, MintEvent, Pool, PoolEvent,
-    PoolEvents, Swap, SwapEvent,
+    abi, rpc, storage, uniswap, utils, BurnEvent, EventTrait, MintEvent, Pool, Swap, SwapEvent,
 };
 use utils::tick_info_mapping_initialized_changed;
 use substreams::prelude::{BigInt, StoreGet, StoreGetProto};
@@ -17,7 +16,7 @@ use substreams::{log, Hex};
 use substreams_ethereum::pb::eth::v2::{Log, StorageChange, TransactionTrace};
 
 pub fn extract_pool_events(
-    pool_events: &mut PoolEvents,
+    pool_events: &mut Vec<PoolEvent>,
     transaction_id: &String,
     origin: &String,
     log: &Log,
@@ -39,7 +38,7 @@ pub fn extract_pool_events(
         let amount0 = swap.amount0.to_decimal(token0.decimals);
         let amount1 = swap.amount1.to_decimal(token1.decimals);
 
-        pool_events.events.push(PoolEvent {
+        pool_events.push(PoolEvent {
             log_ordinal: log.ordinal,
             log_index: log.block_index as u64,
             pool_address: pool.address.to_string(),
@@ -49,7 +48,7 @@ pub fn extract_pool_events(
             transaction_id: transaction_id.to_string(),
             timestamp: timestamp_seconds,
             created_at_block_number: block_number,
-            r#type: Some(SwapEvent(uniswap::Swap {
+            r#type: Some(SwapEvent(events::pool_event::Swap {
                 sender: Hex(&swap.sender).to_string(),
                 recipient: Hex(&swap.recipient).to_string(),
                 origin: origin.to_string(),
@@ -77,13 +76,13 @@ pub fn extract_pool_events(
         let amount1 = mint.amount1.to_decimal(token1.decimals);
 
         if tick_info_mapping_initialized_changed(storage_changes, &mint.tick_lower) {
-            pool_events.events.push(PoolEvent::default())
+            pool_events.push(PoolEvent::default());
         }
         if tick_info_mapping_initialized_changed(storage_changes, &mint.tick_upper) {
-            pool_events.events.push(PoolEvent::default())
+            pool_events.push(PoolEvent::default());
         }
 
-        pool_events.events.push(PoolEvent {
+        pool_events.push(PoolEvent {
             log_ordinal: log.ordinal,
             log_index: log.block_index as u64,
             pool_address: pool.address.to_string(),
@@ -93,7 +92,7 @@ pub fn extract_pool_events(
             transaction_id: transaction_id.to_string(),
             timestamp: timestamp_seconds,
             created_at_block_number: block_number,
-            r#type: Some(MintEvent(uniswap::Mint {
+            r#type: Some(MintEvent(uniswap::events::pool_event::Mint {
                 owner: Hex(&mint.owner).to_string(),
                 sender: Hex(&mint.sender).to_string(),
                 origin: origin.to_string(),
@@ -117,7 +116,7 @@ pub fn extract_pool_events(
         let amount0 = amount0_bi.to_decimal(token0.decimals);
         let amount1 = amount1_bi.to_decimal(token1.decimals);
 
-        pool_events.events.push(PoolEvent {
+        pool_events.push(PoolEvent {
             log_ordinal: log.ordinal,
             log_index: log.block_index as u64,
             pool_address: pool.address.to_string(),
@@ -127,7 +126,7 @@ pub fn extract_pool_events(
             transaction_id: transaction_id.to_string(),
             timestamp: timestamp_seconds,
             created_at_block_number: block_number,
-            r#type: Some(BurnEvent(uniswap::Burn {
+            r#type: Some(BurnEvent(uniswap::events::pool_event::Burn {
                 owner: Hex(&burn.owner).to_string(),
                 origin: origin.to_string(),
                 amount: Some(burn.amount.into()),
@@ -141,7 +140,7 @@ pub fn extract_pool_events(
 }
 
 pub fn extract_pool_liquidities(
-    pool_liquidities: &mut PoolLiquidities,
+    pool_liquidities: &mut Vec<events::PoolLiquidity>,
     log: &Log,
     storage_changes: &Vec<StorageChange>,
     pool: &Pool,
@@ -150,87 +149,77 @@ pub fn extract_pool_liquidities(
         if !pool.should_handle_swap() {
             return;
         }
-        if let Some(pl) =
-            utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
-            pool_liquidities.pool_liquidities.push(pl)
+            pool_liquidities.push(pl)
         }
     } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        if let Some(pl) =
-            utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
-            pool_liquidities.pool_liquidities.push(pl)
+            pool_liquidities.push(pl)
         }
     } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        if let Some(pl) =
-            utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
+        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
         {
-            pool_liquidities.pool_liquidities.push(pl)
+            pool_liquidities.push(pl)
         }
     }
 }
-
 
 pub fn extract_fee_growth_update(
-    fee_growth_updates: &mut FeeGrowthUpdates,
+    fee_growth_updates: &mut Vec<events::FeeGrowthGlobal>,
     log: &Log,
     storage_changes: &Vec<StorageChange>,
     pool: &Pool,
 ) {
+    let mut do_extract = false;
     if let Some(_) = Swap::match_and_decode(&log) {
         if !pool.should_handle_swap() {
             return;
         }
-        for pl in utils::extract_pool_fee_growth_updates(log.ordinal, &log.address, storage_changes)
-        {
-            fee_growth_updates.fee_growth_global.push(pl)
-        }
+        do_extract = true;
     } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        for pl in utils::extract_pool_fee_growth_updates(log.ordinal, &log.address, storage_changes)
-        {
-            fee_growth_updates.fee_growth_global.push(pl)
-        }
+        do_extract = true
     } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        for pl in utils::extract_pool_fee_growth_updates(log.ordinal, &log.address, storage_changes)
-        {
-            fee_growth_updates.fee_growth_global.push(pl)
-        }
+        do_extract = true;
     } else if let Some(_) = abi::pool::events::Flash::match_and_decode(&log) {
-        for pl in utils::extract_pool_fee_growth_updates(log.ordinal, &log.address, storage_changes)
-        {
-            fee_growth_updates.fee_growth_global.push(pl)
-        }
+        do_extract = true;
+    }
+    if do_extract {
+        fee_growth_updates.append(&mut utils::extract_pool_fee_growth_global_updates(
+            log.ordinal,
+            &log.address,
+            storage_changes,
+        ));
     }
 }
 
-
-
 pub fn extract_pool_sqrt_prices(
-    pool_sqrt_prices: &mut PoolSqrtPrices,
+    pool_sqrt_prices: &mut Vec<events::PoolSqrtPrice>,
     log: &Log,
     pool_address: &String,
 ) {
     if let Some(event) = abi::pool::events::Initialize::match_and_decode(log) {
-        pool_sqrt_prices.pool_sqrt_prices.push(PoolSqrtPrice {
+        pool_sqrt_prices.push(PoolSqrtPrice {
             pool_address: pool_address.to_string(),
             ordinal: log.ordinal,
             sqrt_price: Some(event.sqrt_price_x96.into()),
             tick: Some(event.tick.into()),
         });
     } else if let Some(event) = Swap::match_and_decode(log) {
-        pool_sqrt_prices.pool_sqrt_prices.push(PoolSqrtPrice {
+        pool_sqrt_prices.push(PoolSqrtPrice {
             pool_address: pool_address.to_string(),
             ordinal: log.ordinal,
             sqrt_price: Some(event.sqrt_price_x96.into()),
@@ -240,7 +229,7 @@ pub fn extract_pool_sqrt_prices(
 }
 
 pub fn extract_transactions(
-    transactions: &mut Transactions,
+    transactions: &mut Vec<events::Transaction>,
     log: &Log,
     transaction_trace: &TransactionTrace,
     timestamp_seconds: u64,
@@ -259,7 +248,7 @@ pub fn extract_transactions(
     }
 
     if add_transaction {
-        transactions.transactions.push(utils::load_transaction(
+        transactions.push(utils::load_transaction(
             block_number,
             timestamp_seconds,
             log.ordinal,
@@ -269,7 +258,7 @@ pub fn extract_transactions(
 }
 
 pub fn extract_positions(
-    positions: &mut Positions,
+    positions: &mut Vec<events::Position>,
     log: &Log,
     transaction_id: &String,
     pools_store: &StoreGetProto<Pool>,
@@ -294,7 +283,7 @@ pub fn extract_positions(
                 event: PositionEventType::IncreaseLiquidity(event),
             },
         ) {
-            positions.positions.push(position);
+            positions.push(position);
         }
     } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
         if let Some(position) = utils::get_position(
@@ -309,7 +298,7 @@ pub fn extract_positions(
                 event: PositionEventType::Collect(event),
             },
         ) {
-            positions.positions.push(position);
+            positions.push(position);
         }
     } else if let Some(event) =
         abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log)
@@ -326,7 +315,7 @@ pub fn extract_positions(
                 event: PositionEventType::DecreaseLiquidity(event),
             },
         ) {
-            positions.positions.push(position);
+            positions.push(position);
         }
     } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
         if let Some(position) = utils::get_position(
@@ -341,13 +330,13 @@ pub fn extract_positions(
                 event: PositionEventType::Transfer(event.clone()),
             },
         ) {
-            positions.positions.push(position);
+            positions.push(position);
         }
     }
 }
 
 pub fn extract_flashes(
-    flashes: &mut Flashes,
+    flashes: &mut Vec<events::Flash>,
     log: &Log,
     pools_store: &StoreGetProto<Pool>,
     pool_key: &String,
@@ -361,7 +350,7 @@ pub fn extract_flashes(
                 let (fee_growth_global_0x_128, fee_growth_global_1x_128) =
                     rpc::fee_growth_global_x128_call(&pool_address);
 
-                flashes.flashes.push(Flash {
+                flashes.push(events::Flash {
                     pool_address,
                     fee_growth_global_0x_128: Some(fee_growth_global_0x_128.into()),
                     fee_growth_global_1x_128: Some(fee_growth_global_1x_128.into()),
