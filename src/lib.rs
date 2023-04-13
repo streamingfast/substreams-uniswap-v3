@@ -1249,87 +1249,6 @@ pub fn store_total_value_locked_usd(
     }
 }
 
-// // TODO: PORT THIS CODE.
-// #[substreams::handlers::map]
-// pub fn map_ticks(events: Events) -> Result<Vec<events::TickCreated>, Error> {
-//     let mut out: Vec<events::TickCreated> = vec![];
-//     for event in events.pool_events {
-//         log::info!("event: {:?}", event);
-//         match event.r#type.unwrap() {
-//             BurnEvent(burn) => {
-//                 log::debug!("burn event transaction_id: {}", event.transaction_id);
-//                 let lower_tick_idx: BigInt = burn.tick_lower.unwrap().into();
-//
-//                 let upper_tick_idx: BigInt = burn.tick_upper.unwrap().into();
-//
-//                 let upper_tick_result =
-//                     rpc::fee_growth_outside_x128_call(&event.pool_address, &upper_tick_idx);
-//             }
-//             MintEvent(mint) => {
-//                 log::debug!("mint event transaction_id: {}", event.transaction_id);
-//                 let lower_tick_idx: BigInt = mint.tick_lower.unwrap().into();
-//                 let lower_tick_price0 = math::big_decimal_exponated(
-//                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
-//                     lower_tick_idx.clone(),
-//                 );
-//                 let lower_tick_price1 =
-//                     math::safe_div(&BigDecimal::from(1 as i32), &lower_tick_price0);
-//
-//                 let lower_tick_result =
-//                     rpc::fee_growth_outside_x128_call(&event.pool_address, &lower_tick_idx);
-//
-//                 // in the subgraph, there is a `load` which is done to see if the tick
-//                 // exists and if it doesn't exist, createTick()
-//                 let tick_lower = events::TickCreated {
-//                     pool_address: event.pool_address.to_string(),
-//                     idx: Some(lower_tick_idx.into()),
-//                     price0: Some(lower_tick_price0.into()),
-//                     price1: Some(lower_tick_price1.into()),
-//                     created_at_timestamp: event.timestamp,
-//                     created_at_block_number: event.created_at_block_number,
-//                     log_ordinal: event.log_ordinal,
-//                     amount: mint.amount.clone(),
-//                 };
-//
-//                 let upper_tick_idx: BigInt = mint.tick_upper.unwrap().into();
-//                 let upper_tick_price0 = math::big_decimal_exponated(
-//                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
-//                     upper_tick_idx.clone(),
-//                 );
-//                 let upper_tick_price1 =
-//                     math::safe_div(&BigDecimal::from(1 as i32), &upper_tick_price0);
-//
-//                 let upper_tick_result =
-//                     rpc::fee_growth_outside_x128_call(&event.pool_address, &upper_tick_idx);
-//
-//                 let tick_upper = events::TickCreated {
-//                     pool_address: event.pool_address.to_string(),
-//                     idx: Some(upper_tick_idx.into()),
-//                     price0: Some(upper_tick_price0.into()),
-//                     price1: Some(upper_tick_price1.into()),
-//                     created_at_timestamp: event.timestamp,
-//                     created_at_block_number: event.created_at_block_number,
-//                     log_ordinal: event.log_ordinal,
-//                     amount: mint.amount,
-//                 };
-//
-//                 out.push(tick_lower);
-//                 out.push(tick_upper);
-//             }
-//             _ => {}
-//         }
-//     }
-//     Ok(out)
-// }
-
-//
-// #[substreams::handlers::store]
-// pub fn store_ticks(ticks: Ticks /* input map_tick_entities */, output: StoreSetProto<Tick>) {
-//     for tick in ticks.ticks {
-//         output.set(tick.log_ordinal, keyer::ticks(&tick.id), &tick);
-//     }
-// }
-
 #[substreams::handlers::store]
 pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
     for event in events.pool_events {
@@ -1503,28 +1422,28 @@ pub fn store_positions(events: Events, store: StoreAddInt64) {
             IncreaseLiquidity => {
                 store.add(
                     position.log_ordinal,
-                    keyer::position(&position.id, &IncreaseLiquidity.to_string()),
+                    keyer::position(&position.token_id, &IncreaseLiquidity.to_string()),
                     1,
                 );
             }
             DecreaseLiquidity => {
                 store.add(
                     position.log_ordinal,
-                    keyer::position(&position.id, &DecreaseLiquidity.to_string()),
+                    keyer::position(&position.token_id, &DecreaseLiquidity.to_string()),
                     1,
                 );
             }
             Collect => {
                 store.add(
                     position.log_ordinal,
-                    keyer::position(&position.id, &Collect.to_string()),
+                    keyer::position(&position.token_id, &Collect.to_string()),
                     1,
                 );
             }
             Transfer => {
                 store.add(
                     position.log_ordinal,
-                    keyer::position(&position.id, &Transfer.to_string()),
+                    keyer::position(&position.token_id, &Transfer.to_string()),
                     1,
                 );
             }
@@ -1540,46 +1459,46 @@ pub fn store_position_changes(events: Events, store: StoreAddBigDecimal) {
             IncreaseLiquidity => {
                 store.add(
                     position.log_ordinal,
-                    keyer::position_liquidity(&position.id),
+                    keyer::position_liquidity(&position.token_id),
                     &BigDecimal::from(position.liquidity.unwrap()),
                 );
                 store.add(
                     position.log_ordinal,
-                    keyer::position_deposited_token(&position.id, "Token0"),
+                    keyer::position_deposited_token(&position.token_id, "Token0"),
                     &BigDecimal::from(position.amount0.unwrap()),
                 );
                 store.add(
                     position.log_ordinal,
-                    keyer::position_deposited_token(&position.id, "Token1"),
+                    keyer::position_deposited_token(&position.token_id, "Token1"),
                     &BigDecimal::from(position.amount1.unwrap()),
                 );
             }
             DecreaseLiquidity => {
                 store.add(
                     position.log_ordinal,
-                    keyer::position_liquidity(&position.id),
+                    keyer::position_liquidity(&position.token_id),
                     &BigDecimal::from(position.liquidity.unwrap()).neg(),
                 );
                 store.add(
                     position.log_ordinal,
-                    keyer::position_withdrawn_token(&position.id, "Token0"),
+                    keyer::position_withdrawn_token(&position.token_id, "Token0"),
                     &BigDecimal::from(position.amount0.unwrap()),
                 );
                 store.add(
                     position.log_ordinal,
-                    keyer::position_withdrawn_token(&position.id, "Token1"),
+                    keyer::position_withdrawn_token(&position.token_id, "Token1"),
                     &BigDecimal::from(position.amount1.unwrap()),
                 );
             }
             Collect => {
                 store.add(
                     position.log_ordinal,
-                    keyer::position_collected_fees_token(&position.id, "Token0"),
+                    keyer::position_collected_fees_token(&position.token_id, "Token0"),
                     &BigDecimal::from(position.amount0.unwrap()),
                 );
                 store.add(
                     position.log_ordinal,
-                    keyer::position_collected_fees_token(&position.id, "Token1"),
+                    keyer::position_collected_fees_token(&position.token_id, "Token1"),
                     &BigDecimal::from(position.amount1.unwrap()),
                 );
             }
@@ -1599,10 +1518,9 @@ pub fn map_position_snapshots(
 
     for position in events.positions {
         let mut snapshot_position: SnapshotPosition = SnapshotPosition {
-            id: format!("{}#{}", position.id, position.block_number),
             owner: position.owner,
             pool: position.pool,
-            position: position.id.clone(),
+            position: position.token_id.clone(),
             block_number: position.block_number,
             timestamp: position.timestamp,
             transaction: position.transaction,
@@ -1616,7 +1534,7 @@ pub fn map_position_snapshots(
         // to 0? We could simply not touch the data point...
         match position_changes_store.get_at(
             position.log_ordinal,
-            keyer::position_liquidity(&position.id),
+            keyer::position_liquidity(&position.token_id),
         ) {
             Some(liquidity) => snapshot_position.liquidity = Some(liquidity.into()),
             _ => snapshot_position.liquidity = Some(BigDecimal::zero().into()),
@@ -1624,7 +1542,7 @@ pub fn map_position_snapshots(
 
         match position_changes_store.get_at(
             position.log_ordinal,
-            keyer::position_deposited_token(&position.id, "Token0"),
+            keyer::position_deposited_token(&position.token_id, "Token0"),
         ) {
             Some(deposited_token0) => {
                 snapshot_position.deposited_token0 = Some(deposited_token0.into());
@@ -1634,7 +1552,7 @@ pub fn map_position_snapshots(
 
         match position_changes_store.get_at(
             position.log_ordinal,
-            keyer::position_deposited_token(&position.id, "Token1"),
+            keyer::position_deposited_token(&position.token_id, "Token1"),
         ) {
             Some(deposited_token1) => {
                 snapshot_position.deposited_token1 = Some(deposited_token1.into());
@@ -1644,7 +1562,7 @@ pub fn map_position_snapshots(
 
         match position_changes_store.get_at(
             position.log_ordinal,
-            keyer::position_withdrawn_token(&position.id, "Token0"),
+            keyer::position_withdrawn_token(&position.token_id, "Token0"),
         ) {
             Some(withdrawn_token0) => {
                 snapshot_position.withdrawn_token0 = Some(withdrawn_token0.into());
@@ -1654,7 +1572,7 @@ pub fn map_position_snapshots(
 
         match position_changes_store.get_at(
             position.log_ordinal,
-            keyer::position_withdrawn_token(&position.id, "Token1"),
+            keyer::position_withdrawn_token(&position.token_id, "Token1"),
         ) {
             Some(withdrawn_token1) => {
                 snapshot_position.withdrawn_token1 = Some(withdrawn_token1.into());
@@ -1664,7 +1582,7 @@ pub fn map_position_snapshots(
 
         match position_changes_store.get_at(
             position.log_ordinal,
-            keyer::position_collected_fees_token(&position.id, "Token0"),
+            keyer::position_collected_fees_token(&position.token_id, "Token0"),
         ) {
             Some(collected_fees_token0) => {
                 snapshot_position.collected_fees_token0 = Some(collected_fees_token0.into());
@@ -1674,7 +1592,7 @@ pub fn map_position_snapshots(
 
         match position_changes_store.get_at(
             position.log_ordinal,
-            keyer::position_collected_fees_token(&position.id, "Token1"),
+            keyer::position_collected_fees_token(&position.token_id, "Token1"),
         ) {
             Some(collected_fees_token1) => {
                 snapshot_position.collected_fees_token1 = Some(collected_fees_token1.into());

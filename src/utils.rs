@@ -90,8 +90,7 @@ pub fn extract_pool_fee_growth_global_updates(
     let fee_growth_global_1 =
         hex!("0000000000000000000000000000000000000000000000000000000000000002");
 
-    let storage =
-        storage::UniswapPoolStorage::new_with_contract_addr_vec(storage_changes, pool_address);
+    let storage = storage::UniswapPoolStorage::new(storage_changes, pool_address);
 
     if let Some((old_value, new_value)) = storage.get_fee_growth_global0x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
@@ -114,7 +113,7 @@ pub fn extract_pool_fee_growth_global_updates(
     return fee_growth_global;
 }
 
-pub fn get_storage_change<'a>(
+pub fn _get_storage_change<'a>(
     emitter_address: &'a Vec<u8>,
     key: [u8; 32],
     storage_changes: &'a Vec<StorageChange>,
@@ -268,13 +267,13 @@ pub fn get_position(
         let amount1 = event.get_amount1().to_decimal(pool.token1_ref().decimals);
 
         return Some(events::Position {
-            id: event.get_token_id().to_string(),
+            token_id: event.get_token_id().to_string(),
             owner: event.get_owner(),
             pool: pool.address.clone(),
             token0,
             token1,
-            tick_lower: format!("{}#{}", pool.address, tick_lower.to_string()),
-            tick_upper: format!("{}#{}", pool.address, tick_upper.to_string()),
+            tick_lower: tick_lower.to_string(),
+            tick_upper: tick_upper.to_string(),
             transaction: transaction_id.to_string(),
             fee_growth_inside_0_last_x_128: Some(fee_growth_inside_0_last_x128.into()),
             fee_growth_inside_1_last_x_128: Some(fee_growth_inside_1_last_x128.into()),
@@ -309,44 +308,4 @@ pub fn extract_pool_liquidity(
         }
     }
     None
-}
-
-pub fn tick_info_mapping_initialized_changed(
-    storage_changes: &Vec<StorageChange>,
-    tick_index: &BigInt,
-) -> bool {
-    return false;
-    // let mut hasher = Keccak::v256();
-    // let mut output = [0u8];
-    //
-    // let mut tick_index_slot = H256::from_slice(&tick_index.to_signed_bytes_le());
-    // hasher.update(&tick_index_slot.as_bytes()); // slot for `mapping(uint24 => Tick.Info) ticks`
-    // hasher.update(&H256::from_low_u64_be(3).as_bytes());
-    // hasher.finalize(&mut output);
-    //
-    // // Take the THIRD slot after `output`
-    // let mut next_key = BigInt::from_signed_bytes_le(&output);
-    // next_key = next_key.add(BigInt::from(2));
-    // let mut offset3_key = H256::from_slice(&next_key.to_signed_bytes_le());
-    //
-    // let mut hasher2 = Keccak::v256();
-    // hasher2.update(&output);
-    // hasher2.update(&offset3_key.as_bytes());
-    // hasher2.finalize(&mut output);
-    //
-    // let storage_change = storage_changes
-    //     .iter()
-    //     .find(|storage_change| storage_change.key.eq(&output));
-    //
-    // log::debug!("{}, {:?}", tick_index, storage_change);
-    //
-    // if storage_change.is_none() {
-    //     return false;
-    // }
-    //
-    // // TODO: Now analyze the `value` in the returned storage change
-    // // if the offset 31 (the last byte really, the boolean representing the `initialized` field)
-    // // has CHANGED between `old_value` and `new_value`, then return `true`.
-    //
-    // return storage_change.is_some();
 }
