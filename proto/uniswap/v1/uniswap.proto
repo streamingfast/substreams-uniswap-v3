@@ -83,22 +83,23 @@ message Events {
   }
 
   message TickCreated {
-    string pool_address = 2;
-    BigInt idx = 3;
-    BigDecimal price0 = 4;
-    BigDecimal price1 = 5;
-    uint64 created_at_timestamp = 6;
-    uint64 created_at_block_number = 7;
-    uint64 log_ordinal = 10;
-    BigInt amount = 11;
+    string pool_address = 1;
+    BigInt idx = 2;
+    uint64 log_ordinal = 3;
+    uint64 created_at_timestamp = 4;
+    uint64 created_at_block_number = 5;
+    BigDecimal price0 = 6;
+    BigDecimal price1 = 7;
+    BigInt amount = 8;
   }
 
   message TickUpdated {
     string pool_address = 1;
     BigInt idx = 2;
+    uint64 log_ordinal = 3;
 
-    BigInt fee_growth_outside_0X_128 = 3;
-    BigInt fee_growth_outside_1X_128 = 4;
+    optional BigInt fee_growth_outside_0X_128 = 4;
+    optional BigInt fee_growth_outside_1X_128 = 5;
   }
 
   message PoolSqrtPrice {

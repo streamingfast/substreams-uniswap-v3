@@ -28,7 +28,7 @@ fn calc_struct_slot(struct_slot: &[u8; 32], member_slot: BigInt) -> [u8; 32] {
 }
 
 impl<'a> UniswapPoolStorage<'a> {
-    pub fn new_with_contract_addr_vec(
+    pub fn new(
         storage_changes: &'a Vec<StorageChange>,
         contract_addr: &Vec<u8>,
     ) -> UniswapPoolStorage<'a> {
@@ -37,15 +37,15 @@ impl<'a> UniswapPoolStorage<'a> {
             contract_addr: contract_pad(contract_addr),
         };
     }
-    pub fn new(
-        storage_changes: &'a Vec<StorageChange>,
-        contract_addr: [u8; 20],
-    ) -> UniswapPoolStorage<'a> {
-        return Self {
-            storage_changes,
-            contract_addr,
-        };
-    }
+    // pub fn new(
+    //     storage_changes: &'a Vec<StorageChange>,
+    //     contract_addr: [u8; 20],
+    // ) -> UniswapPoolStorage<'a> {
+    //     return Self {
+    //         storage_changes,
+    //         contract_addr,
+    //     };
+    // }
 
     pub fn get_fee_growth_global0x128(&self) -> Option<(BigInt, BigInt)> {
         let feeGrowthGlobal0X128_slot = BigInt::from(1);
@@ -137,7 +137,7 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
-    pub fn get_ticks_fee_growth_outside_0X128(
+    pub fn get_ticks_fee_growth_outside_0_x128(
         &self,
         tick_idx: &BigInt,
     ) -> Option<(BigInt, BigInt)> {
@@ -166,7 +166,7 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
-    pub fn get_ticks_fee_growth_outside_1X128(
+    pub fn get_ticks_fee_growth_outside_1_x128(
         &self,
         tick_idx: &BigInt,
     ) -> Option<(BigInt, BigInt)> {
