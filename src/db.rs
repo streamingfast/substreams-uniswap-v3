@@ -586,16 +586,13 @@ pub fn create_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickCre
 pub fn update_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickUpdated>) {
     for tick in ticks {
         let id = format!("{}#{}", tick.pool_address, BigInt::from(tick.idx.unwrap()));
-        tables
-            .update_row("Tick", id.clone().as_str())
-            .set(
-                "feeGrowthOutside0X128",
-                BigInt::from(tick.fee_growth_outside_0x_128.unwrap()),
-            )
-            .set(
-                "feeGrowthOutside1X128",
-                BigInt::from(tick.fee_growth_outside_1x_128.unwrap()),
-            );
+        let row = tables.update_row("Tick", id.clone().as_str());
+        if let Some(fee) = tick.fee_growth_outside_0x_128 {
+            row.set("feeGrowthOutside0X128", BigInt::from(fee));
+        }
+        if let Some(fee) = tick.fee_growth_outside_1x_128 {
+            row.set("feeGrowthOutside1X128", BigInt::from(fee));
+        }
     }
 }
 
