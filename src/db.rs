@@ -585,7 +585,11 @@ pub fn create_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickCre
 
 pub fn update_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickUpdated>) {
     for tick in ticks {
-        let id = format!("{}#{}", tick.pool_address, BigInt::from(tick.idx.unwrap()));
+        let id = format!(
+            "0x{}#{}",
+            tick.pool_address,
+            BigInt::from(tick.idx.unwrap())
+        );
         let row = tables.update_row("Tick", id.clone().as_str());
         if let Some(fee) = tick.fee_growth_outside_0x_128 {
             row.set("feeGrowthOutside0X128", BigInt::from(fee));
@@ -727,7 +731,7 @@ fn add_position_entity_change(tables: &mut Tables, position: events::Position) {
 pub fn snapshot_position_entity_change(tables: &mut Tables, snapshot_positions: SnapshotPositions) {
     for snapshot_position in snapshot_positions.snapshot_positions {
         let id = format!(
-            "0x{}#{}",
+            "{}#{}",
             snapshot_position.position, snapshot_position.block_number
         );
         tables
