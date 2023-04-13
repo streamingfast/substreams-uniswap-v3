@@ -398,3 +398,46 @@ type UniswapDayData @entity {
     # number of daily transactions
     txCount: BigInt!
 }
+
+type PoolDayData @entity {
+    # timestamp rounded to current day by dividing by 86400
+    id: ID!
+    # timestamp rounded to current day by dividing by 86400
+    date: Int!
+    # pointer to pool
+    pool: Pool!
+    # in range liquidity at end of period
+    liquidity: BigInt!
+    # current price tracker at end of period
+    sqrtPrice: BigInt!
+    # price of token0 - derived from sqrtPrice
+    token0Price: BigDecimal!
+    # price of token1 - derived from sqrtPrice
+    token1Price: BigDecimal!
+    # current tick at end of period
+    tick: BigInt
+    # tracker for global fee growth
+    feeGrowthGlobal0X128: BigInt!
+    # tracker for global fee growth
+    feeGrowthGlobal1X128: BigInt!
+    # TVL derived in USD at end of period
+    totalValueLockedUSD: BigDecimal!
+    # volume in token0
+    volumeToken0: BigDecimal!
+    # volume in token1
+    volumeToken1: BigDecimal!
+    # volume in USD
+    volumeUSD: BigDecimal!
+    # fees in USD
+    feesUSD: BigDecimal!
+    # numebr of transactions during period
+    txCount: BigInt!
+    # opening price of token0
+    open: BigDecimal!
+    # high price of token0
+    high: BigDecimal!
+    # low price of token0
+    low: BigDecimal!
+    # close price of token0
+    close: BigDecimal!
+}

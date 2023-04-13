@@ -1697,18 +1697,8 @@ pub fn graph_out(
 }
 
 #[substreams::handlers::map]
-pub fn map_uniswap_day_data_entities(
-    tx_count_deltas: Deltas<DeltaBigInt>, /* store_total_tx_counts deltas */
-    swaps_volume_deltas: Deltas<DeltaBigDecimal>, /* store_swaps_volume */
-    totals_deltas: Deltas<DeltaBigDecimal>, /* store_totals */
-) -> Result<EntityChanges, Error> {
+pub fn map_pool_day_data_entities() -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
-
-    // todo: need to create the first uniswap day data for given day
-    db::uniswap_day_data_create_entity_change(&mut tables, &tx_count_deltas);
-    db::uniswap_day_data_tx_count_entity_change(&mut tables, &tx_count_deltas);
-    db::uniswap_day_data_totals_entity_change(&mut tables, &totals_deltas);
-    db::uniswap_day_data_volumes_entity_change(&mut tables, &swaps_volume_deltas);
 
     Ok(tables.to_entity_changes())
 }

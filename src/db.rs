@@ -976,6 +976,10 @@ pub fn flashes_update_pool_fee_entity_change(tables: &mut Tables, flashes: Vec<e
 // --------------------
 pub fn uniswap_day_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in deltas.deltas.iter() {
+        if !delta.new_value.eq(&BigInt::one()) {
+            return;
+        }
+
         if !delta.key.starts_with("uniswap_day_data") {
             continue;
         }
@@ -989,10 +993,7 @@ pub fn uniswap_day_data_create_entity_change(tables: &mut Tables, deltas: &Delta
             .parse::<i64>()
             .unwrap();
         let day_start_timestamp = (day_id * 86400) as i32;
-        if delta.new_value.eq(&BigInt::one()) {
-            create_uniswap_day_data(tables, day_id, day_start_timestamp, &delta);
-            return;
-        }
+        create_uniswap_day_data(tables, day_id, day_start_timestamp, &delta);
     }
 }
 
@@ -1019,24 +1020,6 @@ pub fn uniswap_day_data_tx_count_entity_change(tables: &mut Tables, deltas: &Del
             .set("volumeUSDUntracked", BigDecimal::zero())
             .set("txCount", delta);
     }
-}
-
-fn create_uniswap_day_data(
-    tables: &mut Tables,
-    day_id: i64,
-    day_start_timestamp: i32,
-    delta: &DeltaBigInt,
-) {
-    tables
-        .update_row("UniswapDayData", day_id.to_string().as_str())
-        .set("id", day_id.to_string())
-        .set("date", day_start_timestamp)
-        .set("volumeETH", BigDecimal::zero())
-        .set("volumeUSD", BigDecimal::zero())
-        .set("volumeUSDUntracked", BigDecimal::zero())
-        .set("totalValueLockedUSD", BigDecimal::zero())
-        .set("feesUSD", BigDecimal::zero())
-        .set("txCount", delta);
 }
 
 pub fn uniswap_day_data_totals_entity_change(
@@ -1089,3 +1072,25 @@ pub fn uniswap_day_data_volumes_entity_change(
         tables.update_row("UniswapDayData", day_id).set(name, delta);
     }
 }
+
+fn create_uniswap_day_data(
+    tables: &mut Tables,
+    day_id: i64,
+    day_start_timestamp: i32,
+    delta: &DeltaBigInt,
+) {
+    tables
+        .update_row("UniswapDayData", day_id.to_string().as_str())
+        .set("id", day_id.to_string())
+        .set("date", day_start_timestamp)
+        .set("volumeETH", BigDecimal::zero())
+        .set("volumeUSD", BigDecimal::zero())
+        .set("volumeUSDUntracked", BigDecimal::zero())
+        .set("totalValueLockedUSD", BigDecimal::zero())
+        .set("feesUSD", BigDecimal::zero())
+        .set("txCount", delta);
+}
+
+// --------------------
+//  Map Pool Day Data Entities
+// --------------------
