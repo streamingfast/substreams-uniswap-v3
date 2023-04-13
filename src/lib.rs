@@ -44,6 +44,8 @@ use substreams::store::{
 };
 use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::EntityChanges;
+use substreams_ethereum::pb::eth::v2;
+use substreams_ethereum::pb::eth::v2::TransactionTrace;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]
@@ -199,111 +201,95 @@ pub fn map_extract_data_types(
     let mut transactions: Vec<events::Transaction> = vec![];
     let mut positions: Vec<events::Position> = vec![];
     let mut flashes: Vec<events::Flash> = vec![];
+    let mut ticks_created: Vec<events::TickCreated> = vec![];
+    let mut ticks_updated: Vec<events::TickUpdated> = vec![];
 
     let timestamp = block.timestamp_seconds();
 
     for trx in block.transactions() {
-        for call in trx.calls.iter() {
-            let _call_index = call.index;
-            if call.state_reverted {
-                continue;
-            }
+        for (log, call) in logs_with_calls(trx) {
+            let pool_address = &Hex(log.clone().address).to_string();
+            let pool_key = &keyer::pool_key(&pool_address);
+            let transactions_id = Hex(&trx.hash).to_string();
 
-            for log in call.logs.iter() {
-                let pool_address = &Hex(log.clone().address).to_string();
-                let pool_key = &keyer::pool_key(&pool_address);
-                let transactions_id = Hex(&trx.hash).to_string();
+            match pools_store.get_last(pool_key) {
+                Some(pool) => {
+                    filtering::extract_pool_sqrt_prices(&mut pool_sqrt_prices, log, pool_address);
 
-                match pools_store.get_last(pool_key) {
-                    Some(pool) => {
-                        filtering::extract_pool_sqrt_prices(
-                            &mut pool_sqrt_prices,
-                            log,
-                            pool_address,
-                        );
+                    filtering::extract_pool_liquidities(
+                        &mut pool_liquidities,
+                        log,
+                        &call.storage_changes,
+                        &pool,
+                    );
 
-                        filtering::extract_pool_liquidities(
-                            &mut pool_liquidities,
-                            log,
-                            &call.storage_changes,
-                            &pool,
-                        );
+                    // FeeGrowthUpdate
+                    filtering::extract_fee_growth_update(
+                        &mut fee_growth_global_updates,
+                        log,
+                        &call.storage_changes,
+                        &pool,
+                    );
 
-                        // FeeGrowthUpdate
-                        filtering::extract_fee_growth_update(
-                            &mut fee_growth_global_updates,
-                            log,
-                            &call.storage_changes,
-                            &pool,
-                        );
+                    // TokenEvents
+                    filtering::extract_pool_events(
+                        &mut pool_events,
+                        &transactions_id,
+                        &Hex(&trx.from).to_string(),
+                        log,
+                        &pool,
+                        timestamp,
+                        block.number,
+                        &call.storage_changes,
+                    );
 
-                        // TokenEvents
-                        filtering::extract_pool_events(
-                            &mut pool_events,
-                            &transactions_id,
-                            &Hex(&trx.from).to_string(),
-                            log,
-                            &pool,
-                            timestamp,
-                            block.number,
-                            &call.storage_changes,
-                        );
+                    filtering::extract_transactions(
+                        &mut transactions,
+                        log,
+                        &trx,
+                        timestamp,
+                        block.number,
+                    );
 
-                        filtering::extract_transactions(
-                            &mut transactions,
-                            log,
-                            &trx,
-                            timestamp,
-                            block.number,
-                        );
-
-                        filtering::extract_flashes(&mut flashes, &log, &pools_store, pool_key);
-                    }
-                    _ => (), // do nothing
+                    filtering::extract_flashes(&mut flashes, &log, &pools_store, pool_key);
                 }
-
-                //todo: pools_store needed to check if the pool exists in the store
-                // by checking the index:token1:token2 instead of the address...
-                // could this be done smarter and checked with the log_address ?
-
-                // Positions
-                filtering::extract_positions(
-                    &mut positions,
-                    log,
-                    &transactions_id,
-                    &pools_store,
-                    timestamp,
-                    block.number,
-                );
-                // Positions
+                _ => (), // do nothing
             }
+
+            //todo: pools_store needed to check if the pool exists in the store
+            // by checking the index:token1:token2 instead of the address...
+            // could this be done smarter and checked with the log_address ?
+
+            // Positions
+            filtering::extract_positions(
+                &mut positions,
+                log,
+                &transactions_id,
+                &pools_store,
+                timestamp,
+                block.number,
+            );
+            // Positions
         }
     }
 
-    // sorting those vecs because we took the Logs from within Calls, possibly breaking the
-    // ordering
-    pool_sqrt_prices.sort_by(|x, y| x.ordinal.cmp(&y.ordinal));
-    events.pool_sqrt_prices = pool_sqrt_prices;
-
-    pool_liquidities.sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
-    events.pool_liquidities = pool_liquidities;
-
-    fee_growth_global_updates.sort_by(|x, y| x.ordinal.cmp(&y.ordinal));
-    events.fee_growth_global_updates = fee_growth_global_updates;
-
-    pool_events.sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
-    events.pool_events = pool_events;
-
-    transactions.sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
-    events.transactions = transactions;
-
-    positions.sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
-    events.positions = positions;
-
-    flashes.sort_by(|x, y| x.log_ordinal.cmp(&y.log_ordinal));
-    events.flashes = flashes;
-
     Ok(events)
+}
+
+fn logs_with_calls(trx: &TransactionTrace) -> Vec<(&v2::Log, &v2::Call)> {
+    let mut res: Vec<(&v2::Log, &v2::Call)> = vec![];
+
+    for call in trx.calls.iter() {
+        if call.state_reverted {
+            continue;
+        }
+        for log in call.logs.iter() {
+            res.push((&log, &call));
+        }
+    }
+
+    res.sort_by(|x, y| x.0.ordinal.cmp(&y.0.ordinal));
+    res
 }
 
 #[substreams::handlers::store]
