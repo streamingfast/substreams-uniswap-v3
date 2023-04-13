@@ -84,6 +84,7 @@ modules:
     updatePolicy: set
     valueType: proto:uniswap.types.v1.PoolSqrtPrice
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
   - name: store_prices
@@ -92,6 +93,7 @@ modules:
     initialBlock: 12369621
     valueType: bigdecimal
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
       - store: store_pools
 
@@ -101,6 +103,7 @@ modules:
     initialBlock: 12369621
     valueType: bigint
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
   - name: store_totals
@@ -139,6 +142,7 @@ modules:
     updatePolicy: set
     valueType: bigint
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
   - name: store_native_total_value_locked
@@ -331,10 +335,24 @@ modules:
     output:
       type: proto:substreams.entity.v1.EntityChanges
 
-  - name: map_pool_day_data_entities
+  - name: map_pool_hour_data_entities
     kind: map
     initialBlock: 12369621
     inputs:
+      - store: store_total_tx_counts
+        mode: deltas
+      - store: store_swaps_volume
+        mode: deltas
+      - store: store_totals
+        mode: deltas
+      - store: store_pool_liquidities
+        mode: deltas
+      - store: store_pool_sqrt_price
+        mode: deltas
+      - store: store_prices
+        mode: deltas
+      - store: store_pool_fee_growth_global_x128
+        mode: deltas
     output:
       type: proto:substreams.entity.v1.EntityChanges
 
