@@ -275,6 +275,23 @@ pub fn map_extract_data_types(
         }
     }
 
+
+
+    events.pool_sqrt_prices = pool_sqrt_prices;
+    events.pool_liquidities = pool_liquidities;
+    events.fee_growth_global_updates = fee_growth_global_updates;
+    events.pool_events = pool_events;
+    events.transactions = transactions;
+    events.positions = positions;
+    events.flashes = flashes;
+    events.ticks_created = ticks_created;
+    events.ticks_updated = ticks_updated;
+
+
+
+
+
+
     Ok(events)
 }
 
