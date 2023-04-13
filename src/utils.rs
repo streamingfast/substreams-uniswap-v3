@@ -267,13 +267,13 @@ pub fn get_position(
         let amount1 = event.get_amount1().to_decimal(pool.token1_ref().decimals);
 
         return Some(events::Position {
-            id: event.get_token_id().to_string(),
+            token_id: event.get_token_id().to_string(),
             owner: event.get_owner(),
             pool: pool.address.clone(),
             token0,
             token1,
-            tick_lower: format!("{}#{}", pool.address, tick_lower.to_string()),
-            tick_upper: format!("{}#{}", pool.address, tick_upper.to_string()),
+            tick_lower: tick_lower.to_string(),
+            tick_upper: tick_upper.to_string(),
             transaction: transaction_id.to_string(),
             fee_growth_inside_0_last_x_128: Some(fee_growth_inside_0_last_x128.into()),
             fee_growth_inside_1_last_x_128: Some(fee_growth_inside_1_last_x128.into()),

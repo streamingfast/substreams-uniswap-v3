@@ -23,6 +23,12 @@ pub fn extract_pool_events(
     block_number: u64,
     storage_changes: &Vec<StorageChange>,
 ) {
+    let common_tick_updated = events::TickUpdated {
+        log_ordinal: log.ordinal,
+        pool_address: pool.address.to_string(),
+        ..Default::default()
+    };
+
     if let Some(swap) = abi::pool::events::Swap::match_and_decode(log) {
         if !pool.should_handle_swap() {
             return;
@@ -69,7 +75,6 @@ pub fn extract_pool_events(
 
         let token0 = pool.token0.as_ref().unwrap();
         let token1 = pool.token1.as_ref().unwrap();
-
         let amount0 = mint.amount0.to_decimal(token0.decimals);
         let amount1 = mint.amount1.to_decimal(token1.decimals);
 
@@ -97,12 +102,6 @@ pub fn extract_pool_events(
 
         let storage = UniswapPoolStorage::new(storage_changes, &log.address);
 
-        fn initialized_changed(input: Option<(bool, bool)>) -> bool {
-            match input {
-                Some((old, new)) => old != new,
-                None => false,
-            }
-        }
         let create_lower_tick =
             initialized_changed(storage.get_ticks_initialized(&mint.tick_lower));
         let create_upper_tick =
@@ -134,17 +133,7 @@ pub fn extract_pool_events(
             }
         }
 
-        fn bigint_if_some(input: Option<(BigInt, BigInt)>) -> Option<uniswap::BigInt> {
-            if let Some(el) = input {
-                Some(uniswap::BigInt::from(el.1.into()))
-            } else {
-                None
-            }
-        }
-
         ticks_updated.push(events::TickUpdated {
-            pool_address: pool.address.clone(),
-            log_ordinal: log.ordinal,
             idx: Some(mint.tick_upper.as_ref().into()),
             fee_growth_outside_0x_128: bigint_if_some(
                 storage.get_ticks_fee_growth_outside_0_x128(&mint.tick_upper),
@@ -152,10 +141,9 @@ pub fn extract_pool_events(
             fee_growth_outside_1x_128: bigint_if_some(
                 storage.get_ticks_fee_growth_outside_1_x128(&mint.tick_upper),
             ),
+            ..common_tick_updated.clone()
         });
         ticks_updated.push(events::TickUpdated {
-            pool_address: pool.address.clone(),
-            log_ordinal: log.ordinal,
             idx: Some(mint.tick_lower.as_ref().into()),
             fee_growth_outside_0x_128: bigint_if_some(
                 storage.get_ticks_fee_growth_outside_0_x128(&mint.tick_lower),
@@ -163,6 +151,7 @@ pub fn extract_pool_events(
             fee_growth_outside_1x_128: bigint_if_some(
                 storage.get_ticks_fee_growth_outside_1_x128(&mint.tick_lower),
             ),
+            ..common_tick_updated.clone()
         });
     } else if let Some(burn) = abi::pool::events::Burn::match_and_decode(log) {
         if !pool.should_handle_mint_and_burn() {
@@ -193,12 +182,48 @@ pub fn extract_pool_events(
                 amount: Some(burn.amount.into()),
                 amount_0: Some(amount0.into()),
                 amount_1: Some(amount1.into()),
-                tick_lower: Some(burn.tick_lower.into()),
-                tick_upper: Some(burn.tick_upper.into()),
+                tick_lower: Some(burn.tick_lower.as_ref().into()),
+                tick_upper: Some(burn.tick_upper.as_ref().into()),
             })),
-        })
+        });
 
-        // TODO: handle the TickUpdated
+        let storage = UniswapPoolStorage::new(storage_changes, &log.address);
+
+        ticks_updated.push(events::TickUpdated {
+            idx: Some(burn.tick_upper.as_ref().into()),
+            fee_growth_outside_0x_128: bigint_if_some(
+                storage.get_ticks_fee_growth_outside_0_x128(&burn.tick_upper),
+            ),
+            fee_growth_outside_1x_128: bigint_if_some(
+                storage.get_ticks_fee_growth_outside_1_x128(&burn.tick_upper),
+            ),
+            ..common_tick_updated.clone()
+        });
+        ticks_updated.push(events::TickUpdated {
+            idx: Some(burn.tick_lower.as_ref().into()),
+            fee_growth_outside_0x_128: bigint_if_some(
+                storage.get_ticks_fee_growth_outside_0_x128(&burn.tick_lower),
+            ),
+            fee_growth_outside_1x_128: bigint_if_some(
+                storage.get_ticks_fee_growth_outside_1_x128(&burn.tick_lower),
+            ),
+            ..common_tick_updated.clone()
+        });
+    }
+}
+
+fn bigint_if_some(input: Option<(BigInt, BigInt)>) -> Option<uniswap::BigInt> {
+    if let Some(el) = input {
+        Some(uniswap::BigInt::from(el.1.into()))
+    } else {
+        None
+    }
+}
+
+fn initialized_changed(input: Option<(bool, bool)>) -> bool {
+    match input {
+        Some((old, new)) => old != new,
+        None => false,
     }
 }
 

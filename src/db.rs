@@ -367,7 +367,7 @@ pub fn tokens_created_token_entity_change(
         ) {
             Some(value) => {
                 if value.eq(&1) {
-                    add_token_entity_change(tables, pool.token0_ref(), pool.log_ordinal);
+                    add_token_entity_change(tables, pool.token0_ref());
                 }
             }
             None => {
@@ -381,7 +381,7 @@ pub fn tokens_created_token_entity_change(
         ) {
             Some(value) => {
                 if value.eq(&1) {
-                    add_token_entity_change(tables, pool.token1_ref(), pool.log_ordinal);
+                    add_token_entity_change(tables, pool.token1_ref());
                 }
             }
             None => {
@@ -499,7 +499,7 @@ pub fn whitelist_token_entity_change(tables: &mut Tables, deltas: Deltas<DeltaAr
     }
 }
 
-fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token, log_ordinal: u64) {
+fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token) {
     tables
         .update_row("Token", &format!("0x{}", token.address.clone().as_str()))
         .set("id", token.address.clone())
@@ -539,7 +539,7 @@ pub fn ticks_liquidities_tick_entity_change(tables: &mut Tables, deltas: Deltas<
         };
 
         tables
-            .update_row("Tick", &format!("{}#{}", pool_id, tick_idx))
+            .update_row("Tick", &format!("0x{}#{}", pool_id, tick_idx))
             .set(name, delta);
     }
 }
@@ -547,7 +547,7 @@ pub fn ticks_liquidities_tick_entity_change(tables: &mut Tables, deltas: Deltas<
 pub fn create_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickCreated>) {
     for tick in ticks {
         let id = format!(
-            "{}#{}",
+            "0x{}#{}",
             tick.pool_address,
             BigInt::from(tick.idx.as_ref().unwrap())
         );
@@ -676,7 +676,7 @@ fn add_or_skip_position_entity_change(
 ) {
     match positions_store.get_at(
         position.log_ordinal,
-        keyer::position(&position.id, &position_type.to_string()),
+        keyer::position(&position.token_id, &position_type.to_string()),
     ) {
         None => {}
         Some(value) => {
@@ -689,14 +689,20 @@ fn add_or_skip_position_entity_change(
 
 fn add_position_entity_change(tables: &mut Tables, position: events::Position) {
     tables
-        .update_row("Position", position.id.clone().as_str())
-        .set("id", position.id)
+        .update_row("Position", position.token_id.clone().as_str())
+        .set("id", position.token_id)
         .set("owner", position.owner.into_bytes())
-        .set("pool", position.pool)
+        .set("pool", format!("0x{}", &position.pool))
         .set("token0", position.token0)
         .set("token1", position.token1)
-        .set("tickLower", position.tick_lower)
-        .set("tickUpper", position.tick_upper)
+        .set(
+            "tickLower",
+            format!("0x{}#{}", &position.pool, &position.tick_lower),
+        )
+        .set(
+            "tickUpper",
+            format!("0x{}#{}", &position.pool, &position.tick_upper),
+        )
         .set("liquidity", BigDecimal::zero())
         .set("depositedToken0", BigDecimal::zero())
         .set("depositedToken1", BigDecimal::zero())
@@ -704,7 +710,7 @@ fn add_position_entity_change(tables: &mut Tables, position: events::Position) {
         .set("withdrawnToken1", BigDecimal::zero())
         .set("collectedFeesToken0", BigDecimal::zero())
         .set("collectedFeesToken1", BigDecimal::zero())
-        .set("transaction", position.transaction)
+        .set("transaction", format!("0x{}", position.transaction))
         .set(
             "feeGrowthInside0LastX128",
             BigInt::from(position.fee_growth_inside_0_last_x_128.unwrap()),
@@ -720,9 +726,13 @@ fn add_position_entity_change(tables: &mut Tables, position: events::Position) {
 // --------------------
 pub fn snapshot_position_entity_change(tables: &mut Tables, snapshot_positions: SnapshotPositions) {
     for snapshot_position in snapshot_positions.snapshot_positions {
+        let id = format!(
+            "0x{}#{}",
+            snapshot_position.position, snapshot_position.block_number
+        );
         tables
-            .update_row("PositionSnapshot", snapshot_position.id.clone().as_str())
-            .set("id", snapshot_position.id)
+            .update_row("PositionSnapshot", id.as_str())
+            .set("id", id.clone())
             .set("owner", snapshot_position.owner.into_bytes())
             .set("pool", snapshot_position.pool)
             .set("position", snapshot_position.position)
@@ -756,9 +766,12 @@ pub fn snapshot_position_entity_change(tables: &mut Tables, snapshot_positions: 
                 "collectedFeesToken1",
                 BigDecimal::from(snapshot_position.collected_fees_token1.unwrap()),
             )
-            .set("transaction", snapshot_position.transaction)
             .set(
-                "feeGrowthInside0LastX128",
+                "transaction",
+                format!("0x{}", &snapshot_position.transaction),
+            )
+            .set(
+                "feeGrowthInside0LastX128", // TODO: use the same SnapshotPosition updates stream as TickUpdates
                 BigInt::from(snapshot_position.fee_growth_inside_0_last_x_128.unwrap()),
             )
             .set(

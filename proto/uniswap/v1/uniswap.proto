@@ -185,7 +185,7 @@ message Events {
   }
 
   message Position {
-    string id = 1;
+    string token_id = 1;
     string owner = 2;
     string pool = 3;
     string token0 = 4;
@@ -220,11 +220,11 @@ message SnapshotPositions {
 }
 
 message SnapshotPosition {
-  string id = 1;
-  string owner = 2;
-  string pool = 3;
-  string position = 4;
-  uint64 block_number = 5;
+  string pool = 1;
+  // the token_id of the position
+  string position = 2;
+  uint64 block_number = 3;
+  string owner = 4;
   uint64 timestamp = 6;
   BigDecimal liquidity = 7;
   BigDecimal deposited_token0 = 8;
