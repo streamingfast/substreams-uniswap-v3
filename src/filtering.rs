@@ -3,20 +3,24 @@ use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::position::PositionType::{
     Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
 };
-use crate::pb::uniswap::events::{FeeGrowthGlobal, Flash, PoolSqrtPrice};
+use crate::pb::uniswap::events::{
+    FeeGrowthGlobal, Flash, PoolEvent, PoolSqrtPrice, TickCreated, TickUpdated,
+};
 use crate::pb::PositionEvent;
-use crate::uniswap::events::PoolEvent;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
 use crate::{
-    abi, rpc, storage, uniswap, utils, BurnEvent, EventTrait, MintEvent, Pool, Swap, SwapEvent,
+    abi, math, rpc, storage, uniswap, utils, BurnEvent, EventTrait, MintEvent, Pool, Swap,
+    SwapEvent,
 };
-use utils::tick_info_mapping_initialized_changed;
-use substreams::prelude::{BigInt, StoreGet, StoreGetProto};
+use substreams::prelude::{BigDecimal, BigInt, StoreGet, StoreGetProto};
 use substreams::{log, Hex};
 use substreams_ethereum::pb::eth::v2::{Log, StorageChange, TransactionTrace};
+use utils::tick_info_mapping_initialized_changed;
 
 pub fn extract_pool_events(
     pool_events: &mut Vec<PoolEvent>,
+    ticks_created: &mut Vec<TickCreated>,
+    ticks_updated: &mut Vec<TickUpdated>,
     transaction_id: &String,
     origin: &String,
     log: &Log,
@@ -75,13 +79,6 @@ pub fn extract_pool_events(
         let amount0 = mint.amount0.to_decimal(token0.decimals);
         let amount1 = mint.amount1.to_decimal(token1.decimals);
 
-        if tick_info_mapping_initialized_changed(storage_changes, &mint.tick_lower) {
-            pool_events.push(PoolEvent::default());
-        }
-        if tick_info_mapping_initialized_changed(storage_changes, &mint.tick_upper) {
-            pool_events.push(PoolEvent::default());
-        }
-
         pool_events.push(PoolEvent {
             log_ordinal: log.ordinal,
             log_index: log.block_index as u64,
@@ -96,13 +93,46 @@ pub fn extract_pool_events(
                 owner: Hex(&mint.owner).to_string(),
                 sender: Hex(&mint.sender).to_string(),
                 origin: origin.to_string(),
-                amount: Some(mint.amount.into()),
+                amount: Some(mint.amount.as_ref().into()),
                 amount_0: Some(amount0.into()),
                 amount_1: Some(amount1.into()),
-                tick_lower: Some(mint.tick_lower.into()),
-                tick_upper: Some(mint.tick_upper.into()),
+                tick_lower: Some(mint.tick_lower.as_ref().into()),
+                tick_upper: Some(mint.tick_upper.as_ref().into()),
             })),
-        })
+        });
+
+        let create_lower_tick =
+            tick_info_mapping_initialized_changed(storage_changes, &mint.tick_lower);
+        let create_upper_tick =
+            tick_info_mapping_initialized_changed(storage_changes, &mint.tick_upper);
+        if create_lower_tick || create_upper_tick {
+            let mut common_tick = TickCreated {
+                pool_address: pool.address.to_string(),
+                created_at_timestamp: timestamp_seconds,
+                created_at_block_number: block_number,
+                log_ordinal: log.ordinal,
+                amount: Some(mint.amount.as_ref().into()),
+                ..Default::default()
+            };
+            if create_lower_tick {
+                let mut lower_tick = common_tick.clone();
+                let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
+                lower_tick.idx = Some(mint.tick_upper.as_ref().into());
+                lower_tick.price0 = Some(price0.into());
+                lower_tick.price1 = Some(price1.into());
+                ticks_created.push(lower_tick);
+            }
+            if create_upper_tick {
+                let mut upper_tick = common_tick.clone();
+                let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
+                upper_tick.idx = Some(mint.tick_upper.as_ref().into());
+                upper_tick.price0 = Some(price0.into());
+                upper_tick.price1 = Some(price1.into());
+                ticks_created.push(upper_tick);
+            }
+        }
+
+        // TODO: handle the TickUpdated
     } else if let Some(burn) = abi::pool::events::Burn::match_and_decode(log) {
         if !pool.should_handle_mint_and_burn() {
             return;
@@ -136,7 +166,18 @@ pub fn extract_pool_events(
                 tick_upper: Some(burn.tick_upper.into()),
             })),
         })
+
+        // TODO: handle the TickUpdated
     }
+}
+
+fn prices_from_tick_index(tick_idx: &BigInt) -> (BigDecimal, BigDecimal) {
+    let price0 = math::big_decimal_exponated(
+        BigDecimal::try_from(1.0001).unwrap().with_prec(100),
+        tick_idx.clone(),
+    );
+    let price1 = math::safe_div(&BigDecimal::from(1 as i32), &price0);
+    (price0, price1)
 }
 
 pub fn extract_pool_liquidities(

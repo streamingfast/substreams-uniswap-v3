@@ -234,6 +234,8 @@ pub fn map_extract_data_types(
                     // TokenEvents
                     filtering::extract_pool_events(
                         &mut pool_events,
+                        &mut ticks_created,
+                        &mut ticks_updated,
                         &transactions_id,
                         &Hex(&trx.from).to_string(),
                         log,
@@ -1144,7 +1146,7 @@ pub fn store_total_value_locked_usd(
     }
 }
 
-// TODO: PORT THIS CODE.
+// // TODO: PORT THIS CODE.
 // #[substreams::handlers::map]
 // pub fn map_ticks(events: Events) -> Result<Vec<events::TickCreated>, Error> {
 //     let mut out: Vec<events::TickCreated> = vec![];
@@ -1153,76 +1155,15 @@ pub fn store_total_value_locked_usd(
 //         match event.r#type.unwrap() {
 //             BurnEvent(burn) => {
 //                 log::debug!("burn event transaction_id: {}", event.transaction_id);
-//                 let lower_tick_id = format!(
-//                     "{}#{}",
-//                     &event.pool_address,
-//                     burn.tick_lower.as_ref().unwrap().value
-//                 );
 //                 let lower_tick_idx: BigInt = burn.tick_lower.unwrap().into();
-//                 let lower_tick_price0 = math::big_decimal_exponated(
-//                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
-//                     lower_tick_idx.clone(),
-//                 );
-//                 let lower_tick_price1 =
-//                     math::safe_div(&BigDecimal::from(1 as i32), &lower_tick_price0);
 //
-//                 //todo: implement the fee_growth_outside_x128_call mimicked from the smart contract
-//                 // to reduce the number of rpc calls to do
-//                 let lower_tick_result =
-//                     rpc::fee_growth_outside_x128_call(&event.pool_address, &lower_tick_idx);
-//
-//                 let tick_lower = events::TickCreated {
-//                     pool_address: event.pool_address.to_string(),
-//                     idx: Some(lower_tick_idx.into()),
-//                     price0: Some(lower_tick_price0.into()),
-//                     price1: Some(lower_tick_price1.into()),
-//                     created_at_timestamp: event.timestamp,
-//                     created_at_block_number: event.created_at_block_number,
-//                     log_ordinal: event.log_ordinal,
-//                     amount: burn.amount.clone(),
-//                     r#type: TickType::Lower as i32,
-//                     origin: TickOrigin::Burn as i32,
-//                 };
-//
-//                 let upper_tick_id: String = format!(
-//                     "{}#{}",
-//                     &event.pool_address,
-//                     burn.tick_upper.as_ref().unwrap().value
-//                 );
 //                 let upper_tick_idx: BigInt = burn.tick_upper.unwrap().into();
-//                 let upper_tick_price0 = math::big_decimal_exponated(
-//                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
-//                     upper_tick_idx.clone(),
-//                 );
-//                 let upper_upper_price1 =
-//                     math::safe_div(&BigDecimal::from(1 as i32), &upper_tick_price0);
 //
 //                 let upper_tick_result =
 //                     rpc::fee_growth_outside_x128_call(&event.pool_address, &upper_tick_idx);
-//
-//                 let tick_upper = events::TickCreated {
-//                     pool_address: event.pool_address.to_string(),
-//                     idx: Some(upper_tick_idx.into()),
-//                     price0: Some(upper_tick_price0.into()),
-//                     price1: Some(upper_upper_price1.into()),
-//                     created_at_timestamp: event.timestamp,
-//                     created_at_block_number: event.created_at_block_number,
-//                     log_ordinal: event.log_ordinal,
-//                     amount: burn.amount,
-//                     r#type: TickType::Upper as i32,
-//                     origin: TickOrigin::Burn as i32,
-//                 };
-//
-//                 out.push(tick_lower);
-//                 out.push(tick_upper);
 //             }
 //             MintEvent(mint) => {
 //                 log::debug!("mint event transaction_id: {}", event.transaction_id);
-//                 let lower_tick_id: String = format!(
-//                     "{}#{}",
-//                     &event.pool_address,
-//                     mint.tick_lower.as_ref().unwrap().value
-//                 );
 //                 let lower_tick_idx: BigInt = mint.tick_lower.unwrap().into();
 //                 let lower_tick_price0 = math::big_decimal_exponated(
 //                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
@@ -1245,15 +1186,8 @@ pub fn store_total_value_locked_usd(
 //                     created_at_block_number: event.created_at_block_number,
 //                     log_ordinal: event.log_ordinal,
 //                     amount: mint.amount.clone(),
-//                     r#type: TickType::Lower as i32,
-//                     origin: TickOrigin::Mint as i32,
 //                 };
 //
-//                 let upper_tick_id: String = format!(
-//                     "{}#{}",
-//                     &event.pool_address,
-//                     mint.tick_upper.as_ref().unwrap().value
-//                 );
 //                 let upper_tick_idx: BigInt = mint.tick_upper.unwrap().into();
 //                 let upper_tick_price0 = math::big_decimal_exponated(
 //                     BigDecimal::try_from(1.0001).unwrap().with_prec(100),
@@ -1274,8 +1208,6 @@ pub fn store_total_value_locked_usd(
 //                     created_at_block_number: event.created_at_block_number,
 //                     log_ordinal: event.log_ordinal,
 //                     amount: mint.amount,
-//                     r#type: TickType::Upper as i32,
-//                     origin: TickOrigin::Mint as i32,
 //                 };
 //
 //                 out.push(tick_lower);

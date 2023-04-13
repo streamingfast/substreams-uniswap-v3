@@ -89,31 +89,16 @@ message Events {
     BigDecimal price1 = 5;
     uint64 created_at_timestamp = 6;
     uint64 created_at_block_number = 7;
-
-    // internals
     uint64 log_ordinal = 10;
     BigInt amount = 11;
-    Origin origin = 12;
-    Type type = 13;
-
-    enum Type {
-      TYPE_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
-      LOWER = 1;
-      UPPER = 2;
-    };
-    enum Origin {
-      ORIGIN_UNSET = 0; // Protobuf default should not be used, this is used so that the consume can ensure that the value was actually specified
-      MINT = 1;
-      BURN = 2;
-    };
   }
 
   message TickUpdated {
-    string pool_address = 2;
-    BigInt idx = 3;
+    string pool_address = 1;
+    BigInt idx = 2;
 
-    BigInt fee_growth_outside_0X_128 = 8;
-    BigInt fee_growth_outside_1X_128 = 9;
+    BigInt fee_growth_outside_0X_128 = 3;
+    BigInt fee_growth_outside_1X_128 = 4;
   }
 
   message PoolSqrtPrice {
