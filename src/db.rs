@@ -1415,7 +1415,7 @@ pub fn pool_hour_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<
             .unwrap();
 
         log::info!("hour_id {}", hour_id);
-        let hours_start_unix = hour_id * 3600;
+        let hours_start_unix = (hour_id * 3600) as i32;
         let pool_addr = delta.key.as_str().split(":").nth(1).unwrap();
 
         let pool_hour_data_id =
@@ -1634,14 +1634,14 @@ fn pool_hour_data_id(pool_addr: &str, hour_id: &str) -> String {
 fn create_pool_hour_data(
     tables: &mut Tables,
     pool_day_data_id: &String,
-    hours_start_unix: i64,
+    hours_start_unix: i32,
     pool_addr: &str,
     delta: &DeltaBigInt,
 ) {
     tables
         .update_row(POOL_HOUR_DATA, pool_day_data_id)
         .set("id", pool_day_data_id)
-        .set("periodStartUnix", hours_start_unix.to_string())
+        .set("periodStartUnix", hours_start_unix)
         .set("pool", pool_addr.to_string())
         .set("liquidity", BigInt::zero())
         .set("sqrtPrice", BigInt::zero())
@@ -1665,7 +1665,7 @@ fn create_pool_hour_data(
 // --------------------
 //  Map Token Day Data Entities
 // --------------------
-pub fn token_hour_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaInt64>) {
+pub fn token_day_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaInt64>) {
     for delta in deltas.deltas.iter() {
         if !delta.key.starts_with(TOKEN_DAY_DATA) {
             continue;
@@ -1791,8 +1791,8 @@ pub fn token_prices_token_day_data_entity_change(
     }
 }
 
-fn token_day_data_id(token_addr: &str, hour_id: &str) -> String {
-    format!("{}-{}", token_addr, hour_id)
+fn token_day_data_id(token_addr: &str, day_id: &str) -> String {
+    format!("{}-{}", token_addr, day_id)
 }
 
 fn create_token_day_data(
@@ -1805,6 +1805,163 @@ fn create_token_day_data(
         .update_row(TOKEN_DAY_DATA, token_day_data_id)
         .set("id", token_day_data_id)
         .set("date", day_start_timestamp)
+        .set("token", token_addr.to_string())
+        .set("volume", BigDecimal::zero())
+        .set("volumeUSD", BigDecimal::zero())
+        .set("volumeUSDUntracked", BigDecimal::zero()) // TODO: NEED TO SET THIS VALUE IN THE SUBSTREAMS
+        .set("totalValueLocked", BigDecimal::zero())
+        .set("totalValueLockedUSD", BigDecimal::zero())
+        .set("priceUSD", BigDecimal::zero())
+        .set("feesUSD", BigDecimal::zero())
+        .set("open", BigDecimal::zero())
+        .set("high", BigDecimal::zero())
+        .set("low", BigDecimal::zero())
+        .set("close", BigDecimal::zero());
+}
+
+// --------------------
+//  Map Token Hour Data Entities
+// --------------------
+pub fn token_hour_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaInt64>) {
+    for delta in deltas.deltas.iter() {
+        if !delta.key.starts_with(TOKEN_HOUR_DATA) {
+            continue;
+        }
+
+        if !delta.new_value.eq(&(1 as i64)) {
+            return;
+        }
+
+        let day_id: i64 = delta
+            .key
+            .as_str()
+            .split(":")
+            .last()
+            .unwrap()
+            .parse::<i64>()
+            .unwrap();
+        let day_start_timestamp = (day_id * 3600) as i32;
+        let token_addr = delta.key.as_str().split(":").nth(1).unwrap();
+
+        let token_day_data_id =
+            token_hour_data_id(token_addr, day_id.to_string().as_str()).to_string();
+
+        create_token_hour_data(tables, &token_day_data_id, day_start_timestamp, token_addr);
+    }
+}
+
+pub fn swap_volume_token_hour_data_entity_change(
+    tables: &mut Tables,
+    deltas: &Deltas<DeltaBigDecimal>,
+) {
+    for delta in deltas.deltas.iter() {
+        if !delta.key.starts_with(TOKEN_HOUR_DATA) {
+            continue;
+        }
+
+        let hour_id = delta.key.as_str().split(":").nth(2).unwrap();
+        let token_addr = delta.key.as_str().split(":").nth(1).unwrap();
+
+        //TODO: need to add the :volume key
+        let name = match delta.key.as_str().split(":").last().unwrap() {
+            "volumeToken0" => "volumeToken0", // TODO: validate data
+            "volumeToken1" => "volumeToken1", // TODO: validate data
+            "volumeUSD" => "volumeUSD",       // TODO: validate data
+            "feesUSD" => "feesUSD",           // TODO: validate data
+            _ => continue,
+        };
+
+        if delta.operation == store_delta::Operation::Delete {
+            tables.delete_row(TOKEN_HOUR_DATA, hour_id).mark_final();
+            return;
+        }
+
+        tables
+            .update_row(
+                TOKEN_HOUR_DATA,
+                token_hour_data_id(token_addr, hour_id).as_str(),
+            )
+            .set(name, delta);
+    }
+}
+
+pub fn total_value_locked_usd_token_hour_data_entity_change(
+    tables: &mut Tables,
+    deltas: &Deltas<DeltaBigDecimal>,
+) {
+    for delta in deltas.deltas.iter() {
+        if !delta.key.starts_with(TOKEN_HOUR_DATA) {
+            continue;
+        }
+
+        let hour_id = delta.key.as_str().split(":").last().unwrap();
+        let token_address = delta.key.as_str().split(":").nth(1).unwrap();
+
+        tables
+            .update_row(
+                TOKEN_HOUR_DATA,
+                pool_hour_data_id(token_address, hour_id).as_str(),
+            )
+            .set("totalValueLockedUSD", delta);
+    }
+}
+
+pub fn total_value_locked_token_hour_data_entity_change(
+    tables: &mut Tables,
+    deltas: &Deltas<DeltaBigDecimal>,
+) {
+    for delta in deltas.deltas.iter() {
+        if !delta.key.starts_with(TOKEN_HOUR_DATA) {
+            continue;
+        }
+
+        let hour_id = delta.key.as_str().split(":").last().unwrap();
+        let token_address = delta.key.as_str().split(":").nth(1).unwrap();
+
+        tables
+            .update_row(
+                TOKEN_HOUR_DATA,
+                pool_hour_data_id(token_address, hour_id).as_str(),
+            )
+            .set("totalValueLocked", delta);
+    }
+}
+
+pub fn token_prices_token_hour_data_entity_change(
+    tables: &mut Tables,
+    deltas: &Deltas<DeltaBigDecimal>,
+) {
+    for delta in deltas.deltas.iter() {
+        if !delta.key.starts_with(TOKEN_HOUR_DATA) {
+            continue;
+        }
+
+        let hour_id = delta.key.as_str().split(":").last().unwrap();
+        let token_address = delta.key.as_str().split(":").nth(1).unwrap();
+
+        tables
+            .update_row(
+                TOKEN_HOUR_DATA,
+                pool_hour_data_id(token_address, hour_id).as_str(),
+            )
+            .set("tokenPrice", delta);
+    }
+}
+
+fn token_hour_data_id(token_addr: &str, hour_id: &str) -> String {
+    format!("{}-{}", token_addr, hour_id)
+}
+
+fn create_token_hour_data(
+    tables: &mut Tables,
+    token_hour_data_id: &String,
+    hours_start_unix: i32,
+    token_addr: &str,
+) {
+    tables
+        .update_row(TOKEN_HOUR_DATA, token_hour_data_id)
+        .set("id", token_hour_data_id)
+        .set("periodStartUnix", hours_start_unix)
         .set("token", token_addr.to_string())
         .set("volume", BigDecimal::zero())
         .set("volumeUSD", BigDecimal::zero())

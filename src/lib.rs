@@ -139,6 +139,8 @@ pub fn store_tokens(clock: Clock, pools: Pools, store: StoreAddInt64) {
                 keyer::token_key(&pool.token1_ref().address()),
                 keyer::token_day_data_token_key(&pool.token0_ref().address(), day_id.to_string()),
                 keyer::token_day_data_token_key(&pool.token1_ref().address(), day_id.to_string()),
+                keyer::token_hour_data_token_key(&pool.token0_ref().address(), hour_id.to_string()),
+                keyer::token_hour_data_token_key(&pool.token1_ref().address(), hour_id.to_string()),
             ],
             1,
         );
@@ -347,6 +349,7 @@ pub fn store_prices(
     store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
     store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
     store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
+    store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
 
     for sqrt_price_update in events.pool_sqrt_prices {
         match pools_store.get_last(keyer::pool_key(&sqrt_price_update.pool_address)) {
@@ -394,10 +397,15 @@ pub fn store_prices(
                             "token0".to_string(),
                             hour_id.to_string(),
                         ),
+                        // TODO: validate this data
                         keyer::token_day_data_token_price(
                             &pool.token0.as_ref().unwrap().address,
                             day_id.to_string(),
-                        ), // TODO: validate this data
+                        ),
+                        keyer::token_hour_data_token_price(
+                            &pool.token0.as_ref().unwrap().address,
+                            hour_id.to_string(),
+                        ),
                     ],
                     &tokens_price.0,
                 );
@@ -424,10 +432,15 @@ pub fn store_prices(
                             "token1".to_string(),
                             hour_id.to_string(),
                         ),
+                        // TODO: validate this data
                         keyer::token_day_data_token_price(
                             &pool.token1.as_ref().unwrap().address,
                             day_id.to_string(),
-                        ), // TODO: validate this data
+                        ),
+                        keyer::token_hour_data_token_price(
+                            &pool.token1.as_ref().unwrap().address,
+                            hour_id.to_string(),
+                        ),
                     ],
                     &tokens_price.1,
                 );
@@ -474,6 +487,7 @@ pub fn store_totals(
     store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
     store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
     store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
+    store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
 
     let mut pool_total_value_locked_eth_new_value: BigDecimal = BigDecimal::zero();
     for delta in total_value_locked_deltas.deltas {
@@ -558,6 +572,10 @@ pub fn store_totals(
                             &token_address,
                             day_id.to_string(),
                         ),
+                        keyer::token_hour_data_total_value_locked_usd(
+                            &token_address,
+                            day_id.to_string(),
+                        ),
                     ],
                     &diff,
                 );
@@ -614,6 +632,7 @@ pub fn store_swaps_volume(
     output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
     output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
     output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
 
     for event in events.pool_events {
         let pool: Pool = match store_pool.get_last(keyer::pool_key(&event.pool_address)) {
@@ -713,6 +732,10 @@ pub fn store_swaps_volume(
                                 &event.token1,
                                 "volumeToken0".to_string(),
                             ),
+                            keyer::swap_token_hour_data_volume_token(
+                                &event.token0,
+                                hour_id.to_string(),
+                            ),
                         ],
                         &amount0_abs,
                     );
@@ -736,6 +759,10 @@ pub fn store_swaps_volume(
                                 hour_id.to_string(),
                                 &event.token1,
                                 "volumeToken1".to_string(),
+                            ),
+                            keyer::swap_token_hour_data_volume_token(
+                                &event.token1,
+                                hour_id.to_string(),
                             ),
                         ],
                         &amount1_abs,
@@ -762,6 +789,14 @@ pub fn store_swaps_volume(
                             ),
                             keyer::swap_pool_hour_data_volume_usd(
                                 &event.pool_address,
+                                hour_id.to_string(),
+                            ),
+                            keyer::swap_token_hour_data_volume_usd(
+                                &event.token0,
+                                hour_id.to_string(),
+                            ),
+                            keyer::swap_token_hour_data_volume_usd(
+                                &event.token1,
                                 hour_id.to_string(),
                             ),
                         ],
@@ -999,9 +1034,10 @@ pub fn store_total_value_locked_by_tokens(
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
-    // let hour_id: i64 = timestamp_seconds / 3600;
+    let hour_id: i64 = timestamp_seconds / 3600;
 
     output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
 
     for event in events.pool_events {
         log::debug!("trx_id: {}", event.transaction_id);
@@ -1035,6 +1071,7 @@ pub fn store_total_value_locked_by_tokens(
                 ),
                 keyer::token_total_value_locked(&event.token0),
                 keyer::token_day_data_total_value_locked(&event.token0, day_id.to_string()),
+                keyer::token_hour_data_total_value_locked(&event.token0, hour_id.to_string()),
             ],
             &amount0,
         );
@@ -1049,6 +1086,7 @@ pub fn store_total_value_locked_by_tokens(
                 ),
                 keyer::token_total_value_locked(&event.token1),
                 keyer::token_day_data_total_value_locked(&event.token1, day_id.to_string()),
+                keyer::token_hour_data_total_value_locked(&event.token1, hour_id.to_string()),
             ],
             &amount1,
         );
@@ -1856,7 +1894,7 @@ pub fn graph_out(
     db::total_value_locked_usd_pool_hour_data_entity_change(&mut tables, &totals_deltas);
 
     // Token Day data:
-    db::token_hour_data_create_entity_change(&mut tables, &token_store_deltas);
+    db::token_day_data_create_entity_change(&mut tables, &token_store_deltas);
     db::swap_volume_token_day_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_day_data_entity_change(&mut tables, &totals_deltas);
     db::total_value_locked_token_day_data_entity_change(
@@ -1866,22 +1904,14 @@ pub fn graph_out(
     db::token_prices_token_day_data_entity_change(&mut tables, &price_deltas);
 
     // Token Hour data:
-
-    Ok(tables.to_entity_changes())
-}
-
-#[substreams::handlers::map]
-pub fn map_token_hour_data_entities(
-    token_store_deltas: Deltas<DeltaInt64>, /* store_tokens */
-    swaps_volume_deltas: Deltas<DeltaBigDecimal>, /* store_swaps_volume */
-    totals_deltas: Deltas<DeltaBigDecimal>, /* store_totals */
-    total_value_locked_by_tokens_deltas: Deltas<DeltaBigDecimal>, /* store_total_value_locked_by_tokens */
-    pool_liquidities_store_deltas: Deltas<DeltaBigInt>,           /* store_pool_liquidities */
-    pool_sqrt_price_deltas: Deltas<DeltaProto<PoolSqrtPrice>>,    /* store_pool_sqrt_price */
-    price_deltas: Deltas<DeltaBigDecimal>,                        /* store_prices */
-    pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
-) -> Result<EntityChanges, Error> {
-    let mut tables = Tables::new();
+    db::token_hour_data_create_entity_change(&mut tables, &token_store_deltas);
+    db::swap_volume_token_hour_data_entity_change(&mut tables, &swaps_volume_deltas);
+    db::total_value_locked_usd_token_hour_data_entity_change(&mut tables, &totals_deltas);
+    db::total_value_locked_token_hour_data_entity_change(
+        &mut tables,
+        &total_value_locked_by_tokens_deltas,
+    );
+    db::token_prices_token_hour_data_entity_change(&mut tables, &price_deltas);
 
     Ok(tables.to_entity_changes())
 }
