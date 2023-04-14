@@ -836,6 +836,14 @@ pub fn store_swaps_volume(
                                 &event.pool_address,
                                 hour_id.to_string(),
                             ),
+                            keyer::swap_token_hour_data_fees_usd(
+                                &event.token0,
+                                hour_id.to_string(),
+                            ),
+                            keyer::swap_token_hour_data_fees_usd(
+                                &event.token1,
+                                hour_id.to_string(),
+                            ),
                         ],
                         &fee_usd,
                     );

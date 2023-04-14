@@ -428,6 +428,10 @@ pub fn swap_token_day_data_fees_usd(token_addr: &String, day_id: String) -> Stri
     format!("{}:{}:{}:feesUSD", TOKEN_DAY_DATA, token_addr, day_id)
 }
 
+pub fn swap_token_hour_data_fees_usd(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}:feesUSD", TOKEN_HOUR_DATA, token_addr, hour_id)
+}
+
 pub fn swap_pool_hour_data_fees_usd(pool_addr: &String, hour_id: String) -> String {
     format!("{}:{}:{}:feesUSD", POOL_HOUR_DATA, pool_addr, hour_id)
 }
