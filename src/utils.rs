@@ -204,6 +204,17 @@ pub fn get_tracked_amount_usd(
     return BigDecimal::from(0 as i32);
 }
 
+pub struct AdjustedAmounts {
+    eth: BigDecimal,
+    usd: BigDecimal,
+    eth_untracked: BigDecimal,
+    usd_untracked: BigDecimal,
+}
+
+pub fn _get_adjusted_amounts() -> AdjustedAmounts {
+    todo!("implement me")
+}
+
 pub fn load_transaction(
     block_number: u64,
     timestamp: u64,
