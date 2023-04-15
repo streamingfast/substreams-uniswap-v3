@@ -813,9 +813,12 @@ pub fn store_swaps_volume(
                         ],
                         &amount_total_usd_untracked,
                     );
-                    output.add(
+                    output.add_many(
                         event.log_ordinal,
-                        keyer::swap_factory_total_volume_eth(),
+                        &vec![
+                            keyer::swap_factory_total_volume_eth(),
+                            keyer::swap_uniswap_day_data_volume_eth(day_id.to_string()),
+                        ],
                         &amount_total_eth_tracked.clone(),
                     );
                     output.add_many(

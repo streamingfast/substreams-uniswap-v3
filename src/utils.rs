@@ -1,13 +1,15 @@
 use crate::ethpb::v2::TransactionTrace;
 use crate::pb::uniswap::events;
 use crate::pb::PositionEvent;
+use crate::tables::Tables;
 use crate::uniswap::events::position::PositionType;
 use crate::uniswap::events::Transaction;
 use crate::uniswap::BigInt as PbBigInt;
 use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
+use std::fmt::Display;
 use std::ops::{Add, Mul};
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{StoreGet, StoreGetProto};
+use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
@@ -319,4 +321,40 @@ pub fn extract_pool_liquidity(
         }
     }
     None
+}
+
+pub fn pool_time_data_id<T: AsRef<str> + Display>(pool_address: T, time_id: T) -> String {
+    format!("{}-{}", pool_address, time_id)
+}
+
+pub fn token_time_data_id<T: AsRef<str> + Display>(token_address: T, time_id: T) -> String {
+    format!("{}-{}", token_address, time_id)
+}
+
+pub fn extract_last_item_time_id_as_i64(delta_key: &String) -> i64 {
+    return delta_key
+        .as_str()
+        .split(":")
+        .last()
+        .unwrap()
+        .parse::<i64>()
+        .unwrap();
+}
+
+pub fn extract_at_position_time_id_as_i64(delta_key: &String, position: usize) -> i64 {
+    return delta_key
+        .as_str()
+        .split(":")
+        .nth(position)
+        .unwrap()
+        .parse::<i64>()
+        .unwrap();
+}
+
+pub fn extract_at_position_pool_address_as_str(delta_key: &String, position: usize) -> &str {
+    return delta_key.as_str().split(":").nth(position).unwrap();
+}
+
+pub fn extract_at_position_token_address_as_str(delta_key: &String, position: usize) -> &str {
+    return delta_key.as_str().split(":").nth(position).unwrap();
 }
