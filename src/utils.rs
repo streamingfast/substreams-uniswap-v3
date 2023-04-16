@@ -1,5 +1,6 @@
 use crate::ethpb::v2::TransactionTrace;
 use crate::pb::uniswap::events;
+use crate::pb::uniswap::events::PoolSqrtPrice;
 use crate::pb::PositionEvent;
 use crate::tables::Tables;
 use crate::uniswap::events::position::PositionType;
@@ -8,6 +9,8 @@ use crate::uniswap::BigInt as PbBigInt;
 use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
 use std::fmt::Display;
 use std::ops::{Add, Mul};
+use std::str::FromStr;
+use substreams::prelude::DeltaProto;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
@@ -357,4 +360,63 @@ pub fn extract_at_position_pool_address_as_str(delta_key: &String, position: usi
 
 pub fn extract_at_position_token_address_as_str(delta_key: &String, position: usize) -> &str {
     return delta_key.as_str().split(":").nth(position).unwrap();
+}
+
+pub fn extract_swap_volume_pool_entity_change_name(delta_key: &String) -> Option<&str> {
+    return match delta_key.as_str().split(":").last().unwrap() {
+        "volumeToken0" => Some("volumeToken0"), // TODO: validate data
+        "volumeToken1" => Some("volumeToken1"), // TODO: validate data
+        "volumeUSD" => Some("volumeUSD"),       // TODO: validate data
+        "feesUSD" => Some("feesUSD"),           // TODO: validate data
+        _ => None,
+    };
+}
+
+pub fn extract_swap_volume_token_entity_change_name(delta_key: &String) -> Option<&str> {
+    return match delta_key.as_str().split(":").last().unwrap() {
+        //TODO: need to add the :volume key
+        "volumeToken0" => Some("volumeToken0"), // TODO: validate data
+        "volumeToken1" => Some("volumeToken1"), // TODO: validate data
+        "volumeUSD" => Some("volumeUSD"),       // TODO: validate data
+        "feesUSD" => Some("feesUSD"),           // TODO: validate data
+        _ => None,
+    };
+}
+
+pub fn update_tx_count_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigInt,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            pool_time_data_id(pool_address, &time_id).as_str(),
+        )
+        .set("txCount", delta);
+}
+
+pub fn update_sqrt_price_and_tick_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaProto<PoolSqrtPrice>,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    let sqrt_price: BigInt =
+        BigInt::from_str(delta.new_value.sqrt_price.as_ref().unwrap().value.as_str()).unwrap();
+    let tick: BigInt =
+        BigInt::from_str(delta.new_value.tick.as_ref().unwrap().value.as_str()).unwrap();
+
+    tables
+        .update_row(
+            table_name,
+            pool_time_data_id(pool_address, &time_id).as_str(),
+        )
+        .set("sqrtPrice", sqrt_price)
+        .set("tick", tick);
 }

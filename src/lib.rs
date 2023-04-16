@@ -1870,6 +1870,7 @@ pub fn graph_out(
     );
 
     // Flashes:
+    // TODO: implement flashes entity change - UNISWAP has not done this part
     db::flashes_update_pool_fee_entity_change(&mut tables, events.flashes);
 
     // Uniswap day data:
