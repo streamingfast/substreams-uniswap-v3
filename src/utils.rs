@@ -10,7 +10,7 @@ use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKE
 use std::fmt::Display;
 use std::ops::{Add, Mul};
 use std::str::FromStr;
-use substreams::prelude::DeltaProto;
+use substreams::prelude::{DeltaBigDecimal, DeltaProto};
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
@@ -397,6 +397,60 @@ pub fn update_tx_count_pool_entity_change(
             pool_time_data_id(pool_address, &time_id).as_str(),
         )
         .set("txCount", delta);
+}
+
+pub fn update_liquidities_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigInt,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            pool_time_data_id(pool_address, &time_id).as_str(),
+        )
+        .set("liquidity", delta);
+}
+
+pub fn update_fee_growth_global_x128_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigInt,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    if let Some(name) = match delta.key.as_str().split(":").nth(2).unwrap() {
+        "token0" => Some("feeGrowthGlobal0X128"),
+        "token1" => Some("feeGrowthGlobal1X128"),
+        _ => None,
+    } {
+        tables
+            .update_row(
+                table_name,
+                pool_time_data_id(pool_address, &time_id).as_str(),
+            )
+            .set(name, delta);
+    }
+}
+
+pub fn update_total_value_locked_usd_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigDecimal,
+) {
+    let time_it = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            pool_time_data_id(pool_address, &time_it).as_str(),
+        )
+        .set("totalValueLockedUSD", delta);
 }
 
 pub fn update_sqrt_price_and_tick_pool_entity_change(
