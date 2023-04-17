@@ -383,6 +383,9 @@ pub fn extract_swap_volume_token_entity_change_name(delta_key: &String) -> Optio
     };
 }
 
+// ---------------------------------
+// Pool Day/Hour Data Entity Change
+// ---------------------------------
 pub fn update_tx_count_pool_entity_change(
     tables: &mut Tables,
     table_name: &str,
@@ -473,4 +476,55 @@ pub fn update_sqrt_price_and_tick_pool_entity_change(
         )
         .set("sqrtPrice", sqrt_price)
         .set("tick", tick);
+}
+
+// ---------------------------------
+// Token Day/Hour Data Entity Change
+// ---------------------------------
+pub fn update_total_value_locked_usd_token_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigDecimal,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            token_time_data_id(token_address, &time_id).as_str(),
+        )
+        .set("totalValueLockedUSD", delta);
+}
+
+pub fn update_total_value_locked_token_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigDecimal,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            token_time_data_id(token_address, &time_id).as_str(),
+        )
+        .set("totalValueLocked", delta);
+}
+
+pub fn update_token_prices_token_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigDecimal,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            token_time_data_id(token_address, &time_id).as_str(),
+        )
+        .set("tokenPrice", delta);
 }

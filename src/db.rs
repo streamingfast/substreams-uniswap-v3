@@ -1576,15 +1576,8 @@ pub fn total_value_locked_usd_token_day_data_entity_change(
         if !delta.key.starts_with(TOKEN_DAY_DATA) {
             continue;
         }
-        let day_id = utils::extract_last_item_time_id_as_i64(&delta.key).to_string();
-        let token_address = utils::extract_at_position_token_address_as_str(&delta.key, 1);
 
-        tables
-            .update_row(
-                TOKEN_DAY_DATA,
-                utils::token_time_data_id(token_address, &day_id).as_str(),
-            )
-            .set("totalValueLockedUSD", delta);
+        utils::update_total_value_locked_usd_token_entity_change(tables, TOKEN_DAY_DATA, delta);
     }
 }
 
@@ -1597,15 +1590,7 @@ pub fn total_value_locked_token_day_data_entity_change(
             continue;
         }
 
-        let day_id = utils::extract_last_item_time_id_as_i64(&delta.key).to_string();
-        let token_address = utils::extract_at_position_token_address_as_str(&delta.key, 1);
-
-        tables
-            .update_row(
-                TOKEN_DAY_DATA,
-                utils::token_time_data_id(token_address, &day_id).as_str(),
-            )
-            .set("totalValueLocked", delta);
+        utils::update_total_value_locked_token_entity_change(tables, TOKEN_DAY_DATA, delta);
     }
 }
 
@@ -1618,15 +1603,7 @@ pub fn token_prices_token_day_data_entity_change(
             continue;
         }
 
-        let day_id = utils::extract_last_item_time_id_as_i64(&delta.key).to_string();
-        let token_address = utils::extract_at_position_token_address_as_str(&delta.key, 1);
-
-        tables
-            .update_row(
-                TOKEN_DAY_DATA,
-                utils::token_time_data_id(token_address, &day_id).as_str(),
-            )
-            .set("tokenPrice", delta);
+        utils::update_token_prices_token_entity_change(tables, TOKEN_DAY_DATA, delta);
     }
 }
 
@@ -1720,15 +1697,7 @@ pub fn total_value_locked_usd_token_hour_data_entity_change(
             continue;
         }
 
-        let hour_id = utils::extract_last_item_time_id_as_i64(&delta.key).to_string();
-        let token_address = utils::extract_at_position_token_address_as_str(&delta.key, 1);
-
-        tables
-            .update_row(
-                TOKEN_HOUR_DATA,
-                utils::token_time_data_id(token_address, &hour_id).as_str(),
-            )
-            .set("totalValueLockedUSD", delta);
+        utils::update_total_value_locked_usd_token_entity_change(tables, TOKEN_HOUR_DATA, delta);
     }
 }
 
@@ -1741,15 +1710,7 @@ pub fn total_value_locked_token_hour_data_entity_change(
             continue;
         }
 
-        let hour_id = utils::extract_last_item_time_id_as_i64(&delta.key).to_string();
-        let token_address = utils::extract_at_position_token_address_as_str(&delta.key, 1);
-
-        tables
-            .update_row(
-                TOKEN_HOUR_DATA,
-                utils::token_time_data_id(token_address, &hour_id).as_str(),
-            )
-            .set("totalValueLocked", delta);
+        utils::update_total_value_locked_token_entity_change(tables, TOKEN_HOUR_DATA, delta);
     }
 }
 
@@ -1762,15 +1723,7 @@ pub fn token_prices_token_hour_data_entity_change(
             continue;
         }
 
-        let hour_id = utils::extract_last_item_time_id_as_i64(&delta.key).to_string();
-        let token_address = utils::extract_at_position_token_address_as_str(&delta.key, 1);
-
-        tables
-            .update_row(
-                TOKEN_HOUR_DATA,
-                utils::token_time_data_id(token_address, &hour_id).as_str(),
-            )
-            .set("tokenPrice", delta);
+        utils::update_token_prices_token_entity_change(tables, TOKEN_HOUR_DATA, delta);
     }
 }
 
