@@ -14,9 +14,9 @@ impl Tables {
         Tables { tables: HashMap::new() }
     }
 
-    pub fn create_row(&mut self, table: &str, key: &str) -> &mut Row {
+    pub fn create_row<K: AsRef<str>>(&mut self, table: &str, key: K) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
-        let row = rows.pks.entry(key.to_string()).or_insert(Row::new());
+        let row = rows.pks.entry(key.as_ref().to_string()).or_insert(Row::new());
         match row.operation {
             Operation::Unset => {
                 row.operation = Operation::Create;
@@ -33,9 +33,9 @@ impl Tables {
         row
     }
 
-    pub fn update_row(&mut self, table: &str, key: &str) -> &mut Row {
+    pub fn update_row<K: AsRef<str>>(&mut self, table: &str, key: K) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
-        let row = rows.pks.entry(key.to_string()).or_insert(Row::new());
+        let row = rows.pks.entry(key.as_ref().to_string()).or_insert(Row::new());
         match row.operation {
             Operation::Unset => {
                 row.operation = Operation::Update;
@@ -50,9 +50,9 @@ impl Tables {
         row
     }
 
-    pub fn delete_row(&mut self, table: &str, key: &str) -> &mut Row {
+    pub fn delete_row<K: AsRef<str>>(&mut self, table: &str, key: K) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
-        let row = rows.pks.entry(key.to_string()).or_insert(Row::new());
+        let row = rows.pks.entry(key.as_ref().to_string()).or_insert(Row::new());
         match row.operation {
             Operation::Unset => {
                 row.operation = Operation::Delete;

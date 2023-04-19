@@ -280,33 +280,10 @@ pub fn pool_hour_data_liquidity(pool_address: &String, hour_id: String) -> Strin
 }
 
 // ------------------------------------------------
-//      store_token_tvl
-// ------------------------------------------------
-pub fn pool_total_value_locked_by_token(pool_address: &String, token_address: &String, token: String) -> String {
-    format!("pool:{}:{}:{}", pool_address, token_address, token)
-}
-
-pub fn token_total_value_locked(token_address: &String) -> String {
-    format!("token:{}", token_address)
-}
-
-pub fn token_day_data_total_value_locked(token_address: &String, day_id: String) -> String {
-    format!("{}:{}:{}", TOKEN_DAY_DATA, token_address, day_id)
-}
-
-pub fn token_hour_data_total_value_locked(token_address: &String, hour_id: String) -> String {
-    format!("{}:{}:{}", TOKEN_HOUR_DATA, token_address, hour_id)
-}
-
-// ------------------------------------------------
 //      store_derived_eth_prices
 // ------------------------------------------------
 pub fn token_eth_price(token_address: &String) -> String {
     format!("token:{}:dprice:eth", token_address)
-}
-
-pub fn bundle_eth_price() -> String {
-    format!("bundle")
 }
 
 // ------------------------------------------------
