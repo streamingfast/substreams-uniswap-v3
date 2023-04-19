@@ -1,8 +1,4 @@
-use std::fmt::format;
 use std::ops::Add;
-use std::str::FromStr;
-use std::string::ToString;
-use substreams::hex;
 use substreams::scalar::BigInt;
 use substreams_ethereum::pb::eth::v2::StorageChange;
 use tiny_keccak::{Hasher, Keccak};

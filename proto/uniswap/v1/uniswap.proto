@@ -2,14 +2,6 @@ syntax = "proto3";
 
 package uniswap.types.v1;
 
-message BigInt {
-  string value = 1;
-}
-
-message BigDecimal {
-  string value = 1;
-}
-
 message ERC20Tokens {
   repeated ERC20Token tokens = 1;
 }
@@ -25,7 +17,8 @@ message ERC20Token {
 
 message Liquidity {
   string pool_address = 1;
-  BigDecimal value = 2;
+  // Decimal
+  string value = 2;
 }
 
 message Pools {
@@ -38,7 +31,8 @@ message Pool {
   uint64 created_at_block_number = 4;
   ERC20Token token0 = 5;
   ERC20Token token1 = 6;
-  BigInt fee_tier = 7;
+  // Integer
+  string fee_tier = 7;
 
   // internals
   int32 tick_spacing = 30;
@@ -63,15 +57,17 @@ message Events {
   message FeeGrowthGlobal {
     string pool_address = 1;
     uint64 ordinal = 2;
-    uint32 token_idx = 3;
-    BigInt new_value = 4;
+    int32 token_idx = 3;
+    // Integer
+    string new_value = 4;
   }
 
   message FeeGrowthInside {
     string pool_address = 1;
     int32 tick_idx = 2;
     uint64 ordinal = 3;
-    BigInt new_value = 4;
+    // Integer
+    string new_value = 4;
   }
 
   message FeeGrowthOutside {
@@ -79,34 +75,44 @@ message Events {
     int32 tick_lower = 2;
     int32 tick_upper = 3;
     uint64 ordinal = 4;
-    BigInt new_value = 5;
+    // Integer
+    string new_value = 5;
   }
 
   message TickCreated {
     string pool_address = 1;
-    BigInt idx = 2;
+    // Integer
+    string idx = 2;
     uint64 log_ordinal = 3;
     uint64 created_at_timestamp = 4;
     uint64 created_at_block_number = 5;
-    BigDecimal price0 = 6;
-    BigDecimal price1 = 7;
-    BigInt amount = 8;
+    // Decimal
+    string price0 = 6;
+    // Decimal
+    string price1 = 7;
+    // Integer
+    string amount = 8;
   }
 
   message TickUpdated {
     string pool_address = 1;
-    BigInt idx = 2;
+    // Integer
+    string idx = 2;
     uint64 log_ordinal = 3;
 
-    optional BigInt fee_growth_outside_0X_128 = 4;
-    optional BigInt fee_growth_outside_1X_128 = 5;
+    // Integer
+    string fee_growth_outside_0X_128 = 4;
+    // Integer
+    string fee_growth_outside_1X_128 = 5;
   }
 
   message PoolSqrtPrice {
     string pool_address = 1;
     uint64 ordinal = 2;
-    BigInt sqrt_price = 3;
-    BigInt tick = 4;
+    // Integer
+    string sqrt_price = 3;
+    // Integer
+    string tick = 4;
   }
 
   message PoolEvent {
@@ -129,38 +135,54 @@ message Events {
       string sender = 1;
       string recipient = 2;
       string origin = 3;
-      BigDecimal amount_0 = 4;
-      BigDecimal amount_1 = 5;
-      BigInt sqrt_price = 6;
-      BigInt liquidity = 7;
-      BigInt tick = 8;
+      // Decimal
+      string amount_0 = 4;
+      // Decimal
+      string amount_1 = 5;
+      // Integer
+      string sqrt_price = 6;
+      // Integer
+      string liquidity = 7;
+      // Integer
+      string tick = 8;
     }
 
     message Burn {
       string owner = 1;
       string origin = 2;
-      BigInt amount = 3;
-      BigDecimal amount_0 = 4;
-      BigDecimal amount_1 = 5;
-      BigInt tick_lower = 6;
-      BigInt tick_upper = 7;
+      // Integer
+      string amount = 3;
+      // Decimal
+      string amount_0 = 4;
+      // Decimal
+      string amount_1 = 5;
+      // Integer
+      string tick_lower = 6;
+      // Integer
+      string tick_upper = 7;
     }
 
     message Mint {
       string owner = 1;
       string sender = 2;
       string origin = 3;
-      BigDecimal amount_0 = 4;
-      BigDecimal amount_1 = 5;
-      BigInt tick_lower = 6;
-      BigInt tick_upper = 7;
-      BigInt amount = 8;
+      // Decimal
+      string amount_0 = 4;
+      // Decimal
+      string amount_1 = 5;
+      // Integer
+      string tick_lower = 6;
+      // Integer
+      string tick_upper = 7;
+      // Integer
+      string amount = 8;
     }
   }
 
   message PoolLiquidity {
     string pool_address = 1;
-    BigInt liquidity = 2;
+    // Integer
+    string liquidity = 2;
 
     // internals
     uint64 log_ordinal = 30;
@@ -168,8 +190,10 @@ message Events {
 
   message Flash {
     string pool_address = 1;
-    BigInt fee_growth_global_0X_128 = 2;
-    BigInt fee_growth_global_1X_128 = 3;
+    // Integer
+    string fee_growth_global_0X_128 = 2;
+    // Integer
+    string fee_growth_global_1X_128 = 3;
     uint64 log_ordinal = 4;
   }
 
@@ -178,9 +202,8 @@ message Events {
     uint64 block_number = 2;
     uint64 timestamp = 3;
     uint64 gas_used = 4;
-    BigInt gas_price = 5;
-
-    // internals
+    // Integer
+    string gas_price = 5;
     uint64 log_ordinal = 6;
   }
 
@@ -193,11 +216,16 @@ message Events {
     string tick_lower = 6;
     string tick_upper = 7;
     string transaction = 8;
-    BigInt fee_growth_inside_0_last_X_128 = 9;
-    BigInt fee_growth_inside_1_last_X_128 = 10;
-    BigInt liquidity = 11;
-    BigDecimal amount0 = 12;
-    BigDecimal amount1 = 13;
+    // Integer
+    string fee_growth_inside_0_last_X_128 = 9;
+    // Integer
+    string fee_growth_inside_1_last_X_128 = 10;
+    // Integer
+    string liquidity = 11;
+    // Decimal
+    string amount0 = 12;
+    // Decimal
+    string amount1 = 13;
 
     // internals
     enum PositionType {
@@ -226,16 +254,25 @@ message SnapshotPosition {
   uint64 block_number = 3;
   string owner = 4;
   uint64 timestamp = 6;
-  BigDecimal liquidity = 7;
-  BigDecimal deposited_token0 = 8;
-  BigDecimal deposited_token1 = 9;
-  BigDecimal withdrawn_token0 = 10;
-  BigDecimal withdrawn_token1 = 11;
-  BigDecimal collected_fees_token0 = 12;
-  BigDecimal collected_fees_token1 = 13;
+  // Decimal
+  string liquidity = 7;
+  // Decimal
+  string deposited_token0 = 8;
+  // Decimal
+  string deposited_token1 = 9;
+  // Decimal
+  string withdrawn_token0 = 10;
+  // Decimal
+  string withdrawn_token1 = 11;
+  // Decimal
+  string collected_fees_token0 = 12;
+  // Decimal
+  string collected_fees_token1 = 13;
   string transaction = 14;
-  BigInt fee_growth_inside_0_last_X_128 = 15;
-  BigInt fee_growth_inside_1_last_X_128 = 16;
+  // Integer
+  string fee_growth_inside_0_last_X_128 = 15;
+  // Integer
+  string fee_growth_inside_1_last_X_128 = 16;
 
   // internal
   uint64 log_ordinal = 17;

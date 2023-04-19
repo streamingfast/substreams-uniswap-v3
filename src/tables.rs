@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use substreams::pb::substreams::store_delta::Operation::Delete;
-use substreams_entity_change::change::ToField;
+use substreams::scalar::{BigDecimal, BigInt};
 use substreams_entity_change::pb::entity::entity_change::Operation;
-use substreams_entity_change::pb::entity::{EntityChange, EntityChanges, Field, Value};
+use substreams_entity_change::pb::entity::value::Typed;
+use substreams_entity_change::pb::entity::{Array, EntityChange, EntityChanges, Field, Value};
 
 pub struct Tables {
     // Map from table name to the primary keys within that table
@@ -16,19 +16,60 @@ impl Tables {
         }
     }
 
+    pub fn create_row(&mut self, table: &str, key: &str) -> &mut Row {
+        let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
+        let row = rows.pks.entry(key.to_string()).or_insert(Row::new());
+        match row.operation {
+            Operation::Unset => {
+                row.operation = Operation::Create;
+            }
+            Operation::Create => {}
+            Operation::Update => {
+                panic!("cannot create a row that was marked for update")
+            }
+            Operation::Delete => {
+                panic!("cannot create a row after a scheduled delete operation")
+            }
+            Operation::Final => {}
+        }
+        row
+    }
+
     pub fn update_row(&mut self, table: &str, key: &str) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
         let row = rows.pks.entry(key.to_string()).or_insert(Row::new());
-        if row.operation == Operation::Delete {
-            panic!("cannot delete a row on an update operation")
+        match row.operation {
+            Operation::Unset => {
+                row.operation = Operation::Update;
+            }
+            Operation::Create => {}
+            Operation::Update => {}
+            Operation::Delete => {
+                panic!("cannot update a row after a scheduled delete operation")
+            }
+            Operation::Final => {}
         }
-        row.operation = Operation::Update;
         row
     }
 
     pub fn delete_row(&mut self, table: &str, key: &str) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
         let row = rows.pks.entry(key.to_string()).or_insert(Row::new());
+        match row.operation {
+            Operation::Unset => {
+                row.operation = Operation::Delete;
+            }
+            Operation::Create => {
+                // simply clear the thing
+                row.operation = Operation::Unset;
+                row.columns = HashMap::new();
+            }
+            Operation::Update => {}
+            Operation::Delete => {
+                panic!("cannot update a row after a scheduled delete operation")
+            }
+            Operation::Final => {}
+        }
         row.operation = Operation::Delete;
         row.columns = HashMap::new();
         row
@@ -86,17 +127,159 @@ impl Row {
         }
     }
 
-    pub fn set<N: AsRef<str>, T: ToField>(&mut self, name: N, change: T) -> &mut Self {
+    pub fn set<T: ToValue>(&mut self, name: &str, value: T) -> &mut Self {
         if self.operation == Operation::Delete {
             panic!("cannot set fields on a delete operation")
         }
-        let field = change.to_field(name);
-        self.columns.insert(field.name, field.new_value.unwrap());
+        self.columns.insert(name.to_string(), value.to_value());
         self
+    }
+
+    pub fn set_bigint(&mut self, name: &str, value: &String) -> &mut Self {
+        self.columns.insert(
+            name.to_string(),
+            Value {
+                typed: Some(Typed::Bigint(value.clone())),
+            },
+        );
+        self
+    }
+
+    pub fn set_bigdecimal(&mut self, name: &str, value: &String) -> &mut Self {
+        self.columns.insert(
+            name.to_string(),
+            Value {
+                typed: Some(Typed::Bigdecimal(value.clone())),
+            },
+        );
+        self
+    }
+
+    pub fn set_bigint_or_zero(&mut self, name: &str, value: &String) -> &mut Self {
+        if value.len() == 0 {
+            self.set_bigint(name, &"0".to_string())
+        } else {
+            self.set_bigint(name, value)
+        }
     }
 
     pub fn mark_final(&mut self) -> &mut Self {
         self.finalized = true;
         self
+    }
+}
+
+trait ToValue {
+    fn to_value(&self) -> Value;
+}
+
+impl ToValue for bool {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bool(*self)),
+        }
+    }
+}
+
+impl ToValue for &BigDecimal {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bigdecimal(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for BigDecimal {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bigdecimal(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for &BigInt {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bigint(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for BigInt {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bigint(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for &String {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::String(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for String {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::String(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for &Vec<u8> {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bytes(base64::encode(self))),
+        }
+    }
+}
+
+impl ToValue for &Vec<String> {
+    fn to_value(&self) -> Value {
+        let mut list: Vec<Value> = vec![];
+        for item in self.iter() {
+            list.push(Value {
+                typed: Some(Typed::String(item.clone())),
+            });
+        }
+
+        Value {
+            typed: Some(Typed::Array(Array { value: list })),
+        }
+    }
+}
+
+impl ToValue for u64 {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bigint(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for u32 {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bigint(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for i64 {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Bigint(self.to_string())),
+        }
+    }
+}
+
+impl ToValue for i32 {
+    fn to_value(&self) -> Value {
+        Value {
+            typed: Some(Typed::Int32(*self)),
+        }
     }
 }

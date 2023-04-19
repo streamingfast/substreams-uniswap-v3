@@ -3,10 +3,8 @@ use crate::pb::uniswap::events::pool_event::Type;
 use crate::pb::uniswap::events::PoolEvent;
 use crate::uniswap::events::position::PositionType;
 use crate::uniswap::events::{PoolSqrtPrice, Position};
-use crate::uniswap::{BigDecimal as PbBigDecimal, BigInt as PbBigInt};
 use crate::utils::ZERO_ADDRESS;
 use crate::{BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Transfer};
-use ethabi::Uint;
 use std::str::FromStr;
 use substreams::scalar::BigDecimal;
 use substreams::{log, Hex};
@@ -33,113 +31,6 @@ impl Erc20Token {
     }
 }
 
-impl From<PbBigInt> for BigDecimal {
-    fn from(bi: PbBigInt) -> Self {
-        let big_int: BigInt = bi.into();
-        BigDecimal::from(big_int)
-    }
-}
-
-impl From<PbBigInt> for BigInt {
-    fn from(bi: PbBigInt) -> Self {
-        BigInt::from_str(bi.value.as_str()).unwrap()
-    }
-}
-
-impl From<&PbBigInt> for BigInt {
-    fn from(bi: &PbBigInt) -> Self {
-        BigInt::from_str(bi.value.as_str()).unwrap()
-    }
-}
-
-impl Into<PbBigInt> for &BigInt {
-    fn into(self) -> PbBigInt {
-        PbBigInt {
-            value: self.to_string(),
-        }
-    }
-}
-
-impl Into<PbBigInt> for BigInt {
-    fn into(self) -> PbBigInt {
-        PbBigInt {
-            value: self.to_string(),
-        }
-    }
-}
-
-impl Into<PbBigInt> for Uint {
-    fn into(self) -> PbBigInt {
-        PbBigInt {
-            value: self.to_string(),
-        }
-    }
-}
-
-impl From<PbBigInt> for u32 {
-    fn from(bi: PbBigInt) -> Self {
-        u32::from_str(bi.value.as_str()).unwrap()
-    }
-}
-
-impl From<&PbBigInt> for u32 {
-    fn from(bi: &PbBigInt) -> Self {
-        u32::from_str(bi.value.as_str()).unwrap()
-    }
-}
-
-impl Into<PbBigInt> for u32 {
-    fn into(self) -> PbBigInt {
-        PbBigInt {
-            value: self.to_string(),
-        }
-    }
-}
-
-impl From<PbBigDecimal> for BigDecimal {
-    fn from(bd: PbBigDecimal) -> Self {
-        BigDecimal::from_str(bd.value.as_str()).unwrap()
-    }
-}
-
-impl From<&PbBigDecimal> for BigDecimal {
-    fn from(bd: &PbBigDecimal) -> Self {
-        BigDecimal::from_str(bd.value.as_str()).unwrap()
-    }
-}
-
-impl From<BigDecimal> for PbBigDecimal {
-    fn from(bd: BigDecimal) -> Self {
-        PbBigDecimal {
-            value: bd.to_string(),
-        }
-    }
-}
-
-impl From<&BigDecimal> for PbBigDecimal {
-    fn from(bd: &BigDecimal) -> Self {
-        PbBigDecimal {
-            value: bd.to_string(),
-        }
-    }
-}
-
-impl PoolSqrtPrice {
-    pub fn sqrt_price(&self) -> BigInt {
-        return match &self.sqrt_price {
-            None => BigInt::zero(),
-            Some(value) => BigInt::from(value),
-        };
-    }
-
-    pub fn tick(&self) -> BigInt {
-        return match &self.tick {
-            None => BigInt::zero(),
-            Some(value) => BigInt::from(value),
-        };
-    }
-}
-
 impl Pool {
     pub fn should_handle_swap(&self) -> bool {
         if self.ignore_pool {
@@ -158,21 +49,14 @@ impl Pool {
     pub fn token0_ref(&self) -> &Erc20Token {
         self.token0.as_ref().unwrap()
     }
-
     pub fn token1_ref(&self) -> &Erc20Token {
         self.token1.as_ref().unwrap()
     }
-
     pub fn token0(&self) -> Erc20Token {
         self.clone().token0.unwrap()
     }
-
     pub fn token1(&self) -> Erc20Token {
         self.clone().token1.unwrap()
-    }
-
-    pub fn fee_tier_value(&self) -> String {
-        self.clone().fee_tier.unwrap().value
     }
 }
 
@@ -288,23 +172,21 @@ impl PoolEvent {
     pub fn get_amounts(&self) -> Option<TokenAmounts> {
         return match self.r#type.as_ref().unwrap().clone() {
             Type::Mint(evt) => Some(TokenAmounts {
-                amount0: evt.amount_0.unwrap().into(),
-                amount1: evt.amount_1.unwrap().into(),
+                amount0: BigDecimal::try_from(evt.amount_0).unwrap(),
+                amount1: BigDecimal::try_from(evt.amount_1).unwrap(),
                 token0_addr: self.token0.clone(),
                 token1_addr: self.token1.clone(),
             }),
             Type::Burn(evt) => Some(TokenAmounts {
-                amount0: <uniswap::BigDecimal as Into<BigDecimal>>::into(evt.amount_0.unwrap())
-                    .neg(),
-                amount1: <uniswap::BigDecimal as Into<BigDecimal>>::into(evt.amount_1.unwrap())
-                    .neg(),
+                amount0: BigDecimal::try_from(evt.amount_0).unwrap().neg(),
+                amount1: BigDecimal::try_from(evt.amount_1).unwrap().neg(),
                 // amount1: evt.amount_1.unwrap().into().neg(),
                 token0_addr: self.token0.clone(),
                 token1_addr: self.token1.clone(),
             }),
             Type::Swap(evt) => Some(TokenAmounts {
-                amount0: evt.amount_0.unwrap().into(),
-                amount1: evt.amount_1.unwrap().into(),
+                amount0: BigDecimal::try_from(evt.amount_0).unwrap(),
+                amount1: BigDecimal::try_from(evt.amount_1).unwrap(),
                 token0_addr: self.token0.clone(),
                 token1_addr: self.token1.clone(),
             }),

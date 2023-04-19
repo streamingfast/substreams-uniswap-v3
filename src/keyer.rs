@@ -1,6 +1,4 @@
-use crate::pb::uniswap;
 use crate::utils;
-use substreams::scalar::BigInt;
 use substreams::Hex;
 
 // ------------------------------------------------
@@ -17,7 +15,7 @@ pub fn pool_key(pool_address: &String) -> String {
     format!("pool:{}", pool_address)
 }
 
-pub fn pool_token_index_key<T>(token0_address: T, token1_address: T, fee: u32) -> String
+pub fn pool_token_index_key<T>(token0_address: T, token1_address: T, fee: &String) -> String
 where
     T: AsRef<str>,
 {
@@ -276,23 +274,14 @@ pub fn swap_uniswap_day_data_fees_usd(day_id: String) -> String {
 }
 
 // ------------------------------------------------
-//      store_ticks
-// ------------------------------------------------
-pub fn ticks(key: &String) -> String {
-    format!("tick:{}", key) // tick:{pool_addr}#tick_lower/tick_upper
-}
-
-// ------------------------------------------------
 //      store_ticks_liquidities
 // ------------------------------------------------
-pub fn tick_liquidities_net(pool: &String, tick_idx: &uniswap::BigInt) -> String {
-    let value = BigInt::from(tick_idx);
-    format!("tick:{}:{}:liquidityNet", pool, value)
+pub fn tick_liquidities_net(pool: &String, tick_idx: &String) -> String {
+    format!("tick:{}:{}:liquidityNet", pool, tick_idx)
 }
 
-pub fn tick_liquidities_gross(pool: &String, tick_idx: &uniswap::BigInt) -> String {
-    let value = BigInt::from(tick_idx);
-    format!("tick:{}:{}:liquidityGross", pool, value)
+pub fn tick_liquidities_gross(pool: &String, tick_idx: &String) -> String {
+    format!("tick:{}:{}:liquidityGross", pool, tick_idx)
 }
 
 // ------------------------------------------------

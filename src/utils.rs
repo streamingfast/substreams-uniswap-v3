@@ -3,7 +3,6 @@ use crate::pb::uniswap::events;
 use crate::pb::PositionEvent;
 use crate::uniswap::events::position::PositionType;
 use crate::uniswap::events::Transaction;
-use crate::uniswap::BigInt as PbBigInt;
 use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
 use std::ops::{Add, Mul};
 use substreams::scalar::{BigDecimal, BigInt};
@@ -97,7 +96,7 @@ pub fn extract_pool_fee_growth_global_updates(
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
             token_idx: 0,
-            new_value: Some(new_value.into()),
+            new_value: new_value.into(),
         })
     }
 
@@ -106,7 +105,7 @@ pub fn extract_pool_fee_growth_global_updates(
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
             token_idx: 1,
-            new_value: Some(new_value.into()),
+            new_value: new_value.into(),
         })
     }
 
@@ -218,13 +217,11 @@ pub fn load_transaction(
         gas_price: Default::default(),
         log_ordinal,
     };
-    transaction.gas_price = match transaction_trace.clone().gas_price {
-        None => None,
-        Some(gas_price) => {
-            let gas_price: BigInt = BigInt::from_signed_bytes_be(&gas_price.bytes);
-            Some(gas_price.into())
-        }
-    };
+    if let Some(gas_price) = &transaction_trace.gas_price {
+        let gas_price: BigInt = BigInt::from_signed_bytes_be(&gas_price.bytes);
+        transaction.gas_price = gas_price.to_string();
+    }
+
     transaction
 }
 
@@ -250,18 +247,21 @@ pub fn get_position(
         let token0: String = Hex(&token_id_0_bytes.as_slice()).to_string();
         let token1: String = Hex(&token_id_1_bytes.as_slice()).to_string();
 
-        let pool: Pool =
-            match store_pool.get_last(keyer::pool_token_index_key(&token0, &token1, fee.into())) {
-                None => {
-                    log::info!(
-                        "pool does not exist for token0 {} and token1 {}",
-                        token0,
-                        token1
-                    );
-                    return None;
-                }
-                Some(pool) => pool,
-            };
+        let pool: Pool = match store_pool.get_last(keyer::pool_token_index_key(
+            &token0,
+            &token1,
+            &fee.to_string(),
+        )) {
+            None => {
+                log::info!(
+                    "pool does not exist for token0 {} and token1 {}",
+                    token0,
+                    token1
+                );
+                return None;
+            }
+            Some(pool) => pool,
+        };
 
         let amount0 = event.get_amount0().to_decimal(pool.token0_ref().decimals);
         let amount1 = event.get_amount1().to_decimal(pool.token1_ref().decimals);
@@ -275,13 +275,11 @@ pub fn get_position(
             tick_lower: tick_lower.to_string(),
             tick_upper: tick_upper.to_string(),
             transaction: transaction_id.to_string(),
-            fee_growth_inside_0_last_x_128: Some(fee_growth_inside_0_last_x128.into()),
-            fee_growth_inside_1_last_x_128: Some(fee_growth_inside_1_last_x128.into()),
-            liquidity: Some(PbBigInt {
-                value: event.get_liquidity(),
-            }),
-            amount0: Some(amount0.into()),
-            amount1: Some(amount1.into()),
+            fee_growth_inside_0_last_x_128: fee_growth_inside_0_last_x128.into(),
+            fee_growth_inside_1_last_x_128: fee_growth_inside_1_last_x128.into(),
+            liquidity: event.get_liquidity(),
+            amount0: amount0.into(),
+            amount1: amount1.into(),
             position_type: position_type as i32,
             log_ordinal,
             timestamp,
@@ -301,7 +299,7 @@ pub fn extract_pool_liquidity(
             if storage_change.key[storage_change.key.len() - 1] == 4 {
                 return Some(events::PoolLiquidity {
                     pool_address: Hex(&pool_address).to_string(),
-                    liquidity: Some(BigInt::from_signed_bytes_be(&storage_change.new_value).into()),
+                    liquidity: BigInt::from_signed_bytes_be(&storage_change.new_value).to_string(),
                     log_ordinal,
                 });
             }

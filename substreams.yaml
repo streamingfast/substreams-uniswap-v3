@@ -82,7 +82,7 @@ modules:
   - name: store_pool_sqrt_price
     kind: store
     updatePolicy: set
-    valueType: proto:uniswap.types.v1.PoolSqrtPrice
+    valueType: proto:uniswap.types.v1.Events.PoolSqrtPrice
     inputs:
       - map: map_extract_data_types
 
@@ -192,21 +192,6 @@ modules:
       - store: store_total_value_locked_by_tokens
       - store: store_pools
       - store: store_eth_prices
-
-#  - name: map_ticks
-#    kind: map
-#    initialBlock: 12369621
-#    inputs:
-#      - map: map_extract_data_types
-#    output:
-#      type: proto:uniswap.types.v1.Ticks
-
-#  - name: store_ticks
-#    kind: store
-#    updatePolicy: set
-#    valueType: proto:uniswap.types.v1.Tick
-#    inputs:
-#      - map: map_ticks
 
   - name: store_ticks_liquidities
     kind: store

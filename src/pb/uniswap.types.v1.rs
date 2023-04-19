@@ -1,18 +1,6 @@
 // @generated
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BigInt {
-    #[prost(string, tag="1")]
-    pub value: ::prost::alloc::string::String,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BigDecimal {
-    #[prost(string, tag="1")]
-    pub value: ::prost::alloc::string::String,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Erc20Tokens {
     #[prost(message, repeated, tag="1")]
     pub tokens: ::prost::alloc::vec::Vec<Erc20Token>,
@@ -38,8 +26,9 @@ pub struct Erc20Token {
 pub struct Liquidity {
     #[prost(string, tag="1")]
     pub pool_address: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="2")]
-    pub value: ::core::option::Option<BigDecimal>,
+    /// Decimal
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -60,8 +49,9 @@ pub struct Pool {
     pub token0: ::core::option::Option<Erc20Token>,
     #[prost(message, optional, tag="6")]
     pub token1: ::core::option::Option<Erc20Token>,
-    #[prost(message, optional, tag="7")]
-    pub fee_tier: ::core::option::Option<BigInt>,
+    /// Integer
+    #[prost(string, tag="7")]
+    pub fee_tier: ::prost::alloc::string::String,
     /// internals
     #[prost(int32, tag="30")]
     pub tick_spacing: i32,
@@ -107,10 +97,11 @@ pub mod events {
         pub pool_address: ::prost::alloc::string::String,
         #[prost(uint64, tag="2")]
         pub ordinal: u64,
-        #[prost(uint32, tag="3")]
-        pub token_idx: u32,
-        #[prost(message, optional, tag="4")]
-        pub new_value: ::core::option::Option<super::BigInt>,
+        #[prost(int32, tag="3")]
+        pub token_idx: i32,
+        /// Integer
+        #[prost(string, tag="4")]
+        pub new_value: ::prost::alloc::string::String,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -121,8 +112,9 @@ pub mod events {
         pub tick_idx: i32,
         #[prost(uint64, tag="3")]
         pub ordinal: u64,
-        #[prost(message, optional, tag="4")]
-        pub new_value: ::core::option::Option<super::BigInt>,
+        /// Integer
+        #[prost(string, tag="4")]
+        pub new_value: ::prost::alloc::string::String,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -135,42 +127,50 @@ pub mod events {
         pub tick_upper: i32,
         #[prost(uint64, tag="4")]
         pub ordinal: u64,
-        #[prost(message, optional, tag="5")]
-        pub new_value: ::core::option::Option<super::BigInt>,
+        /// Integer
+        #[prost(string, tag="5")]
+        pub new_value: ::prost::alloc::string::String,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct TickCreated {
         #[prost(string, tag="1")]
         pub pool_address: ::prost::alloc::string::String,
-        #[prost(message, optional, tag="2")]
-        pub idx: ::core::option::Option<super::BigInt>,
+        /// Integer
+        #[prost(string, tag="2")]
+        pub idx: ::prost::alloc::string::String,
         #[prost(uint64, tag="3")]
         pub log_ordinal: u64,
         #[prost(uint64, tag="4")]
         pub created_at_timestamp: u64,
         #[prost(uint64, tag="5")]
         pub created_at_block_number: u64,
-        #[prost(message, optional, tag="6")]
-        pub price0: ::core::option::Option<super::BigDecimal>,
-        #[prost(message, optional, tag="7")]
-        pub price1: ::core::option::Option<super::BigDecimal>,
-        #[prost(message, optional, tag="8")]
-        pub amount: ::core::option::Option<super::BigInt>,
+        /// Decimal
+        #[prost(string, tag="6")]
+        pub price0: ::prost::alloc::string::String,
+        /// Decimal
+        #[prost(string, tag="7")]
+        pub price1: ::prost::alloc::string::String,
+        /// Integer
+        #[prost(string, tag="8")]
+        pub amount: ::prost::alloc::string::String,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct TickUpdated {
         #[prost(string, tag="1")]
         pub pool_address: ::prost::alloc::string::String,
-        #[prost(message, optional, tag="2")]
-        pub idx: ::core::option::Option<super::BigInt>,
+        /// Integer
+        #[prost(string, tag="2")]
+        pub idx: ::prost::alloc::string::String,
         #[prost(uint64, tag="3")]
         pub log_ordinal: u64,
-        #[prost(message, optional, tag="4")]
-        pub fee_growth_outside_0x_128: ::core::option::Option<super::BigInt>,
-        #[prost(message, optional, tag="5")]
-        pub fee_growth_outside_1x_128: ::core::option::Option<super::BigInt>,
+        /// Integer
+        #[prost(string, tag="4")]
+        pub fee_growth_outside_0x_128: ::prost::alloc::string::String,
+        /// Integer
+        #[prost(string, tag="5")]
+        pub fee_growth_outside_1x_128: ::prost::alloc::string::String,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -179,10 +179,12 @@ pub mod events {
         pub pool_address: ::prost::alloc::string::String,
         #[prost(uint64, tag="2")]
         pub ordinal: u64,
-        #[prost(message, optional, tag="3")]
-        pub sqrt_price: ::core::option::Option<super::BigInt>,
-        #[prost(message, optional, tag="4")]
-        pub tick: ::core::option::Option<super::BigInt>,
+        /// Integer
+        #[prost(string, tag="3")]
+        pub sqrt_price: ::prost::alloc::string::String,
+        /// Integer
+        #[prost(string, tag="4")]
+        pub tick: ::prost::alloc::string::String,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -219,16 +221,21 @@ pub mod events {
             pub recipient: ::prost::alloc::string::String,
             #[prost(string, tag="3")]
             pub origin: ::prost::alloc::string::String,
-            #[prost(message, optional, tag="4")]
-            pub amount_0: ::core::option::Option<super::super::BigDecimal>,
-            #[prost(message, optional, tag="5")]
-            pub amount_1: ::core::option::Option<super::super::BigDecimal>,
-            #[prost(message, optional, tag="6")]
-            pub sqrt_price: ::core::option::Option<super::super::BigInt>,
-            #[prost(message, optional, tag="7")]
-            pub liquidity: ::core::option::Option<super::super::BigInt>,
-            #[prost(message, optional, tag="8")]
-            pub tick: ::core::option::Option<super::super::BigInt>,
+            /// Decimal
+            #[prost(string, tag="4")]
+            pub amount_0: ::prost::alloc::string::String,
+            /// Decimal
+            #[prost(string, tag="5")]
+            pub amount_1: ::prost::alloc::string::String,
+            /// Integer
+            #[prost(string, tag="6")]
+            pub sqrt_price: ::prost::alloc::string::String,
+            /// Integer
+            #[prost(string, tag="7")]
+            pub liquidity: ::prost::alloc::string::String,
+            /// Integer
+            #[prost(string, tag="8")]
+            pub tick: ::prost::alloc::string::String,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -237,16 +244,21 @@ pub mod events {
             pub owner: ::prost::alloc::string::String,
             #[prost(string, tag="2")]
             pub origin: ::prost::alloc::string::String,
-            #[prost(message, optional, tag="3")]
-            pub amount: ::core::option::Option<super::super::BigInt>,
-            #[prost(message, optional, tag="4")]
-            pub amount_0: ::core::option::Option<super::super::BigDecimal>,
-            #[prost(message, optional, tag="5")]
-            pub amount_1: ::core::option::Option<super::super::BigDecimal>,
-            #[prost(message, optional, tag="6")]
-            pub tick_lower: ::core::option::Option<super::super::BigInt>,
-            #[prost(message, optional, tag="7")]
-            pub tick_upper: ::core::option::Option<super::super::BigInt>,
+            /// Integer
+            #[prost(string, tag="3")]
+            pub amount: ::prost::alloc::string::String,
+            /// Decimal
+            #[prost(string, tag="4")]
+            pub amount_0: ::prost::alloc::string::String,
+            /// Decimal
+            #[prost(string, tag="5")]
+            pub amount_1: ::prost::alloc::string::String,
+            /// Integer
+            #[prost(string, tag="6")]
+            pub tick_lower: ::prost::alloc::string::String,
+            /// Integer
+            #[prost(string, tag="7")]
+            pub tick_upper: ::prost::alloc::string::String,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -257,16 +269,21 @@ pub mod events {
             pub sender: ::prost::alloc::string::String,
             #[prost(string, tag="3")]
             pub origin: ::prost::alloc::string::String,
-            #[prost(message, optional, tag="4")]
-            pub amount_0: ::core::option::Option<super::super::BigDecimal>,
-            #[prost(message, optional, tag="5")]
-            pub amount_1: ::core::option::Option<super::super::BigDecimal>,
-            #[prost(message, optional, tag="6")]
-            pub tick_lower: ::core::option::Option<super::super::BigInt>,
-            #[prost(message, optional, tag="7")]
-            pub tick_upper: ::core::option::Option<super::super::BigInt>,
-            #[prost(message, optional, tag="8")]
-            pub amount: ::core::option::Option<super::super::BigInt>,
+            /// Decimal
+            #[prost(string, tag="4")]
+            pub amount_0: ::prost::alloc::string::String,
+            /// Decimal
+            #[prost(string, tag="5")]
+            pub amount_1: ::prost::alloc::string::String,
+            /// Integer
+            #[prost(string, tag="6")]
+            pub tick_lower: ::prost::alloc::string::String,
+            /// Integer
+            #[prost(string, tag="7")]
+            pub tick_upper: ::prost::alloc::string::String,
+            /// Integer
+            #[prost(string, tag="8")]
+            pub amount: ::prost::alloc::string::String,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Oneof)]
@@ -284,8 +301,9 @@ pub mod events {
     pub struct PoolLiquidity {
         #[prost(string, tag="1")]
         pub pool_address: ::prost::alloc::string::String,
-        #[prost(message, optional, tag="2")]
-        pub liquidity: ::core::option::Option<super::BigInt>,
+        /// Integer
+        #[prost(string, tag="2")]
+        pub liquidity: ::prost::alloc::string::String,
         /// internals
         #[prost(uint64, tag="30")]
         pub log_ordinal: u64,
@@ -295,10 +313,12 @@ pub mod events {
     pub struct Flash {
         #[prost(string, tag="1")]
         pub pool_address: ::prost::alloc::string::String,
-        #[prost(message, optional, tag="2")]
-        pub fee_growth_global_0x_128: ::core::option::Option<super::BigInt>,
-        #[prost(message, optional, tag="3")]
-        pub fee_growth_global_1x_128: ::core::option::Option<super::BigInt>,
+        /// Integer
+        #[prost(string, tag="2")]
+        pub fee_growth_global_0x_128: ::prost::alloc::string::String,
+        /// Integer
+        #[prost(string, tag="3")]
+        pub fee_growth_global_1x_128: ::prost::alloc::string::String,
         #[prost(uint64, tag="4")]
         pub log_ordinal: u64,
     }
@@ -313,9 +333,9 @@ pub mod events {
         pub timestamp: u64,
         #[prost(uint64, tag="4")]
         pub gas_used: u64,
-        #[prost(message, optional, tag="5")]
-        pub gas_price: ::core::option::Option<super::BigInt>,
-        /// internals
+        /// Integer
+        #[prost(string, tag="5")]
+        pub gas_price: ::prost::alloc::string::String,
         #[prost(uint64, tag="6")]
         pub log_ordinal: u64,
     }
@@ -338,16 +358,21 @@ pub mod events {
         pub tick_upper: ::prost::alloc::string::String,
         #[prost(string, tag="8")]
         pub transaction: ::prost::alloc::string::String,
-        #[prost(message, optional, tag="9")]
-        pub fee_growth_inside_0_last_x_128: ::core::option::Option<super::BigInt>,
-        #[prost(message, optional, tag="10")]
-        pub fee_growth_inside_1_last_x_128: ::core::option::Option<super::BigInt>,
-        #[prost(message, optional, tag="11")]
-        pub liquidity: ::core::option::Option<super::BigInt>,
-        #[prost(message, optional, tag="12")]
-        pub amount0: ::core::option::Option<super::BigDecimal>,
-        #[prost(message, optional, tag="13")]
-        pub amount1: ::core::option::Option<super::BigDecimal>,
+        /// Integer
+        #[prost(string, tag="9")]
+        pub fee_growth_inside_0_last_x_128: ::prost::alloc::string::String,
+        /// Integer
+        #[prost(string, tag="10")]
+        pub fee_growth_inside_1_last_x_128: ::prost::alloc::string::String,
+        /// Integer
+        #[prost(string, tag="11")]
+        pub liquidity: ::prost::alloc::string::String,
+        /// Decimal
+        #[prost(string, tag="12")]
+        pub amount0: ::prost::alloc::string::String,
+        /// Decimal
+        #[prost(string, tag="13")]
+        pub amount1: ::prost::alloc::string::String,
         #[prost(enumeration="position::PositionType", tag="14")]
         pub position_type: i32,
         #[prost(uint64, tag="15")]
@@ -417,26 +442,35 @@ pub struct SnapshotPosition {
     pub owner: ::prost::alloc::string::String,
     #[prost(uint64, tag="6")]
     pub timestamp: u64,
-    #[prost(message, optional, tag="7")]
-    pub liquidity: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="8")]
-    pub deposited_token0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="9")]
-    pub deposited_token1: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="10")]
-    pub withdrawn_token0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="11")]
-    pub withdrawn_token1: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="12")]
-    pub collected_fees_token0: ::core::option::Option<BigDecimal>,
-    #[prost(message, optional, tag="13")]
-    pub collected_fees_token1: ::core::option::Option<BigDecimal>,
+    /// Decimal
+    #[prost(string, tag="7")]
+    pub liquidity: ::prost::alloc::string::String,
+    /// Decimal
+    #[prost(string, tag="8")]
+    pub deposited_token0: ::prost::alloc::string::String,
+    /// Decimal
+    #[prost(string, tag="9")]
+    pub deposited_token1: ::prost::alloc::string::String,
+    /// Decimal
+    #[prost(string, tag="10")]
+    pub withdrawn_token0: ::prost::alloc::string::String,
+    /// Decimal
+    #[prost(string, tag="11")]
+    pub withdrawn_token1: ::prost::alloc::string::String,
+    /// Decimal
+    #[prost(string, tag="12")]
+    pub collected_fees_token0: ::prost::alloc::string::String,
+    /// Decimal
+    #[prost(string, tag="13")]
+    pub collected_fees_token1: ::prost::alloc::string::String,
     #[prost(string, tag="14")]
     pub transaction: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="15")]
-    pub fee_growth_inside_0_last_x_128: ::core::option::Option<BigInt>,
-    #[prost(message, optional, tag="16")]
-    pub fee_growth_inside_1_last_x_128: ::core::option::Option<BigInt>,
+    /// Integer
+    #[prost(string, tag="15")]
+    pub fee_growth_inside_0_last_x_128: ::prost::alloc::string::String,
+    /// Integer
+    #[prost(string, tag="16")]
+    pub fee_growth_inside_1_last_x_128: ::prost::alloc::string::String,
     /// internal
     #[prost(uint64, tag="17")]
     pub log_ordinal: u64,

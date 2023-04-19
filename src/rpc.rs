@@ -40,19 +40,6 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
     return (fee_0, fee_1);
 }
 
-pub fn fee_growth_outside_x128_call(pool_address: &String, tick: &BigInt) -> (BigInt, BigInt) {
-    log::info!("pool address {} tick idx {}", pool_address, tick);
-    let ticks = abi::pool::functions::Ticks { tick: tick.clone() };
-
-    let tick_option = ticks.call(hex::decode(pool_address).unwrap());
-    if tick_option.is_none() {
-        panic!("ticks call failed");
-    }
-    let (_, _, fee_0, fee_1, _, _, _, _) = tick_option.unwrap();
-
-    return (fee_0.try_into().unwrap(), fee_1.try_into().unwrap());
-}
-
 pub fn positions_call(
     pool_address: &String,
     token_id: BigInt,
