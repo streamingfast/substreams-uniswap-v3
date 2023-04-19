@@ -17,8 +17,7 @@ use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
 pub const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
-pub const NON_FUNGIBLE_POSITION_MANAGER: [u8; 20] =
-    hex!("c36442b4a4522e871399cd717abdd847ab11fe88");
+pub const NON_FUNGIBLE_POSITION_MANAGER: [u8; 20] = hex!("c36442b4a4522e871399cd717abdd847ab11fe88");
 
 const DGD_TOKEN_ADDRESS: [u8; 20] = hex!("e0b7927c4af23765cb51314a0e0521a9645f0e2a");
 const AAVE_TOKEN_ADDRESS: [u8; 20] = hex!("7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9");
@@ -90,10 +89,8 @@ pub fn extract_pool_fee_growth_global_updates(
 ) -> Vec<events::FeeGrowthGlobal> {
     let mut fee_growth_global = vec![];
 
-    let fee_growth_global_0 =
-        hex!("0000000000000000000000000000000000000000000000000000000000000001");
-    let fee_growth_global_1 =
-        hex!("0000000000000000000000000000000000000000000000000000000000000002");
+    let fee_growth_global_0 = hex!("0000000000000000000000000000000000000000000000000000000000000001");
+    let fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
 
     let storage = storage::UniswapPoolStorage::new(storage_changes, pool_address);
 
@@ -142,17 +139,11 @@ pub fn calculate_amount_usd(
 ) -> BigDecimal {
     return amount0
         .clone()
-        .mul(
-            token0_derived_eth_price
-                .clone()
-                .mul(bundle_eth_price.clone()),
-        )
+        .mul(token0_derived_eth_price.clone().mul(bundle_eth_price.clone()))
         .add(
-            amount1.clone().mul(
-                token1_derived_eth_price
-                    .clone()
-                    .mul(bundle_eth_price.clone()),
-            ),
+            amount1
+                .clone()
+                .mul(token1_derived_eth_price.clone().mul(bundle_eth_price.clone())),
         );
 }
 
@@ -165,20 +156,14 @@ pub fn get_tracked_amount_usd(
     amount1_abs: &BigDecimal,
     eth_price_in_usd: &BigDecimal,
 ) -> BigDecimal {
-    let price0_usd = token0_derived_eth_price
-        .clone()
-        .mul(eth_price_in_usd.clone());
-    let price1_usd = token1_derived_eth_price
-        .clone()
-        .mul(eth_price_in_usd.clone());
+    let price0_usd = token0_derived_eth_price.clone().mul(eth_price_in_usd.clone());
+    let price1_usd = token1_derived_eth_price.clone().mul(eth_price_in_usd.clone());
 
     log::info!("price0_usd: {}", price0_usd);
     log::info!("price1_usd: {}", price1_usd);
 
     // both are whitelist tokens, return sum of both amounts
-    if WHITELIST_TOKENS.contains(&token0_id.as_str())
-        && WHITELIST_TOKENS.contains(&token1_id.as_str())
-    {
+    if WHITELIST_TOKENS.contains(&token0_id.as_str()) && WHITELIST_TOKENS.contains(&token1_id.as_str()) {
         return amount0_abs
             .clone()
             .mul(price0_usd)
@@ -186,23 +171,13 @@ pub fn get_tracked_amount_usd(
     }
 
     // take double value of the whitelisted token amount
-    if WHITELIST_TOKENS.contains(&token0_id.as_str())
-        && !WHITELIST_TOKENS.contains(&token1_id.as_str())
-    {
-        return amount0_abs
-            .clone()
-            .mul(price0_usd)
-            .mul(BigDecimal::from(2 as i32));
+    if WHITELIST_TOKENS.contains(&token0_id.as_str()) && !WHITELIST_TOKENS.contains(&token1_id.as_str()) {
+        return amount0_abs.clone().mul(price0_usd).mul(BigDecimal::from(2 as i32));
     }
 
     // take double value of the whitelisted token amount
-    if !WHITELIST_TOKENS.contains(&token0_id.as_str())
-        && WHITELIST_TOKENS.contains(&token1_id.as_str())
-    {
-        return amount1_abs
-            .clone()
-            .mul(price1_usd)
-            .mul(BigDecimal::from(2 as i32));
+    if !WHITELIST_TOKENS.contains(&token0_id.as_str()) && WHITELIST_TOKENS.contains(&token1_id.as_str()) {
+        return amount1_abs.clone().mul(price1_usd).mul(BigDecimal::from(2 as i32));
     }
 
     // neither token is on white list, tracked amount is 0
@@ -236,24 +211,18 @@ pub fn get_adjusted_amounts(
         .mul(token0_derived_eth_price.clone())
         .add(token1_amount.clone().mul(token1_derived_eth_price.clone()));
 
-    if WHITELIST_TOKENS.contains(&token0_id.as_str())
-        && WHITELIST_TOKENS.contains(&token1_id.as_str())
-    {
+    if WHITELIST_TOKENS.contains(&token0_id.as_str()) && WHITELIST_TOKENS.contains(&token1_id.as_str()) {
         eth = eth_untracked.clone()
     }
 
-    if WHITELIST_TOKENS.contains(&token0_id.as_str())
-        && !WHITELIST_TOKENS.contains(&token1_id.as_str())
-    {
+    if WHITELIST_TOKENS.contains(&token0_id.as_str()) && !WHITELIST_TOKENS.contains(&token1_id.as_str()) {
         eth = token0_amount
             .clone()
             .mul(token0_derived_eth_price.clone())
             .mul(BigDecimal::from(2 as i32));
     }
 
-    if !WHITELIST_TOKENS.contains(&token0_id.as_str())
-        && WHITELIST_TOKENS.contains(&token1_id.as_str())
-    {
+    if !WHITELIST_TOKENS.contains(&token0_id.as_str()) && WHITELIST_TOKENS.contains(&token1_id.as_str()) {
         eth = token1_amount
             .clone()
             .mul(token1_derived_eth_price.clone())
@@ -317,18 +286,13 @@ pub fn get_position(
         let token0: String = Hex(&token_id_0_bytes.as_slice()).to_string();
         let token1: String = Hex(&token_id_1_bytes.as_slice()).to_string();
 
-        let pool: Pool =
-            match store_pool.get_last(keyer::pool_token_index_key(&token0, &token1, fee.into())) {
-                None => {
-                    log::info!(
-                        "pool does not exist for token0 {} and token1 {}",
-                        token0,
-                        token1
-                    );
-                    return None;
-                }
-                Some(pool) => pool,
-            };
+        let pool: Pool = match store_pool.get_last(keyer::pool_token_index_key(&token0, &token1, fee.into())) {
+            None => {
+                log::info!("pool does not exist for token0 {} and token1 {}", token0, token1);
+                return None;
+            }
+            Some(pool) => pool,
+        };
 
         let amount0 = event.get_amount0().to_decimal(pool.token0_ref().decimals);
         let amount1 = event.get_amount1().to_decimal(pool.token1_ref().decimals);
@@ -377,11 +341,7 @@ pub fn extract_pool_liquidity(
     None
 }
 
-pub fn get_derived_eth_price(
-    ordinal: u64,
-    token_addr: &String,
-    eth_prices_store: &StoreGetBigDecimal,
-) -> BigDecimal {
+pub fn get_derived_eth_price(ordinal: u64, token_addr: &String, eth_prices_store: &StoreGetBigDecimal) -> BigDecimal {
     return match eth_prices_store.get_at(ordinal, &keyer::token_eth_price(&token_addr)) {
         None => panic!("token eth price not found for token {}", token_addr),
         Some(price) => price,
@@ -393,9 +353,7 @@ pub fn get_total_value_locked_token(
     token_addr: &String,
     total_value_locked_store: &StoreGetBigDecimal,
 ) -> BigDecimal {
-    return match total_value_locked_store
-        .get_at(ordinal, &keyer::token_total_value_locked(token_addr))
-    {
+    return match total_value_locked_store.get_at(ordinal, &keyer::token_total_value_locked(token_addr)) {
         None => {
             panic!("impossible")
         }
@@ -407,13 +365,8 @@ pub fn extract_item_from_key_last_item(delta_key: &String) -> String {
     return delta_key.as_str().split(":").last().unwrap().to_string();
 }
 
-pub fn extract_item_from_key_as_position(delta_key: &String, position: usize) -> String {
-    return delta_key
-        .as_str()
-        .split(":")
-        .nth(position)
-        .unwrap()
-        .to_string();
+pub fn extract_item_from_key_at_position(delta_key: &String, position: usize) -> String {
+    return delta_key.as_str().split(":").nth(position).unwrap().to_string();
 }
 
 pub fn pool_time_data_id<T: AsRef<str> + Display>(pool_address: T, time_id: T) -> String {
@@ -425,13 +378,7 @@ pub fn token_time_data_id<T: AsRef<str> + Display>(token_address: T, time_id: T)
 }
 
 pub fn extract_last_item_time_id_as_i64(delta_key: &String) -> i64 {
-    return delta_key
-        .as_str()
-        .split(":")
-        .last()
-        .unwrap()
-        .parse::<i64>()
-        .unwrap();
+    return delta_key.as_str().split(":").last().unwrap().parse::<i64>().unwrap();
 }
 
 pub fn extract_at_position_time_id_as_i64(delta_key: &String, position: usize) -> i64 {
@@ -476,43 +423,25 @@ pub fn extract_swap_volume_token_entity_change_name(delta_key: &String) -> Optio
 // ---------------------------------
 // Pool Day/Hour Data Entity Change
 // ---------------------------------
-pub fn update_tx_count_pool_entity_change(
-    tables: &mut Tables,
-    table_name: &str,
-    delta: &DeltaBigInt,
-) {
+pub fn update_tx_count_pool_entity_change(tables: &mut Tables, table_name: &str, delta: &DeltaBigInt) {
     let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
     let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
 
     tables
-        .update_row(
-            table_name,
-            pool_time_data_id(pool_address, &time_id).as_str(),
-        )
+        .update_row(table_name, pool_time_data_id(pool_address, &time_id).as_str())
         .set("txCount", delta);
 }
 
-pub fn update_liquidities_pool_entity_change(
-    tables: &mut Tables,
-    table_name: &str,
-    delta: &DeltaBigInt,
-) {
+pub fn update_liquidities_pool_entity_change(tables: &mut Tables, table_name: &str, delta: &DeltaBigInt) {
     let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
     let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
 
     tables
-        .update_row(
-            table_name,
-            pool_time_data_id(pool_address, &time_id).as_str(),
-        )
+        .update_row(table_name, pool_time_data_id(pool_address, &time_id).as_str())
         .set("liquidity", delta);
 }
 
-pub fn update_fee_growth_global_x128_pool_entity_change(
-    tables: &mut Tables,
-    table_name: &str,
-    delta: &DeltaBigInt,
-) {
+pub fn update_fee_growth_global_x128_pool_entity_change(tables: &mut Tables, table_name: &str, delta: &DeltaBigInt) {
     let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
     let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
 
@@ -522,10 +451,7 @@ pub fn update_fee_growth_global_x128_pool_entity_change(
         _ => None,
     } {
         tables
-            .update_row(
-                table_name,
-                pool_time_data_id(pool_address, &time_id).as_str(),
-            )
+            .update_row(table_name, pool_time_data_id(pool_address, &time_id).as_str())
             .set(name, delta);
     }
 }
@@ -539,10 +465,7 @@ pub fn update_total_value_locked_usd_pool_entity_change(
     let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
 
     tables
-        .update_row(
-            table_name,
-            pool_time_data_id(pool_address, &time_it).as_str(),
-        )
+        .update_row(table_name, pool_time_data_id(pool_address, &time_it).as_str())
         .set("totalValueLockedUSD", delta);
 }
 
@@ -554,16 +477,11 @@ pub fn update_sqrt_price_and_tick_pool_entity_change(
     let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
     let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
 
-    let sqrt_price: BigInt =
-        BigInt::from_str(delta.new_value.sqrt_price.as_ref().unwrap().value.as_str()).unwrap();
-    let tick: BigInt =
-        BigInt::from_str(delta.new_value.tick.as_ref().unwrap().value.as_str()).unwrap();
+    let sqrt_price: BigInt = BigInt::from_str(delta.new_value.sqrt_price.as_ref().unwrap().value.as_str()).unwrap();
+    let tick: BigInt = BigInt::from_str(delta.new_value.tick.as_ref().unwrap().value.as_str()).unwrap();
 
     tables
-        .update_row(
-            table_name,
-            pool_time_data_id(pool_address, &time_id).as_str(),
-        )
+        .update_row(table_name, pool_time_data_id(pool_address, &time_id).as_str())
         .set("sqrtPrice", sqrt_price)
         .set("tick", tick);
 }
@@ -580,41 +498,24 @@ pub fn update_total_value_locked_usd_token_entity_change(
     let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
 
     tables
-        .update_row(
-            table_name,
-            token_time_data_id(token_address, &time_id).as_str(),
-        )
+        .update_row(table_name, token_time_data_id(token_address, &time_id).as_str())
         .set("totalValueLockedUSD", delta);
 }
 
-pub fn update_total_value_locked_token_entity_change(
-    tables: &mut Tables,
-    table_name: &str,
-    delta: &DeltaBigDecimal,
-) {
+pub fn update_total_value_locked_token_entity_change(tables: &mut Tables, table_name: &str, delta: &DeltaBigDecimal) {
     let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
     let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
 
     tables
-        .update_row(
-            table_name,
-            token_time_data_id(token_address, &time_id).as_str(),
-        )
+        .update_row(table_name, token_time_data_id(token_address, &time_id).as_str())
         .set("totalValueLocked", delta);
 }
 
-pub fn update_token_prices_token_entity_change(
-    tables: &mut Tables,
-    table_name: &str,
-    delta: &DeltaBigDecimal,
-) {
+pub fn update_token_prices_token_entity_change(tables: &mut Tables, table_name: &str, delta: &DeltaBigDecimal) {
     let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
     let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
 
     tables
-        .update_row(
-            table_name,
-            token_time_data_id(token_address, &time_id).as_str(),
-        )
+        .update_row(table_name, token_time_data_id(token_address, &time_id).as_str())
         .set("tokenPrice", delta);
 }

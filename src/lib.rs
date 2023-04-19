@@ -742,21 +742,14 @@ pub fn store_swaps_volume(
                                 Some(price) => price,
                             };
 
-                        let mut amount0_abs: BigDecimal = BigDecimal::from(swap.amount_0.unwrap());
-                        if amount0_abs.lt(&BigDecimal::from(0 as u64)) {
-                            amount0_abs = amount0_abs.mul(BigDecimal::from(-1 as i64))
-                        }
-
-                        let mut amount1_abs: BigDecimal = BigDecimal::from(swap.amount_1.unwrap());
-                        if amount1_abs.lt(&BigDecimal::from(0 as u64)) {
-                            amount1_abs = amount1_abs.mul(BigDecimal::from(-1 as i64))
-                        }
+                        let amount0_abs = BigDecimal::from(swap.amount_0.unwrap()).absolute();
+                        let amount1_abs = BigDecimal::from(swap.amount_1.unwrap()).absolute();
 
                         let volume_amounts = utils::get_adjusted_amounts(
-                            &event.token0, //6b175474e89094c44da98edeac495271d0f
-                            &event.token1, //c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
-                            &amount0_abs,  //-33.854155678824490173
-                            &amount1_abs,  //0.010000000000000000
+                            &event.token0,
+                            &event.token1,
+                            &amount0_abs,
+                            &amount1_abs,
                             &token0_derived_eth_price,
                             &token1_derived_eth_price,
                             &eth_price_in_usd,
@@ -991,6 +984,11 @@ pub fn store_derived_total_value_locked(
         let derived_token0_usd = total_value_locked_token0
             .clone()
             .mul(token0_derive_eth.clone().mul(eth_price_usd.clone()));
+        let derived_token1_usd = total_value_locked_token1
+            .clone()
+            .mul(token1_derive_eth.clone().mul(eth_price_usd.clone()));
+
+        // token0.totalValueLockedUSD
         output.set_many(
             pool_event.log_ordinal,
             &vec![
@@ -1006,9 +1004,8 @@ pub fn store_derived_total_value_locked(
             ],
             &derived_token0_usd,
         );
-        let derived_token1_usd = total_value_locked_token1
-            .clone()
-            .mul(token1_derive_eth.clone().mul(eth_price_usd.clone()));
+
+        // token1.totalValueLockedUSD
         output.set_many(
             pool_event.log_ordinal,
             &vec![
@@ -1025,7 +1022,7 @@ pub fn store_derived_total_value_locked(
             &derived_token1_usd,
         );
 
-        // totalValueLockedETH
+        // pool.totalValueLockedETH
         output.set(
             pool_event.log_ordinal,
             &keyer::pool_derived_total_value_locked_eth(
@@ -1045,7 +1042,7 @@ pub fn store_derived_total_value_locked(
             &amounts.stable_eth,
         );
 
-        // totalValueLockedUSD
+        // pool.totalValueLockedUSD
         output.set(
             pool_event.log_ordinal,
             &keyer::pool_derived_total_value_locked_usd(
@@ -1065,7 +1062,7 @@ pub fn store_derived_total_value_locked(
             &amounts.stable_usd,
         );
 
-        // totalValueLockedETHUntracked
+        // pool.totalValueLockedETHUntracked
         output.set(
             pool_event.log_ordinal,
             &keyer::pool_derived_total_value_locked_eth_untracked(
@@ -1085,7 +1082,7 @@ pub fn store_derived_total_value_locked(
             &amounts.stable_eth_untracked,
         );
 
-        // totalValueLockedUSDUntracked
+        // pool.totalValueLockedUSDUntracked
         output.set(
             pool_event.log_ordinal,
             &keyer::pool_derived_total_value_locked_usd_untracked(
@@ -1113,40 +1110,47 @@ pub fn store_derived_factory_total_value_locked(
     output: StoreAddBigDecimal,
 ) {
     for delta in derived_pool_total_value_locked_deltas.deltas {
-        if delta.key.as_str().split(":").nth(0).unwrap().starts_with("pool:") {
-            // totalValueLockedETH
+        if utils::extract_item_from_key_at_position(&delta.key, 0).starts_with("pool:") {
             if utils::extract_item_from_key_last_item(&delta.key).eq("eth") {
-                let old_pool_total_value_locked_eth = delta.old_value.clone();
-                let new_pool_total_value_locked_eth = delta.new_value.clone();
-                let diff = new_pool_total_value_locked_eth
-                    .clone()
-                    .sub(old_pool_total_value_locked_eth);
                 output.add(
                     delta.ordinal,
-                    &keyer::factory_derived_total_value_locked_eth(),
-                    diff.clone(),
+                    &format!("factory:totalValueLockedETH"),
+                    calculate_diff(&delta),
                 );
             }
 
-            // totalValueLockedETHUntracked
             if utils::extract_item_from_key_last_item(&delta.key).eq("ethUntracked") {
-                let old_pool_total_value_locked_eth_untracked = delta.old_value.clone();
-                let new_pool_total_value_locked_eth_untracked = delta.new_value.clone();
-                let diff = new_pool_total_value_locked_eth_untracked
-                    .clone()
-                    .sub(old_pool_total_value_locked_eth_untracked);
                 output.add(
                     delta.ordinal,
-                    &keyer::factory_derived_total_value_locked_eth_untracked(),
-                    diff.clone(),
+                    &format!("factory:totalValueLockedETHUntracked"),
+                    calculate_diff(&delta),
+                );
+            }
+
+            if utils::extract_item_from_key_last_item(&delta.key).eq("usd") {
+                output.add(
+                    delta.ordinal,
+                    &format!("factory:totalValueLockedUSD"),
+                    calculate_diff(&delta),
+                );
+            }
+
+            if utils::extract_item_from_key_last_item(&delta.key).eq("usdUntracked") {
+                output.add(
+                    delta.ordinal,
+                    &format!("factory:totalValueLockedUSDUntracked"),
+                    calculate_diff(&delta),
                 );
             }
         }
     }
 }
-//TODO: lower in the graph_out, we will compute the
-// totalValueLockedUSD and totalValueLockedUSDUntracked for the factory
-// and spit it out
+
+fn calculate_diff(delta: &DeltaBigDecimal) -> BigDecimal {
+    let old_value = delta.old_value.clone();
+    let new_value = delta.new_value.clone();
+    return new_value.clone().sub(old_value);
+}
 
 #[substreams::handlers::store]
 pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {

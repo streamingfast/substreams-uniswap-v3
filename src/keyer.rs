@@ -232,25 +232,6 @@ pub fn pool_hour_derived_total_value_locked_usd(pool_addr: &String, token_addr: 
 }
 
 // ------------------------------------------------
-//      store_derived_factory_total_value_locked
-// ------------------------------------------------
-pub fn factory_derived_total_value_locked_usd() -> String {
-    format!("factory:usd")
-}
-
-pub fn factory_derived_total_value_locked_eth() -> String {
-    format!("factory:eth")
-}
-
-pub fn factory_derived_total_value_locked_usd_untracked() -> String {
-    format!("factory:usdUntracked")
-}
-
-pub fn factory_derived_total_value_locked_eth_untracked() -> String {
-    format!("factory:ethUntracked")
-}
-
-// ------------------------------------------------
 //      store_derived_total_value_locked
 // ------------------------------------------------
 pub fn token_derived_total_value_locked_usd(token_addr: &String, token: &String) -> String {
