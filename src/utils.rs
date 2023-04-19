@@ -348,7 +348,7 @@ pub fn get_total_value_locked_token(
     token_addr: &String,
     total_value_locked_store: &StoreGetBigDecimal,
 ) -> BigDecimal {
-    return match total_value_locked_store.get_at(ordinal, &keyer::token_total_value_locked(token_addr)) {
+    return match total_value_locked_store.get_at(ordinal, &format!("token:{token_addr}")) {
         None => {
             panic!("impossible")
         }
