@@ -365,11 +365,11 @@ pub fn extract_item_from_key_at_position(delta_key: &String, position: usize) ->
 }
 
 pub fn pool_time_data_id<T: AsRef<str> + Display>(pool_address: T, time_id: T) -> String {
-    format!("{}-{}", pool_address, time_id)
+    format!("0x{}-{}", pool_address, time_id)
 }
 
 pub fn token_time_data_id<T: AsRef<str> + Display>(token_address: T, time_id: T) -> String {
-    format!("{}-{}", token_address, time_id)
+    format!("0x{}-{}", token_address, time_id)
 }
 
 pub fn extract_last_item_time_id_as_i64(delta_key: &String) -> i64 {
