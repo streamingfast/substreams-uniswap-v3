@@ -795,15 +795,6 @@ pub fn store_eth_prices(
     }
 }
 
-/*
-pub type Bob = StoreTotalValueLocked<StoreAddBigDecimal>;
-impl StoreTotalValueLocked for StoreAddBigDecimal {
-    fn by_pool(key: &String) -> String {
-        key.clone()
-    }
-}
-impl StoreAddBigDecimal<StoreTotalValueLocked> {}
-*/
 #[substreams::handlers::store]
 pub fn store_total_value_locked_by_tokens(events: Events, store: StoreAddBigDecimal) {
     for event in events.pool_events {

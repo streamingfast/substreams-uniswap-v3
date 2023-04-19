@@ -751,48 +751,6 @@ pub fn transaction_entity_change(tables: &mut Tables, transactions: Vec<events::
     }
 }
 
-/**
-
-map,123,"path","expected"
-map,123,"path","expected",eq
-map,123,"path","expected",float(error=0.0000123, precision="blah=b, lah")
-map,123,"path","expected",string(prefix="foo")
-
-map,123,"path","expected",string,prefix=foo
-map,123,"path","expected",eq,prefix_length=123
-map,123,"path","expected",float,error=0.0000123&precision=blah%20blah
-map,123,"path","expected",float(error="0.0001")
-
-
-.feeGrowthGlobalUpdates[] | select(.poolAddress == "7858e59e0c01ea06df3af3d20ac7b0003275d4bf") | .newValue.value
-
-
-CREATE (4660) KEY: "swap:4e68ccd3e89f51c3074ca5072bbac773960dfa36:volume:token0"
-  OLD: (none)
-  NEW: "0.001000000000000000000000000000000751883050288776877033053788785155625157274883463287551421672105789185"
-
-
-{"op": "CREATE",
- "ordinal": 4660,
- "key": "swap:4e68ccd3e89f51c3074ca5072bbac773960dfa36:volume:token0",
- "old": null,
- "new": "0.001000000000000000000000000000000751883050288776877033053788785155625157274883463287551421672105789185"}
-
-{"op": "CREATE",
- "ordinal": 4660,
- "key": "swap:4e68ccd3e89f51c3074ca5072bbac773960dfa36:volume:token0",
- "old": null,
- "new": {
-  "id": "0x123",
-}}
-
-'select(.key == 'swap:4e68ccd3e89f51c3074ca5072bbac773960dfa36:volume:token0') | .new.id', "expected_value"
-
-select(.key == 'swap:4e68ccd3e89f51c3074ca5072bbac773960dfa36:volume:token0' and .new.id == "0x123") | .new.value
-
-graph_out,12375689,'select(.id == "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" and .entity == "Token") | .fields | select(.name == "volume") | .newValue.bigdecimal',0.00100000000000000000000000000000075188305028877687703305378878515562515727488346328755142167
-*/
-
 // --------------------
 //  Map Swaps Mints Burns Entities
 // --------------------

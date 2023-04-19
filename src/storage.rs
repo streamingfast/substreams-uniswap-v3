@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::ops::Add;
 use substreams::scalar::BigInt;
 use substreams_ethereum::pb::eth::v2::StorageChange;
@@ -281,8 +282,8 @@ mod tests {
     use std::num::ParseIntError;
     use std::ops::Add;
     use std::str::FromStr;
-    use substreams::hex;
     use substreams::scalar::BigInt;
+    use substreams::{hex, Hex};
     use substreams_ethereum::pb::eth::v2::StorageChange;
     use tiny_keccak::{Hasher, Keccak};
     #[test]
@@ -395,7 +396,7 @@ mod tests {
 
         let storage = UniswapPoolStorage::new(
             &storage_changes,
-            hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf"),
+            &Hex::decode("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").unwrap(),
         );
         let v_opt = storage.get_slot0_sqrt_price_x96();
         assert_eq!(
@@ -421,7 +422,7 @@ mod tests {
 
         let storage = UniswapPoolStorage::new(
             &storage_changes,
-            hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf"),
+            &Hex::decode("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").unwrap(),
         );
         let tick_idx = BigInt::from(10);
         let v_opt = storage.get_ticks_initialized(&tick_idx);
