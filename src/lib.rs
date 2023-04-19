@@ -710,6 +710,7 @@ pub fn store_swaps_volume(
             true => {
                 log::info!("type of pool event {:?}", event);
                 match event.r#type.unwrap() {
+                    MintEvent(_) => output.add(ord, format!("pool:liquidityProviderCount"), &BigDecimal::one()),
                     SwapEvent(swap) => {
                         log::info!("transaction: {}", pool.transaction_id);
                         let eth_price_in_usd: BigDecimal = match store_eth_prices.get_at(ord, "bundle") {
