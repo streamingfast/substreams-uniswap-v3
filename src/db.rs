@@ -356,7 +356,7 @@ pub fn swap_volume_token_entity_change(tables: &mut Tables, deltas: &Deltas<Delt
         };
 
         tables
-            .update_row("Token", format!("0x:{}", token_address).as_str())
+            .update_row("Token", format!("0x:{token_address}"))
             .set(name, &delta.new_value);
     }
 }
