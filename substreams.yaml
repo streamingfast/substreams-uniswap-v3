@@ -115,7 +115,7 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - store: store_eth_prices
-      - store: store_derived_total_value_locked
+      - store: store_derived_tvl
         mode: deltas
 
   - name: store_total_tx_counts
@@ -167,7 +167,7 @@ modules:
       - store: store_native_amounts
       - store: store_pool_liquidities
 
-  - name: store_token_total_value_locked
+  - name: store_token_tvl
     kind: store
     initialBlock: 12369621
     updatePolicy: add
@@ -176,37 +176,26 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
-  - name: store_derived_total_value_locked
-    kind: store
-    initialBlock: 12369621
-    updatePolicy: add
-    valueType: bigdecimal
-    inputs:
-      - map: map_extract_data_types
-      - store: store_token_total_value_locked
-      - store: store_pools
-      - store: store_eth_prices
-
-  - name: store_derived_factory_total_value_locked
-    kind: store
-    initialBlock: 12369621
-    updatePolicy: add
-    valueType: bigdecimal
-    inputs:
-      - store: store_derived_total_value_locked
-        mode: deltas
-
-  - name: store_total_value_locked
+  - name: store_derived_tvl
     kind: store
     initialBlock: 12369621
     updatePolicy: set
     valueType: bigdecimal
     inputs:
-      - store: store_native_amounts
-        mode: deltas
-      - store: store_total_value_locked_by_tokens
+      - source: sf.substreams.v1.Clock
+      - map: map_extract_data_types
+      - store: store_token_tvl
       - store: store_pools
       - store: store_eth_prices
+
+  - name: store_derived_factory_tvl
+    kind: store
+    initialBlock: 12369621
+    updatePolicy: add
+    valueType: bigdecimal
+    inputs:
+      - store: store_derived_tvl
+        mode: deltas
 
   - name: store_ticks_liquidities
     kind: store
@@ -260,7 +249,7 @@ modules:
         mode: deltas
       - store: store_swaps_volume
         mode: deltas
-      - store: store_totals
+      - store: store_derived_factory_tvl
         mode: deltas
 
       ###- map: map_bundle_entities
@@ -277,9 +266,7 @@ modules:
         mode: deltas
       - store: store_pool_liquidities
         mode: deltas
-      - store: store_total_value_locked # this input should be removed
-        mode: deltas
-      - store: store_total_value_locked_by_tokens
+      - store: store_token_tvl
         mode: deltas
       - store: store_pool_fee_growth_global_x128
         mode: deltas
@@ -302,11 +289,11 @@ modules:
       #  mode: deltas
       #- store: store_total_value_locked_by_tokens
       #  mode: deltas
-      - store: store_total_value_locked_usd
-        mode: deltas
       #- store: store_eth_prices
       #  mode: deltas
       - store: store_tokens_whitelist_pools
+        mode: deltas
+      - store: store_derived_tvl
         mode: deltas
 
       ###- map: map_tick_entities

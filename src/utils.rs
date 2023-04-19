@@ -456,11 +456,11 @@ pub fn update_total_value_locked_usd_pool_entity_change(
     table_name: &str,
     delta: &DeltaBigDecimal,
 ) {
-    let time_it = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
     let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
 
     tables
-        .update_row(table_name, pool_time_data_id(pool_address, &time_it).as_str())
+        .update_row(table_name, pool_time_data_id(pool_address, &time_id).as_str())
         .set("totalValueLockedUSD", &delta.new_value);
 }
 

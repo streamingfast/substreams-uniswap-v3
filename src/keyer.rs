@@ -193,7 +193,7 @@ pub fn native_pool_from_key(key: &String) -> Option<(String, String)> {
 }
 
 // ------------------------------------------------
-//      store_derived_pool_total_value_locked
+//      store_derived_tvl
 // ------------------------------------------------
 pub fn pool_derived_total_value_locked_usd(pool_addr: &String, token_addr: &String, token: &String) -> String {
     format!("pool:{}:{}:{}:usd", pool_addr, token_addr, token)
@@ -219,29 +219,34 @@ pub fn pool_derived_total_value_locked_eth_untracked(
     format!("pool:{}:{}:{}:ethUntracked", pool_addr, token_addr, token)
 }
 
-// confirm if the token address is of value here
-pub fn pool_day_derived_total_value_locked_usd(pool_addr: &String, token_addr: &String, token: &String) -> String {
-    format!("{}:{}:{}:{}:usd", POOL_DAY_DATA, pool_addr, token_addr, token)
+pub fn pool_day_derived_total_value_locked_usd(
+    pool_addr: &String,
+    token_addr: &String,
+    token: &String,
+    day_id: &String,
+) -> String {
+    format!("{}:{}:{}:{}:{}", POOL_DAY_DATA, pool_addr, token_addr, token, day_id)
 }
 
-// confirm if the token address is of value here
-pub fn pool_hour_derived_total_value_locked_usd(pool_addr: &String, token_addr: &String, token: &String) -> String {
-    format!("{}:{}:{}:{}:usd", POOL_HOUR_DATA, pool_addr, token_addr, token)
+pub fn pool_hour_derived_total_value_locked_usd(
+    pool_addr: &String,
+    token_addr: &String,
+    token: &String,
+    hour_id: &String,
+) -> String {
+    format!("{}:{}:{}:{}:{}", POOL_HOUR_DATA, pool_addr, token_addr, token, hour_id)
 }
 
-// ------------------------------------------------
-//      store_derived_total_value_locked
-// ------------------------------------------------
 pub fn token_derived_total_value_locked_usd(token_addr: &String, token: &String) -> String {
     format!("token:{}:{}:usd", token_addr, token)
 }
 
-pub fn token_day_data_derived_total_value_locked_usd(token_addr: &String, token: &String) -> String {
-    format!("{}:{}:{}:usd", TOKEN_DAY_DATA, token_addr, token)
+pub fn token_day_data_derived_total_value_locked_usd(token_addr: &String, token: &String, day_id: &String) -> String {
+    format!("{}:{}:{}:{}", TOKEN_DAY_DATA, token_addr, token, day_id)
 }
 
-pub fn token_hour_data_derived_total_value_locked_usd(token_addr: &String, token: &String) -> String {
-    format!("{}:{}:{}:usd", TOKEN_HOUR_DATA, token_addr, token)
+pub fn token_hour_data_derived_total_value_locked_usd(token_addr: &String, token: &String, hour_id: &String) -> String {
+    format!("{}:{}:{}:{}", TOKEN_HOUR_DATA, token_addr, token, hour_id)
 }
 
 // ------------------------------------------------
@@ -275,7 +280,7 @@ pub fn pool_hour_data_liquidity(pool_address: &String, hour_id: String) -> Strin
 }
 
 // ------------------------------------------------
-//      store_token_total_value_locked
+//      store_token_tvl
 // ------------------------------------------------
 pub fn pool_total_value_locked_by_token(pool_address: &String, token_address: &String, token: String) -> String {
     format!("pool:{}:{}:{}", pool_address, token_address, token)

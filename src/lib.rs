@@ -15,6 +15,7 @@ mod tables;
 mod utils;
 
 use crate::ethpb::v2::{Block, StorageChange};
+use crate::keyer::UNISWAP_DAY_DATA;
 use crate::pb::uniswap::events::pool_event::Type;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::PoolSqrtPrice;
@@ -877,7 +878,7 @@ pub fn store_swaps_volume(
 }
 
 #[substreams::handlers::store]
-pub fn store_token_total_value_locked(clock: Clock, events: Events, output: StoreAddBigDecimal) {
+pub fn store_token_tvl(clock: Clock, events: Events, output: StoreAddBigDecimal) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
@@ -921,13 +922,23 @@ pub fn store_token_total_value_locked(clock: Clock, events: Events, output: Stor
 }
 
 #[substreams::handlers::store]
-pub fn store_derived_total_value_locked(
+pub fn store_derived_tvl(
+    clock: Clock,
     events: Events,
     token_total_value_locked: StoreGetBigDecimal,
     pools_store: StoreGetProto<Pool>,
     eth_prices_store: StoreGetBigDecimal,
     output: StoreSetBigDecimal,
 ) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id: i64 = timestamp_seconds / 86400;
+    let hour_id: i64 = timestamp_seconds / 3600;
+
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
+
     for pool_event in events.pool_events {
         let eth_price_usd: BigDecimal =
             match &eth_prices_store.get_at(pool_event.log_ordinal, &keyer::bundle_eth_price()) {
@@ -995,10 +1006,12 @@ pub fn store_derived_total_value_locked(
                 &keyer::token_day_data_derived_total_value_locked_usd(
                     pool.token0.as_ref().unwrap().address(),
                     &"0".to_string(),
+                    &day_id.to_string(),
                 ),
                 &keyer::token_hour_data_derived_total_value_locked_usd(
                     pool.token0.as_ref().unwrap().address(),
                     &"0".to_string(),
+                    &hour_id.to_string(),
                 ),
             ],
             &derived_token0_usd,
@@ -1012,10 +1025,12 @@ pub fn store_derived_total_value_locked(
                 &keyer::token_day_data_derived_total_value_locked_usd(
                     pool.token1.as_ref().unwrap().address(),
                     &"1".to_string(),
+                    &day_id.to_string(),
                 ),
                 &keyer::token_hour_data_derived_total_value_locked_usd(
                     pool.token1.as_ref().unwrap().address(),
                     &"1".to_string(),
+                    &hour_id.to_string(),
                 ),
             ],
             &derived_token1_usd,
@@ -1042,22 +1057,50 @@ pub fn store_derived_total_value_locked(
         );
 
         // pool.totalValueLockedUSD
-        output.set(
+        output.set_many(
             pool_event.log_ordinal,
-            &keyer::pool_derived_total_value_locked_usd(
-                &pool.address,
-                pool.token0.as_ref().unwrap().address(),
-                &"0".to_string(),
-            ),
+            &vec![
+                keyer::pool_derived_total_value_locked_usd(
+                    &pool.address,
+                    pool.token0.as_ref().unwrap().address(),
+                    &"0".to_string(),
+                ),
+                keyer::pool_day_derived_total_value_locked_usd(
+                    &pool.address,
+                    pool.token0.as_ref().unwrap().address(),
+                    &"0".to_string(),
+                    &day_id.to_string(),
+                ),
+                keyer::pool_hour_derived_total_value_locked_usd(
+                    &pool.address,
+                    pool.token0.as_ref().unwrap().address(),
+                    &"0".to_string(),
+                    &hour_id.to_string(),
+                ),
+            ],
             &amounts.stable_usd,
         );
-        output.set(
+        output.set_many(
             pool_event.log_ordinal,
-            &keyer::pool_derived_total_value_locked_usd(
-                &pool.address,
-                pool.token1.as_ref().unwrap().address(),
-                &"1".to_string(),
-            ),
+            &vec![
+                keyer::pool_derived_total_value_locked_usd(
+                    &pool.address,
+                    pool.token1.as_ref().unwrap().address(),
+                    &"1".to_string(),
+                ),
+                keyer::pool_day_derived_total_value_locked_usd(
+                    &pool.address,
+                    pool.token1.as_ref().unwrap().address(),
+                    &"1".to_string(),
+                    &day_id.to_string(),
+                ),
+                keyer::pool_hour_derived_total_value_locked_usd(
+                    &pool.address,
+                    pool.token1.as_ref().unwrap().address(),
+                    &"1".to_string(),
+                    &hour_id.to_string(),
+                ),
+            ],
             &amounts.stable_usd,
         );
 
@@ -1104,11 +1147,8 @@ pub fn store_derived_total_value_locked(
 }
 
 #[substreams::handlers::store]
-pub fn store_derived_factory_total_value_locked(
-    derived_pool_total_value_locked_deltas: Deltas<DeltaBigDecimal>,
-    output: StoreAddBigDecimal,
-) {
-    for delta in derived_pool_total_value_locked_deltas.deltas {
+pub fn store_derived_factory_tvl(derived_pool_tvl_deltas: Deltas<DeltaBigDecimal>, output: StoreAddBigDecimal) {
+    for delta in derived_pool_tvl_deltas.deltas {
         if utils::extract_item_from_key_at_position(&delta.key, 0).starts_with("pool:") {
             if utils::extract_item_from_key_last_item(&delta.key).eq("eth") {
                 output.add(
@@ -1127,9 +1167,12 @@ pub fn store_derived_factory_total_value_locked(
             }
 
             if utils::extract_item_from_key_last_item(&delta.key).eq("usd") {
-                output.add(
+                output.add_many(
                     delta.ordinal,
-                    &format!("factory:totalValueLockedUSD"),
+                    &vec![
+                        format!("factory:totalValueLockedUSD"),
+                        format!("{}:totalValueLockedUSD", UNISWAP_DAY_DATA),
+                    ],
                     calculate_diff(&delta),
                 );
             }
@@ -1512,30 +1555,28 @@ pub fn map_position_snapshots(
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
-    pool_count_deltas: Deltas<DeltaBigInt>,             /* store_pool_count */
-    tx_count_deltas: Deltas<DeltaBigInt>,               /* store_total_tx_counts deltas */
-    swaps_volume_deltas: Deltas<DeltaBigDecimal>,       /* store_swaps_volume */
-    totals_deltas: Deltas<DeltaBigDecimal>,             /* store_totals */
-    derived_eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
-    events: Events,                                     /* map_extract_data_types */
-    pools_created: Pools,                               /* map_pools_created */
+    pool_count_deltas: Deltas<DeltaBigInt>,              /* store_pool_count */
+    tx_count_deltas: Deltas<DeltaBigInt>,                /* store_total_tx_counts deltas */
+    swaps_volume_deltas: Deltas<DeltaBigDecimal>,        /* store_swaps_volume */
+    derived_factory_tvl_deltas: Deltas<DeltaBigDecimal>, /* store_derived_factory_tvl */
+    derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,  /* store_eth_prices */
+    events: Events,                                      /* map_extract_data_types */
+    pools_created: Pools,                                /* map_pools_created */
     pool_sqrt_price_deltas: Deltas<DeltaProto<PoolSqrtPrice>>, /* store_pool_sqrt_price */
-    pool_liquidities_store_deltas: Deltas<DeltaBigInt>, /* store_pool_liquidities */
-    total_value_locked_deltas: Deltas<DeltaBigDecimal>, /* store_total_value_locked */
-    total_value_locked_by_tokens_deltas: Deltas<DeltaBigDecimal>, /* store_total_value_locked_by_tokens */
+    pool_liquidities_store_deltas: Deltas<DeltaBigInt>,  /* store_pool_liquidities */
+    token_tvl_deltas: Deltas<DeltaBigDecimal>,           /* store_token_tvl */
     pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
-    price_deltas: Deltas<DeltaBigDecimal>,              /* store_prices */
-    tokens_store: StoreGetInt64,                        /* store_tokens */
-    token_store_deltas: Deltas<DeltaInt64>,             /* store_tokens */
-    // FIXME: this will be removed and be taken from store_derived_total_value_locked
-    total_value_locked_usd_deltas: Deltas<DeltaBigDecimal>, /* store_total_value_locked_usd */
-    tokens_whitelist_pools: Deltas<DeltaArray<String>>,     /* store_tokens_whitelist_pools */
-    ticks_liquidities_deltas: Deltas<DeltaBigInt>,          /* store_ticks_liquidities */
-    positions_store: StoreGetInt64,                         /* store_positions */
-    positions_changes_deltas: Deltas<DeltaBigDecimal>,      /* store_position_changes */
-    snapshot_positions: SnapshotPositions,                  /* map_position_snapshots */
-    tx_count_store: StoreGetBigInt,                         /* store_total_tx_counts */
-    store_eth_prices: StoreGetBigDecimal,                   /* store_eth_prices */
+    price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
+    tokens_store: StoreGetInt64,                         /* store_tokens */
+    token_store_deltas: Deltas<DeltaInt64>,              /* store_tokens */
+    tokens_whitelist_pools: Deltas<DeltaArray<String>>,  /* store_tokens_whitelist_pools */
+    derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
+    ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
+    positions_store: StoreGetInt64,                      /* store_positions */
+    positions_changes_deltas: Deltas<DeltaBigDecimal>,   /* store_position_changes */
+    snapshot_positions: SnapshotPositions,               /* map_position_snapshots */
+    tx_count_store: StoreGetBigInt,                      /* store_total_tx_counts */
+    store_eth_prices: StoreGetBigDecimal,                /* store_eth_prices */
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
 
@@ -1552,17 +1593,16 @@ pub fn graph_out(
     db::pool_created_factory_entity_change(&mut tables, &pool_count_deltas);
     db::tx_count_factory_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_factory_entity_change(&mut tables, &swaps_volume_deltas);
-    db::total_value_locked_factory_entity_change(&mut tables, &totals_deltas);
+    db::tvl_factory_entity_change(&mut tables, &derived_factory_tvl_deltas);
 
     // Pool:
     db::pools_created_pool_entity_change(&mut tables, &pools_created);
-    db::pool_sqrt_price_entity_change(&mut tables, &pool_sqrt_price_deltas);
-    db::pool_liquidities_pool_entity_change(&mut tables, &pool_liquidities_store_deltas);
-    db::pool_fee_growth_global_entity_change(&mut tables, events.fee_growth_global_updates);
-    // TODO: pretty sure this should be the store_totals deltas instead of the total_value_locked
-    db::total_value_locked_pool_entity_change(&mut tables, &totals_deltas);
-    db::pool_total_value_locked_by_token_entity_change(&mut tables, &total_value_locked_by_tokens_deltas);
-    db::pool_fee_growth_global_x128_entity_change(&mut tables, &pool_fee_growth_global_x128_deltas);
+    db::sqrt_price_and_tick_pool_entity_change(&mut tables, &pool_sqrt_price_deltas);
+    db::liquidities_pool_entity_change(&mut tables, &pool_liquidities_store_deltas);
+    db::fee_growth_global_pool_entity_change(&mut tables, events.fee_growth_global_updates);
+    db::total_value_locked_pool_entity_change(&mut tables, &derived_tvl_deltas);
+    db::total_value_locked_by_token_pool_entity_change(&mut tables, &token_tvl_deltas);
+    db::fee_growth_global_x128_pool_entity_change(&mut tables, &pool_fee_growth_global_x128_deltas);
     db::price_pool_entity_change(&mut tables, &price_deltas);
     db::tx_count_pool_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_pool_entity_change(&mut tables, &swaps_volume_deltas);
@@ -1571,20 +1611,15 @@ pub fn graph_out(
     db::tokens_created_token_entity_change(&mut tables, &pools_created, tokens_store);
     db::swap_volume_token_entity_change(&mut tables, &swaps_volume_deltas);
     db::tx_count_token_entity_change(&mut tables, &tx_count_deltas);
-    db::total_value_locked_by_token_token_entity_change(&mut tables, &total_value_locked_by_tokens_deltas);
-    // TODO: replace with store_derived_total_value_locked and fetch token_derived_total_value_locked_usd
-    db::total_value_locked_usd_token_entity_change(&mut tables, total_value_locked_usd_deltas);
+    db::total_value_locked_by_token_token_entity_change(&mut tables, &token_tvl_deltas);
+    db::total_value_locked_usd_token_entity_change(&mut tables, &derived_tvl_deltas);
     db::derived_eth_prices_token_entity_change(&mut tables, &derived_eth_prices_deltas);
     db::whitelist_token_entity_change(&mut tables, tokens_whitelist_pools);
 
     // Tick:
-    //create_ticks_entity_change(&mut tables, events);
     db::create_tick_entity_change(&mut tables, events.ticks_created);
     db::update_tick_entity_change(&mut tables, events.ticks_updated);
-    // create_update_ticks_entity_change(&mut tables, );
-    // update_ticks_entity_change(&mut table, );
-
-    db::ticks_liquidities_tick_entity_change(&mut tables, ticks_liquidities_deltas);
+    db::liquidities_tick_entity_change(&mut tables, ticks_liquidities_deltas);
 
     // Position:
     db::position_create_entity_change(&mut tables, events.positions, positions_store);
@@ -1606,7 +1641,7 @@ pub fn graph_out(
     // Uniswap day data:
     db::uniswap_day_data_create_entity_change(&mut tables, &tx_count_deltas);
     db::tx_count_uniswap_day_data_entity_change(&mut tables, &tx_count_deltas);
-    db::totals_uniswap_day_data_entity_change(&mut tables, &totals_deltas);
+    db::totals_uniswap_day_data_entity_change(&mut tables, &derived_factory_tvl_deltas);
     db::volumes_uniswap_day_data_entity_change(&mut tables, &swaps_volume_deltas);
 
     // Pool Day data:
@@ -1617,7 +1652,7 @@ pub fn graph_out(
     db::swap_volume_pool_day_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::token_prices_pool_day_data_entity_change(&mut tables, &price_deltas);
     db::fee_growth_global_x128_pool_day_data_entity_change(&mut tables, &pool_fee_growth_global_x128_deltas);
-    db::total_value_locked_usd_pool_day_data_entity_change(&mut tables, &totals_deltas);
+    db::total_value_locked_usd_pool_day_data_entity_change(&mut tables, &derived_tvl_deltas);
 
     // Pool Hour data:
     db::pool_hour_data_create_entity_change(&mut tables, &tx_count_deltas);
@@ -1627,20 +1662,20 @@ pub fn graph_out(
     db::swap_volume_pool_hour_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::token_prices_pool_hour_data_entity_change(&mut tables, &price_deltas);
     db::fee_growth_global_x128_pool_hour_data_entity_change(&mut tables, &pool_fee_growth_global_x128_deltas);
-    db::total_value_locked_usd_pool_hour_data_entity_change(&mut tables, &totals_deltas);
+    db::total_value_locked_usd_pool_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
 
     // Token Day data:
     db::token_day_data_create_entity_change(&mut tables, &token_store_deltas);
     db::swap_volume_token_day_data_entity_change(&mut tables, &swaps_volume_deltas);
-    db::total_value_locked_usd_token_day_data_entity_change(&mut tables, &totals_deltas);
-    db::total_value_locked_token_day_data_entity_change(&mut tables, &total_value_locked_by_tokens_deltas);
+    db::total_value_locked_usd_token_day_data_entity_change(&mut tables, &derived_tvl_deltas);
+    db::total_value_locked_token_day_data_entity_change(&mut tables, &token_tvl_deltas);
     db::token_prices_token_day_data_entity_change(&mut tables, &price_deltas);
 
     // Token Hour data:
     db::token_hour_data_create_entity_change(&mut tables, &token_store_deltas);
     db::swap_volume_token_hour_data_entity_change(&mut tables, &swaps_volume_deltas);
-    db::total_value_locked_usd_token_hour_data_entity_change(&mut tables, &totals_deltas);
-    db::total_value_locked_token_hour_data_entity_change(&mut tables, &total_value_locked_by_tokens_deltas);
+    db::total_value_locked_usd_token_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
+    db::total_value_locked_token_hour_data_entity_change(&mut tables, &token_tvl_deltas);
     db::token_prices_token_hour_data_entity_change(&mut tables, &price_deltas);
 
     Ok(tables.to_entity_changes())
