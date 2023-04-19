@@ -356,7 +356,7 @@ pub fn swap_volume_token_entity_change(tables: &mut Tables, deltas: &Deltas<Delt
         };
 
         tables
-            .update_row("Token", format!("0x:{}", token_address).as_str())
+            .update_row("Token", format!("0x{}", token_address).as_str())
             .set(name, &delta.new_value);
     }
 }
@@ -370,7 +370,7 @@ pub fn tx_count_token_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBi
         log::info!("delta key {}", delta.key);
         let token_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
         tables
-            .update_row("Token", format!("0x:{}", token_address).as_str())
+            .update_row("Token", format!("0x{}", token_address).as_str())
             .set("txCount", &delta.new_value);
     }
 }
@@ -384,7 +384,7 @@ pub fn total_value_locked_by_token_token_entity_change(tables: &mut Tables, delt
         let token_address = extract_item_from_key_last_item(&delta.key);
 
         tables
-            .update_row("Token", format!("0x:{}", token_address).as_str())
+            .update_row("Token", format!("0x{}", token_address).as_str())
             .set("totalValueLocked", &delta.new_value);
     }
 }
@@ -402,7 +402,7 @@ pub fn total_value_locked_usd_token_entity_change(tables: &mut Tables, deltas: &
         };
 
         tables
-            .update_row("Token", format!("0x:{}", token_address).as_str())
+            .update_row("Token", format!("0x{}", token_address).as_str())
             .set(name, &delta.new_value);
     }
 }
@@ -423,14 +423,14 @@ pub fn derived_eth_prices_token_entity_change(tables: &mut Tables, deltas: &Delt
         };
 
         tables
-            .update_row("Token", format!("0x:{}", token_address).as_str())
+            .update_row("Token", format!("0x{}", token_address).as_str())
             .set(name, &delta.new_value);
     }
 }
 
 pub fn whitelist_token_entity_change(tables: &mut Tables, deltas: Deltas<DeltaArray<String>>) {
     for delta in deltas.deltas {
-        let token_address = format!("0x:{}", delta.key.as_str().split(":").nth(1).unwrap().to_string());
+        let token_address = format!("0x{}", delta.key.as_str().split(":").nth(1).unwrap().to_string());
         tables
             .update_row("Token", token_address.as_str())
             .set("whitelistPools", &delta.new_value);
