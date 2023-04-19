@@ -18,10 +18,9 @@ wasm-bindgen = "0.2.79"
 prost = "0.11.0"
 prost-types = "0.11.0"
 hex = "0.4.3"
-#substreams = { path = "/Users/abourget/sf/substreams-rs/substreams", version = "0.5.6" } # "0.5.6"
-substreams = { version = "0.5.6" } # "0.5.6"
+substreams = { version = "0.5.6" }
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum" }
-substreams-entity-change = {git = "https://github.com/streamingfast/substreams-entity-change/", branch="develop"}
+substreams-entity-change = {git = "https://github.com/streamingfast/substreams-entity-change/", branch = "develop"}
 num-bigint = "0.4"
 bigdecimal = "0.3"
 pad = "0.1"
@@ -37,7 +36,5 @@ prost-build = "0.11.0"
 anyhow = "1"
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum" }
 
-[profile.release]
-lto = true
-opt-level = 'z' # 's' was there before
-strip = "debuginfo"
+[patch.crates-io]
+substreams = { git = "https://github.com/streamingfast/substreams-rs", branch = "develop" }

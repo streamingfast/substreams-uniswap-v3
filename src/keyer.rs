@@ -76,23 +76,13 @@ pub fn pool_hour_data_sqrt_price(pool_address: &String, hour_id: String) -> Stri
 // ------------------------------------------------
 //      store_prices
 // ------------------------------------------------
-pub fn prices_pool_token_key(
-    pool_address: &String,
-    token_address: &String,
-    token: String,
-) -> String {
+pub fn prices_pool_token_key(pool_address: &String, token_address: &String, token: String) -> String {
     format!("pool:{}:{}:{}", pool_address, token_address, token)
 }
 
 // TODO: is the naming here correct?
-pub fn prices_token_pair(
-    token_numerator_address: &String,
-    token_denominator_address: &String,
-) -> String {
-    format!(
-        "pair:{}:{}",
-        token_numerator_address, token_denominator_address
-    )
+pub fn prices_token_pair(token_numerator_address: &String, token_denominator_address: &String) -> String {
+    format!("pair:{}:{}", token_numerator_address, token_denominator_address)
 }
 
 pub fn pool_day_data_token_price(pool_address: &String, token: String, day_id: String) -> String {
@@ -149,19 +139,11 @@ pub fn pool_fee_growth_global_x128(pool_address: &String, token: String) -> Stri
     format!("fee:{}:{}", pool_address, token)
 }
 
-pub fn pool_day_data_fee_growth_global_x128(
-    pool_address: &String,
-    token: String,
-    day_id: String,
-) -> String {
+pub fn pool_day_data_fee_growth_global_x128(pool_address: &String, token: String, day_id: String) -> String {
     format!("{}:{}:{}:{}", POOL_DAY_DATA, pool_address, token, day_id)
 }
 
-pub fn pool_hour_data_fee_growth_global_x128(
-    pool_address: &String,
-    token: String,
-    hour_id: String,
-) -> String {
+pub fn pool_hour_data_fee_growth_global_x128(pool_address: &String, token: String, hour_id: String) -> String {
     format!("{}:{}:{}:{}", POOL_HOUR_DATA, pool_address, token, hour_id)
 }
 
@@ -172,12 +154,20 @@ pub fn token_usd_total_value_locked(token_address: &String) -> String {
     format!("token:{}:usd", token_address)
 }
 
-pub fn pool_eth_total_value_locked(pool_address: &String) -> String {
+pub fn pool_total_value_locked_eth(pool_address: &String) -> String {
     format!("pool:{}:eth", pool_address)
 }
 
-pub fn pool_usd_total_value_locked(pool_address: &String) -> String {
+pub fn pool_total_value_locked_eth_untracked(pool_address: &String) -> String {
+    format!("pool:{}:tvlETHUntracked", pool_address)
+}
+
+pub fn pool_total_value_locked_usd(pool_address: &String) -> String {
     format!("pool:{}:usd", pool_address)
+}
+
+pub fn pool_total_value_locked_usd_untracked(pool_address: &String) -> String {
+    format!("pool:{}:tvlUSDUntracked", pool_address)
 }
 
 pub fn native_token_from_key(key: &String) -> Option<String> {
@@ -203,16 +193,65 @@ pub fn native_pool_from_key(key: &String) -> Option<(String, String)> {
 }
 
 // ------------------------------------------------
-//      store_native_total_value_locked
+//      store_derived_pool_total_value_locked
+// ------------------------------------------------
+pub fn pool_derived_total_value_locked_usd(pool_addr: &String, token_addr: &String, token: &String) -> String {
+    format!("pool:{}:{}:{}:usd", pool_addr, token_addr, token)
+}
+
+pub fn pool_derived_total_value_locked_eth(pool_addr: &String, token_addr: &String, token: &String) -> String {
+    format!("pool:{}:{}:{}:eth", pool_addr, token_addr, token)
+}
+
+pub fn pool_derived_total_value_locked_usd_untracked(
+    pool_addr: &String,
+    token_addr: &String,
+    token: &String,
+) -> String {
+    format!("pool:{}:{}:{}:usdUntracked", pool_addr, token_addr, token)
+}
+
+pub fn pool_derived_total_value_locked_eth_untracked(
+    pool_addr: &String,
+    token_addr: &String,
+    token: &String,
+) -> String {
+    format!("pool:{}:{}:{}:ethUntracked", pool_addr, token_addr, token)
+}
+
+// confirm if the token address is of value here
+pub fn pool_day_derived_total_value_locked_usd(pool_addr: &String, token_addr: &String, token: &String) -> String {
+    format!("{}:{}:{}:{}:usd", POOL_DAY_DATA, pool_addr, token_addr, token)
+}
+
+// confirm if the token address is of value here
+pub fn pool_hour_derived_total_value_locked_usd(pool_addr: &String, token_addr: &String, token: &String) -> String {
+    format!("{}:{}:{}:{}:usd", POOL_HOUR_DATA, pool_addr, token_addr, token)
+}
+
+// ------------------------------------------------
+//      store_derived_total_value_locked
+// ------------------------------------------------
+pub fn token_derived_total_value_locked_usd(token_addr: &String, token: &String) -> String {
+    format!("token:{}:{}:usd", token_addr, token)
+}
+
+pub fn token_day_data_derived_total_value_locked_usd(token_addr: &String, token: &String) -> String {
+    format!("{}:{}:{}:usd", TOKEN_DAY_DATA, token_addr, token)
+}
+
+pub fn token_hour_data_derived_total_value_locked_usd(token_addr: &String, token: &String) -> String {
+    format!("{}:{}:{}:usd", TOKEN_HOUR_DATA, token_addr, token)
+}
+
+// ------------------------------------------------
+//      store_native_amounts
 // ------------------------------------------------
 pub fn token_native_total_value_locked(token_address: &String) -> String {
     format!("token:{}:native", token_address)
 }
 
-pub fn pool_native_total_value_locked_token(
-    pool_address: &String,
-    token_address: &String,
-) -> String {
+pub fn pool_native_total_value_locked_token(pool_address: &String, token_address: &String) -> String {
     format!("pool:{}:{}:native", pool_address, token_address)
 }
 
@@ -236,13 +275,9 @@ pub fn pool_hour_data_liquidity(pool_address: &String, hour_id: String) -> Strin
 }
 
 // ------------------------------------------------
-//      store_total_value_locked_by_tokens
+//      store_token_total_value_locked
 // ------------------------------------------------
-pub fn pool_total_value_locked_by_token(
-    pool_address: &String,
-    token_address: &String,
-    token: String,
-) -> String {
+pub fn pool_total_value_locked_by_token(pool_address: &String, token_address: &String, token: String) -> String {
     format!("pool:{}:{}:{}", pool_address, token_address, token)
 }
 
@@ -484,8 +519,7 @@ mod tests {
     #[test]
     fn test_bigdecimal_from_string() {
         let bytes: [u8; 32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 4,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
         ];
         let bytes_str = Hex(&bytes).to_string();
         println!("{}", bytes_str);

@@ -70,12 +70,8 @@ impl Position {
     pub fn convert_position_type(&self) -> PositionType {
         match self.position_type {
             pt if pt == PositionType::Unset as i32 => return PositionType::Unset,
-            pt if pt == PositionType::IncreaseLiquidity as i32 => {
-                return PositionType::IncreaseLiquidity
-            }
-            pt if pt == PositionType::DecreaseLiquidity as i32 => {
-                return PositionType::DecreaseLiquidity
-            }
+            pt if pt == PositionType::IncreaseLiquidity as i32 => return PositionType::IncreaseLiquidity,
+            pt if pt == PositionType::DecreaseLiquidity as i32 => return PositionType::DecreaseLiquidity,
             pt if pt == PositionType::Collect as i32 => return PositionType::Collect,
             pt if pt == PositionType::Transfer as i32 => return PositionType::Transfer,
             _ => panic!("unhandled operation: {}", self.position_type),
@@ -89,9 +85,7 @@ pub struct PositionEvent {
 }
 
 pub mod position_event {
-    use crate::abi::positionmanager::events::{
-        Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
-    };
+    use crate::abi::positionmanager::events::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
 
     #[derive(Clone, Debug, PartialEq)]
     pub enum PositionEventType {
@@ -123,30 +117,18 @@ impl PositionEvent {
 
     pub fn get_amount0(&self) -> BigInt {
         return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => {
-                BigInt::from_str(evt.amount0.to_string().as_str()).unwrap()
-            }
-            PositionEventType::DecreaseLiquidity(evt) => {
-                BigInt::from_str(evt.amount0.to_string().as_str()).unwrap()
-            }
-            PositionEventType::Collect(evt) => {
-                BigInt::from_str(evt.amount0.to_string().as_str()).unwrap()
-            }
+            PositionEventType::IncreaseLiquidity(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
+            PositionEventType::DecreaseLiquidity(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
+            PositionEventType::Collect(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
             PositionEventType::Transfer(_) => BigInt::from(0 as i32),
         };
     }
 
     pub fn get_amount1(&self) -> BigInt {
         return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => {
-                BigInt::from_str(evt.amount1.to_string().as_str()).unwrap()
-            }
-            PositionEventType::DecreaseLiquidity(evt) => {
-                BigInt::from_str(evt.amount1.to_string().as_str()).unwrap()
-            }
-            PositionEventType::Collect(evt) => {
-                BigInt::from_str(evt.amount1.to_string().as_str()).unwrap()
-            }
+            PositionEventType::IncreaseLiquidity(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
+            PositionEventType::DecreaseLiquidity(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
+            PositionEventType::Collect(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
             PositionEventType::Transfer(_) => BigInt::from(0 as i32),
         };
     }
@@ -168,6 +150,21 @@ pub struct TokenAmounts {
     pub token1_addr: String,
 }
 
+pub struct AdjustedAmounts {
+    // pub token0: BigDecimal,
+    // pub token0_abs: BigDecimal,
+    // pub token0_eth: BigDecimal,
+    // pub token0_usd: BigDecimal,
+    // pub token1: BigDecimal,
+    // pub token1_abs: BigDecimal,
+    // pub token1_eth: BigDecimal,
+    // pub token1_usd: BigDecimal,
+    pub stable_eth: BigDecimal,
+    pub stable_usd: BigDecimal,
+    pub stable_eth_untracked: BigDecimal,
+    pub stable_usd_untracked: BigDecimal,
+}
+
 impl PoolEvent {
     pub fn get_amounts(&self) -> Option<TokenAmounts> {
         return match self.r#type.as_ref().unwrap().clone() {
@@ -180,7 +177,6 @@ impl PoolEvent {
             Type::Burn(evt) => Some(TokenAmounts {
                 amount0: BigDecimal::try_from(evt.amount_0).unwrap().neg(),
                 amount1: BigDecimal::try_from(evt.amount_1).unwrap().neg(),
-                // amount1: evt.amount_1.unwrap().into().neg(),
                 token0_addr: self.token0.clone(),
                 token1_addr: self.token1.clone(),
             }),

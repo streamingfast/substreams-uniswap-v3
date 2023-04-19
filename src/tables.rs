@@ -11,9 +11,7 @@ pub struct Tables {
 
 impl Tables {
     pub fn new() -> Self {
-        Tables {
-            tables: HashMap::new(),
-        }
+        Tables { tables: HashMap::new() }
     }
 
     pub fn create_row(&mut self, table: &str, key: &str) -> &mut Row {
@@ -103,9 +101,7 @@ pub struct Rows {
 
 impl Rows {
     pub fn new() -> Self {
-        Rows {
-            pks: HashMap::new(),
-        }
+        Rows { pks: HashMap::new() }
     }
 }
 
@@ -127,6 +123,7 @@ impl Row {
         }
     }
 
+    // TODO: add set_bigint, set_bigdecimal which both take a bi/bd string representation
     pub fn set<T: ToValue>(&mut self, name: &str, value: T) -> &mut Self {
         if self.operation == Operation::Delete {
             panic!("cannot set fields on a delete operation")

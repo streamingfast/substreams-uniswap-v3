@@ -107,6 +107,7 @@ type Pool @entity {
     # all time USD swapped
     volumeUSD: BigDecimal!
     # all time USD swapped, unfiltered for unreliable USD pools
+    # all time USD swapped, unfiltered for unreliable USD pools
     untrackedVolumeUSD: BigDecimal!
     # fees in USD
     feesUSD: BigDecimal!
