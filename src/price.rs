@@ -67,7 +67,6 @@ pub fn sqrt_price_x96_to_token_prices(
         .mul(math::exponent_to_big_decimal(&token0_decimals))
         .div(math::exponent_to_big_decimal(&token1_decimals));
 
-    log::info!("price1: {}", price1);
     let price0 = math::safe_div(&BigDecimal::one(), &price1);
 
     return (price0, price1);
@@ -80,7 +79,7 @@ pub fn find_eth_per_token(
     pools_store: &StoreGetProto<Pool>,
     pool_liquidities_store: &StoreGetBigInt,
     tokens_whitelist_pools_store: &StoreGetRaw,
-    total_native_value_locked_store: &StoreGetBigDecimal,
+    total_native_amounts_store: &StoreGetBigDecimal,
     prices_store: &StoreGetBigDecimal,
 ) -> BigDecimal {
     log::debug!(
@@ -93,7 +92,7 @@ pub fn find_eth_per_token(
         return BigDecimal::one();
     }
 
-    let mut price_so_far = BigDecimal::zero().with_prec(100);
+    let mut price_so_far = BigDecimal::zero();
 
     if STABLE_COINS.contains(&token_address.as_str()) {
         log::debug!("token addr: {} is a stable coin", token_address);
@@ -123,7 +122,7 @@ pub fn find_eth_per_token(
         }
         log::debug!("found whitelisted pools {}", whitelisted_pools.len());
 
-        let mut largest_eth_locked = BigDecimal::zero().with_prec(100);
+        let mut largest_eth_locked = BigDecimal::zero();
         let minimum_eth_locked = BigDecimal::from_str("60").unwrap();
         let mut eth_locked: BigDecimal;
 
@@ -159,26 +158,22 @@ pub fn find_eth_per_token(
                         token1.address,
                         token1.symbol
                     );
-                    let native_locked_value: BigDecimal = match total_native_value_locked_store
-                        .get_at(
-                            log_ordinal,
-                            &keyer::pool_native_total_value_locked_token(
-                                &pool.address,
-                                &token1.address,
-                            ),
-                        ) {
-                        None => BigDecimal::zero().with_prec(100),
-                        Some(price) => price.with_prec(100),
+                    let native_amount: BigDecimal = match total_native_amounts_store.get_at(
+                        log_ordinal,
+                        &keyer::pool_native_total_value_locked_token(
+                            &pool.address,
+                            &token1.address,
+                        ),
+                    ) {
+                        None => BigDecimal::zero(),
+                        Some(price) => price,
                     };
-                    log::debug!(
-                        "native locked value of token1 in pool {}",
-                        native_locked_value
-                    );
+                    log::debug!("native amount value of token1 in pool {}", native_amount);
 
                     // If the counter token is WETH we know the derived price is 1
                     if token1.address.eq(WETH_ADDRESS) {
                         log::debug!("token 1 is WETH");
-                        eth_locked = native_locked_value
+                        eth_locked = native_amount
                     } else {
                         log::debug!("token 1 is NOT WETH");
                         let token_eth_price: BigDecimal = match prices_store.get_at(
@@ -195,7 +190,7 @@ pub fn find_eth_per_token(
                             Some(price) => price,
                         };
                         log::debug!("token 1 is price in eth {}", token_eth_price);
-                        eth_locked = native_locked_value.mul(token_eth_price);
+                        eth_locked = native_amount.mul(token_eth_price);
                         log::debug!("computed eth locked {}", eth_locked);
                     }
                     log::debug!(
@@ -236,26 +231,22 @@ pub fn find_eth_per_token(
                         token0.address,
                         token1.symbol
                     );
-                    let native_locked_value: BigDecimal = match total_native_value_locked_store
-                        .get_at(
-                            log_ordinal,
-                            &keyer::pool_native_total_value_locked_token(
-                                &pool.address,
-                                &token0.address,
-                            ),
-                        ) {
-                        None => BigDecimal::zero().with_prec(100),
-                        Some(price) => price.with_prec(100),
+                    let native_amount: BigDecimal = match total_native_amounts_store.get_at(
+                        log_ordinal,
+                        &keyer::pool_native_total_value_locked_token(
+                            &pool.address,
+                            &token0.address,
+                        ),
+                    ) {
+                        None => BigDecimal::zero(),
+                        Some(price) => price,
                     };
-                    log::debug!(
-                        "native locked value of token0 in pool {}",
-                        native_locked_value
-                    );
+                    log::debug!("native amount value of token0 in pool {}", native_amount);
 
                     // If the counter token is WETH we know the derived price is 1
                     if token0.address.eq(WETH_ADDRESS) {
                         log::debug!("token 0 is WETH");
-                        eth_locked = native_locked_value
+                        eth_locked = native_amount
                     } else {
                         log::debug!("token 0 is NOT WETH");
                         let token_eth_price: BigDecimal = match prices_store.get_at(
@@ -272,7 +263,7 @@ pub fn find_eth_per_token(
                             Some(price) => price,
                         };
                         log::debug!("token 0 is price in eth {}", token_eth_price);
-                        eth_locked = native_locked_value.mul(token_eth_price);
+                        eth_locked = native_amount.mul(token_eth_price);
                         log::debug!("computed eth locked {}", eth_locked);
                     }
                     log::debug!(

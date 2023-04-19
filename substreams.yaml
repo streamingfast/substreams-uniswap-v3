@@ -83,7 +83,7 @@ modules:
   - name: store_pool_sqrt_price
     kind: store
     updatePolicy: set
-    valueType: proto:uniswap.types.v1.PoolSqrtPrice
+    valueType: proto:uniswap.types.v1.Events.PoolSqrtPrice
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
@@ -115,7 +115,7 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - store: store_eth_prices
-      - store: store_total_value_locked
+      - store: store_derived_total_value_locked
         mode: deltas
 
   - name: store_total_tx_counts
@@ -126,6 +126,7 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
+  # merge this store with tvl
   - name: store_swaps_volume
     kind: store
     updatePolicy: add
@@ -146,7 +147,7 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
-  - name: store_native_total_value_locked
+  - name: store_native_amounts
     kind: store
     updatePolicy: set
     valueType: bigdecimal
@@ -163,10 +164,10 @@ modules:
       - store: store_pools
       - store: store_prices
       - store: store_tokens_whitelist_pools
-      - store: store_native_total_value_locked # this dependency is unique to us since we will recompute the path to the value of a token in ETH
+      - store: store_native_amounts
       - store: store_pool_liquidities
 
-  - name: store_total_value_locked_by_tokens
+  - name: store_token_total_value_locked
     kind: store
     initialBlock: 12369621
     updatePolicy: add
@@ -175,25 +176,33 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
-  - name: store_total_value_locked
+  - name: store_derived_total_value_locked
     kind: store
     initialBlock: 12369621
     updatePolicy: add
     valueType: bigdecimal
     inputs:
-      - store: store_native_total_value_locked
-        mode: deltas
-      - store: store_total_value_locked_by_tokens
+      - map: map_extract_data_types
+      - store: store_token_total_value_locked
       - store: store_pools
       - store: store_eth_prices
 
-  - name: store_total_value_locked_usd
+  - name: store_derived_factory_total_value_locked
+    kind: store
+    initialBlock: 12369621
+    updatePolicy: add
+    valueType: bigdecimal
+    inputs:
+      - store: store_derived_total_value_locked
+        mode: deltas
+
+  - name: store_total_value_locked
     kind: store
     initialBlock: 12369621
     updatePolicy: set
     valueType: bigdecimal
     inputs:
-      - store: store_native_total_value_locked
+      - store: store_native_amounts
         mode: deltas
       - store: store_total_value_locked_by_tokens
       - store: store_pools
@@ -283,7 +292,7 @@ modules:
         mode: deltas
       - store: store_pool_liquidities
         mode: deltas
-      - store: store_total_value_locked
+      - store: store_total_value_locked # this input should be removed
         mode: deltas
       - store: store_total_value_locked_by_tokens
         mode: deltas

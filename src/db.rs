@@ -243,8 +243,11 @@ pub fn pool_fee_growth_global_entity_change(
     }
 }
 
-pub fn total_value_locked_pool_entity_change(tables: &mut Tables, deltas: Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas {
+pub fn total_value_locked_pool_entity_change(
+    tables: &mut Tables,
+    deltas: &Deltas<DeltaBigDecimal>,
+) {
+    for delta in deltas.deltas.iter() {
         if !delta.key.starts_with("pool:") {
             continue;
         }

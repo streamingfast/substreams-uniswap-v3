@@ -1,7 +1,7 @@
 use crate::ethpb::v2::TransactionTrace;
 use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::PoolSqrtPrice;
-use crate::pb::PositionEvent;
+use crate::pb::{AdjustedAmounts, PositionEvent};
 use crate::tables::Tables;
 use crate::uniswap::events::position::PositionType;
 use crate::uniswap::events::Transaction;
@@ -10,7 +10,7 @@ use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKE
 use std::fmt::Display;
 use std::ops::{Add, Mul};
 use std::str::FromStr;
-use substreams::prelude::{DeltaBigDecimal, DeltaProto};
+use substreams::prelude::{DeltaBigDecimal, DeltaProto, StoreGetBigDecimal};
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
@@ -209,15 +209,66 @@ pub fn get_tracked_amount_usd(
     return BigDecimal::from(0 as i32);
 }
 
-pub struct AdjustedAmounts {
-    eth: BigDecimal,
-    usd: BigDecimal,
-    eth_untracked: BigDecimal,
-    usd_untracked: BigDecimal,
-}
+pub fn get_adjusted_amounts(
+    token0_id: &String,
+    token1_id: &String,
+    token0_amount: &BigDecimal,
+    token1_amount: &BigDecimal,
+    token0_derived_eth_price: &BigDecimal,
+    token1_derived_eth_price: &BigDecimal,
+    bundle_eth_price_usd: &BigDecimal,
+) -> AdjustedAmounts {
+    let mut adjusted_amounts = AdjustedAmounts {
+        stable_eth: BigDecimal::zero(),
+        stable_usd: BigDecimal::zero(),
+        stable_eth_untracked: BigDecimal::zero(),
+        stable_usd_untracked: BigDecimal::zero(),
+    };
 
-pub fn _get_adjusted_amounts() -> AdjustedAmounts {
-    todo!("implement me")
+    if bundle_eth_price_usd.eq(&BigDecimal::zero()) {
+        return adjusted_amounts;
+    }
+
+    let mut eth = BigDecimal::zero();
+
+    let eth_untracked = token0_amount
+        .clone()
+        .mul(token0_derived_eth_price.clone())
+        .add(token1_amount.clone().mul(token1_derived_eth_price.clone()));
+
+    if WHITELIST_TOKENS.contains(&token0_id.as_str())
+        && WHITELIST_TOKENS.contains(&token1_id.as_str())
+    {
+        eth = eth_untracked.clone()
+    }
+
+    if WHITELIST_TOKENS.contains(&token0_id.as_str())
+        && !WHITELIST_TOKENS.contains(&token1_id.as_str())
+    {
+        eth = token0_amount
+            .clone()
+            .mul(token0_derived_eth_price.clone())
+            .mul(BigDecimal::from(2 as i32));
+    }
+
+    if !WHITELIST_TOKENS.contains(&token0_id.as_str())
+        && WHITELIST_TOKENS.contains(&token1_id.as_str())
+    {
+        eth = token1_amount
+            .clone()
+            .mul(token1_derived_eth_price.clone())
+            .mul(BigDecimal::from(2 as i32));
+    }
+
+    let usd = eth.clone().mul(bundle_eth_price_usd.clone());
+    let usd_untracked = eth_untracked.clone().mul(bundle_eth_price_usd.clone());
+
+    adjusted_amounts.stable_eth = eth;
+    adjusted_amounts.stable_usd = usd;
+    adjusted_amounts.stable_eth_untracked = eth_untracked;
+    adjusted_amounts.stable_usd_untracked = usd_untracked;
+
+    return adjusted_amounts;
 }
 
 pub fn load_transaction(
@@ -324,6 +375,45 @@ pub fn extract_pool_liquidity(
         }
     }
     None
+}
+
+pub fn get_derived_eth_price(
+    ordinal: u64,
+    token_addr: &String,
+    eth_prices_store: &StoreGetBigDecimal,
+) -> BigDecimal {
+    return match eth_prices_store.get_at(ordinal, &keyer::token_eth_price(&token_addr)) {
+        None => panic!("token eth price not found for token {}", token_addr),
+        Some(price) => price,
+    };
+}
+
+pub fn get_total_value_locked_token(
+    ordinal: u64,
+    token_addr: &String,
+    total_value_locked_store: &StoreGetBigDecimal,
+) -> BigDecimal {
+    return match total_value_locked_store
+        .get_at(ordinal, &keyer::token_total_value_locked(token_addr))
+    {
+        None => {
+            panic!("impossible")
+        }
+        Some(val) => val,
+    };
+}
+
+pub fn extract_item_from_key_last_item(delta_key: &String) -> String {
+    return delta_key.as_str().split(":").last().unwrap().to_string();
+}
+
+pub fn extract_item_from_key_as_position(delta_key: &String, position: usize) -> String {
+    return delta_key
+        .as_str()
+        .split(":")
+        .nth(position)
+        .unwrap()
+        .to_string();
 }
 
 pub fn pool_time_data_id<T: AsRef<str> + Display>(pool_address: T, time_id: T) -> String {

@@ -284,6 +284,21 @@ pub struct TokenAmounts {
     pub token1_addr: String,
 }
 
+pub struct AdjustedAmounts {
+    // pub token0: BigDecimal,
+    // pub token0_abs: BigDecimal,
+    // pub token0_eth: BigDecimal,
+    // pub token0_usd: BigDecimal,
+    // pub token1: BigDecimal,
+    // pub token1_abs: BigDecimal,
+    // pub token1_eth: BigDecimal,
+    // pub token1_usd: BigDecimal,
+    pub stable_eth: BigDecimal,
+    pub stable_usd: BigDecimal,
+    pub stable_eth_untracked: BigDecimal,
+    pub stable_usd_untracked: BigDecimal,
+}
+
 impl PoolEvent {
     pub fn get_amounts(&self) -> Option<TokenAmounts> {
         return match self.r#type.as_ref().unwrap().clone() {
@@ -298,7 +313,6 @@ impl PoolEvent {
                     .neg(),
                 amount1: <uniswap::BigDecimal as Into<BigDecimal>>::into(evt.amount_1.unwrap())
                     .neg(),
-                // amount1: evt.amount_1.unwrap().into().neg(),
                 token0_addr: self.token0.clone(),
                 token1_addr: self.token1.clone(),
             }),

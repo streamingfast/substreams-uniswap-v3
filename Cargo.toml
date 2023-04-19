@@ -30,3 +30,6 @@ tiny-keccak = "2.0.2"
 prost-build = "0.11.0"
 anyhow = "1"
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum" }
+
+[patch.crates-io]
+substreams = { path = "../substreams-rs/substreams" }

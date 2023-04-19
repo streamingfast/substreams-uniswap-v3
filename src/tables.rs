@@ -86,6 +86,7 @@ impl Row {
         }
     }
 
+    // TODO: add set_bigint, set_bigdecimal which both take a bi/bd string representation
     pub fn set<N: AsRef<str>, T: ToField>(&mut self, name: N, change: T) -> &mut Self {
         if self.operation == Operation::Delete {
             panic!("cannot set fields on a delete operation")
