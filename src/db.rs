@@ -977,7 +977,7 @@ pub fn tx_count_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Del
         tables
             .update_row(keyer::UNISWAP_DAY_DATA, &id)
             .set("id", &id)
-            .set("txCount", delta);
+            .set("txCount", &delta.new_value);
     }
 }
 
@@ -1114,7 +1114,7 @@ pub fn swap_volume_pool_day_data_entity_change(
                     POOL_DAY_DATA,
                     utils::pool_time_data_id(pool_address, &day_id).as_str(),
                 )
-                .set(name, delta);
+                .set(name, &delta.new_value);
         }
     }
 }
@@ -1180,7 +1180,7 @@ pub fn token_prices_pool_day_data_entity_change(
                 POOL_DAY_DATA,
                 utils::pool_time_data_id(pool_address, &day_id).as_str(),
             )
-            .set(name, delta);
+            .set(name, &delta.new_value);
 
         if !high.eq(&BigDecimal::zero()) {
             tables
@@ -1252,7 +1252,7 @@ fn create_pool_day_data(
         .set("volumeToken1", BigDecimal::zero())
         .set("volumeUSD", BigDecimal::zero())
         .set("feesUSD", BigDecimal::zero())
-        .set("txCount", delta)
+        .set("txCount", &delta.new_value)
         .set("open", BigDecimal::zero())
         .set("high", BigDecimal::zero())
         .set("low", BigDecimal::zero())
@@ -1346,7 +1346,7 @@ pub fn swap_volume_pool_hour_data_entity_change(
                     POOL_HOUR_DATA,
                     utils::pool_time_data_id(pool_address, &hour_id).as_str(),
                 )
-                .set(name, delta);
+                .set(name, &delta.new_value);
         }
     }
 }
@@ -1388,7 +1388,7 @@ pub fn token_prices_pool_hour_data_entity_change(
 
         tables
             .update_row(POOL_HOUR_DATA, &pool_hour_id)
-            .set(name, delta);
+            .set(name, &delta.new_value);
 
         if !high.eq(&BigDecimal::zero()) {
             tables
@@ -1454,7 +1454,7 @@ fn create_pool_hour_data(
         .set("volumeToken1", BigDecimal::zero())
         .set("volumeUSD", BigDecimal::zero())
         .set("feesUSD", BigDecimal::zero())
-        .set("txCount", delta)
+        .set("txCount", &delta.new_value)
         .set("open", BigDecimal::zero())
         .set("high", BigDecimal::zero())
         .set("low", BigDecimal::zero())
@@ -1514,7 +1514,7 @@ pub fn swap_volume_token_day_data_entity_change(
                     TOKEN_DAY_DATA,
                     utils::token_time_data_id(token_address, &day_id).as_str(),
                 )
-                .set(name, delta);
+                .set(name, &delta.new_value);
         }
     }
 }
@@ -1634,7 +1634,7 @@ pub fn swap_volume_token_hour_data_entity_change(
                     TOKEN_HOUR_DATA,
                     utils::token_time_data_id(token_address, &hour_id).as_str(),
                 )
-                .set(name, delta);
+                .set(name, &delta.new_value);
         }
     }
 }

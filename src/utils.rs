@@ -397,7 +397,7 @@ pub fn update_tx_count_pool_entity_change(
             table_name,
             pool_time_data_id(pool_address, &time_id).as_str(),
         )
-        .set("txCount", delta);
+        .set("txCount", &delta.new_value);
 }
 
 pub fn update_liquidities_pool_entity_change(
@@ -413,7 +413,7 @@ pub fn update_liquidities_pool_entity_change(
             table_name,
             pool_time_data_id(pool_address, &time_id).as_str(),
         )
-        .set("liquidity", delta);
+        .set("liquidity", &delta.new_value);
 }
 
 pub fn update_fee_growth_global_x128_pool_entity_change(
@@ -434,7 +434,7 @@ pub fn update_fee_growth_global_x128_pool_entity_change(
                 table_name,
                 pool_time_data_id(pool_address, &time_id).as_str(),
             )
-            .set(name, delta);
+            .set(name, &delta.new_value);
     }
 }
 
@@ -451,7 +451,7 @@ pub fn update_total_value_locked_usd_pool_entity_change(
             table_name,
             pool_time_data_id(pool_address, &time_it).as_str(),
         )
-        .set("totalValueLockedUSD", delta);
+        .set("totalValueLockedUSD", &delta.new_value);
 }
 
 pub fn update_sqrt_price_and_tick_pool_entity_change(
@@ -462,10 +462,8 @@ pub fn update_sqrt_price_and_tick_pool_entity_change(
     let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
     let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
 
-    let sqrt_price: BigInt =
-        BigInt::from_str(delta.new_value.sqrt_price.as_ref().unwrap().value.as_str()).unwrap();
-    let tick: BigInt =
-        BigInt::from_str(delta.new_value.tick.as_ref().unwrap().value.as_str()).unwrap();
+    let sqrt_price = BigInt::try_from(&delta.new_value.sqrt_price).unwrap();
+    let tick = BigInt::try_from(&delta.new_value.tick).unwrap();
 
     tables
         .update_row(
@@ -492,7 +490,7 @@ pub fn update_total_value_locked_usd_token_entity_change(
             table_name,
             token_time_data_id(token_address, &time_id).as_str(),
         )
-        .set("totalValueLockedUSD", delta);
+        .set("totalValueLockedUSD", &delta.new_value);
 }
 
 pub fn update_total_value_locked_token_entity_change(
@@ -508,7 +506,7 @@ pub fn update_total_value_locked_token_entity_change(
             table_name,
             token_time_data_id(token_address, &time_id).as_str(),
         )
-        .set("totalValueLocked", delta);
+        .set("totalValueLocked", &delta.new_value);
 }
 
 pub fn update_token_prices_token_entity_change(
@@ -524,5 +522,5 @@ pub fn update_token_prices_token_entity_change(
             table_name,
             token_time_data_id(token_address, &time_id).as_str(),
         )
-        .set("tokenPrice", delta);
+        .set("tokenPrice", &delta.new_value);
 }
