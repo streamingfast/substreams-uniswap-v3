@@ -34,15 +34,6 @@ impl<'a> UniswapPoolStorage<'a> {
             contract_addr: contract_pad(contract_addr),
         };
     }
-    // pub fn new(
-    //     storage_changes: &'a Vec<StorageChange>,
-    //     contract_addr: [u8; 20],
-    // ) -> UniswapPoolStorage<'a> {
-    //     return Self {
-    //         storage_changes,
-    //         contract_addr,
-    //     };
-    // }
 
     pub fn get_fee_growth_global0x128(&self) -> Option<(BigInt, BigInt)> {
         let feeGrowthGlobal0X128_slot = BigInt::from(1);
@@ -279,13 +270,14 @@ pub fn read_bytes(buf: &Vec<u8>, offset: usize, number_of_bytes: usize) -> &[u8]
 #[cfg(test)]
 mod tests {
     use crate::storage::{left_pad, left_pad_from_bigint, read_bytes, UniswapPoolStorage};
-    use std::num::ParseIntError;
     use std::ops::Add;
     use std::str::FromStr;
+    use std::{fmt::Write, num::ParseIntError};
     use substreams::scalar::BigInt;
     use substreams::{hex, Hex};
     use substreams_ethereum::pb::eth::v2::StorageChange;
     use tiny_keccak::{Hasher, Keccak};
+
     #[test]
     fn left_pad_lt_32_bytes() {
         let input = vec![221u8, 98u8, 237u8, 62u8];
@@ -396,7 +388,7 @@ mod tests {
 
         let storage = UniswapPoolStorage::new(
             &storage_changes,
-            &Hex::decode("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").unwrap(),
+            &hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
         );
         let v_opt = storage.get_slot0_sqrt_price_x96();
         assert_eq!(
@@ -422,7 +414,7 @@ mod tests {
 
         let storage = UniswapPoolStorage::new(
             &storage_changes,
-            &Hex::decode("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").unwrap(),
+            &hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
         );
         let tick_idx = BigInt::from(10);
         let v_opt = storage.get_ticks_initialized(&tick_idx);

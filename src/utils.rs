@@ -1,12 +1,17 @@
 use crate::ethpb::v2::TransactionTrace;
 use crate::pb::uniswap::events;
+use crate::pb::uniswap::events::PoolSqrtPrice;
 use crate::pb::PositionEvent;
+use crate::tables::Tables;
 use crate::uniswap::events::position::PositionType;
 use crate::uniswap::events::Transaction;
 use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
+use std::fmt::Display;
 use std::ops::{Add, Mul};
+use std::str::FromStr;
+use substreams::prelude::{DeltaBigDecimal, DeltaProto};
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{StoreGet, StoreGetProto};
+use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
@@ -203,6 +208,17 @@ pub fn get_tracked_amount_usd(
     return BigDecimal::from(0 as i32);
 }
 
+pub struct AdjustedAmounts {
+    eth: BigDecimal,
+    usd: BigDecimal,
+    eth_untracked: BigDecimal,
+    usd_untracked: BigDecimal,
+}
+
+pub fn _get_adjusted_amounts() -> AdjustedAmounts {
+    todo!("implement me")
+}
+
 pub fn load_transaction(
     block_number: u64,
     timestamp: u64,
@@ -306,4 +322,207 @@ pub fn extract_pool_liquidity(
         }
     }
     None
+}
+
+pub fn pool_time_data_id<T: AsRef<str> + Display>(pool_address: T, time_id: T) -> String {
+    format!("{}-{}", pool_address, time_id)
+}
+
+pub fn token_time_data_id<T: AsRef<str> + Display>(token_address: T, time_id: T) -> String {
+    format!("{}-{}", token_address, time_id)
+}
+
+pub fn extract_last_item_time_id_as_i64(delta_key: &String) -> i64 {
+    return delta_key
+        .as_str()
+        .split(":")
+        .last()
+        .unwrap()
+        .parse::<i64>()
+        .unwrap();
+}
+
+pub fn extract_at_position_time_id_as_i64(delta_key: &String, position: usize) -> i64 {
+    return delta_key
+        .as_str()
+        .split(":")
+        .nth(position)
+        .unwrap()
+        .parse::<i64>()
+        .unwrap();
+}
+
+pub fn extract_at_position_pool_address_as_str(delta_key: &String, position: usize) -> &str {
+    return delta_key.as_str().split(":").nth(position).unwrap();
+}
+
+pub fn extract_at_position_token_address_as_str(delta_key: &String, position: usize) -> &str {
+    return delta_key.as_str().split(":").nth(position).unwrap();
+}
+
+pub fn extract_swap_volume_pool_entity_change_name(delta_key: &String) -> Option<&str> {
+    return match delta_key.as_str().split(":").last().unwrap() {
+        "volumeToken0" => Some("volumeToken0"), // TODO: validate data
+        "volumeToken1" => Some("volumeToken1"), // TODO: validate data
+        "volumeUSD" => Some("volumeUSD"),       // TODO: validate data
+        "feesUSD" => Some("feesUSD"),           // TODO: validate data
+        _ => None,
+    };
+}
+
+pub fn extract_swap_volume_token_entity_change_name(delta_key: &String) -> Option<&str> {
+    return match delta_key.as_str().split(":").last().unwrap() {
+        //TODO: need to add the :volume key
+        "volumeToken0" => Some("volumeToken0"), // TODO: validate data
+        "volumeToken1" => Some("volumeToken1"), // TODO: validate data
+        "volumeUSD" => Some("volumeUSD"),       // TODO: validate data
+        "feesUSD" => Some("feesUSD"),           // TODO: validate data
+        _ => None,
+    };
+}
+
+// ---------------------------------
+// Pool Day/Hour Data Entity Change
+// ---------------------------------
+pub fn update_tx_count_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigInt,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            pool_time_data_id(pool_address, &time_id).as_str(),
+        )
+        .set("txCount", delta);
+}
+
+pub fn update_liquidities_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigInt,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            pool_time_data_id(pool_address, &time_id).as_str(),
+        )
+        .set("liquidity", delta);
+}
+
+pub fn update_fee_growth_global_x128_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigInt,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    if let Some(name) = match delta.key.as_str().split(":").nth(2).unwrap() {
+        "token0" => Some("feeGrowthGlobal0X128"),
+        "token1" => Some("feeGrowthGlobal1X128"),
+        _ => None,
+    } {
+        tables
+            .update_row(
+                table_name,
+                pool_time_data_id(pool_address, &time_id).as_str(),
+            )
+            .set(name, delta);
+    }
+}
+
+pub fn update_total_value_locked_usd_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigDecimal,
+) {
+    let time_it = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            pool_time_data_id(pool_address, &time_it).as_str(),
+        )
+        .set("totalValueLockedUSD", delta);
+}
+
+pub fn update_sqrt_price_and_tick_pool_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaProto<PoolSqrtPrice>,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+
+    let sqrt_price: BigInt =
+        BigInt::from_str(delta.new_value.sqrt_price.as_ref().unwrap().value.as_str()).unwrap();
+    let tick: BigInt =
+        BigInt::from_str(delta.new_value.tick.as_ref().unwrap().value.as_str()).unwrap();
+
+    tables
+        .update_row(
+            table_name,
+            pool_time_data_id(pool_address, &time_id).as_str(),
+        )
+        .set("sqrtPrice", sqrt_price)
+        .set("tick", tick);
+}
+
+// ---------------------------------
+// Token Day/Hour Data Entity Change
+// ---------------------------------
+pub fn update_total_value_locked_usd_token_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigDecimal,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            token_time_data_id(token_address, &time_id).as_str(),
+        )
+        .set("totalValueLockedUSD", delta);
+}
+
+pub fn update_total_value_locked_token_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigDecimal,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            token_time_data_id(token_address, &time_id).as_str(),
+        )
+        .set("totalValueLocked", delta);
+}
+
+pub fn update_token_prices_token_entity_change(
+    tables: &mut Tables,
+    table_name: &str,
+    delta: &DeltaBigDecimal,
+) {
+    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
+    let token_address = extract_at_position_token_address_as_str(&delta.key, 1);
+
+    tables
+        .update_row(
+            table_name,
+            token_time_data_id(token_address, &time_id).as_str(),
+        )
+        .set("tokenPrice", delta);
 }

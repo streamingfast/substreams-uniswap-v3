@@ -1,6 +1,12 @@
 use crate::utils;
 use substreams::Hex;
 
+pub const UNISWAP_DAY_DATA: &str = "UniswapDayData";
+pub const POOL_DAY_DATA: &str = "PoolDayData";
+pub const POOL_HOUR_DATA: &str = "PoolHourData";
+pub const TOKEN_DAY_DATA: &str = "TokenDayData";
+pub const TOKEN_HOUR_DATA: &str = "TokenHourData";
+
 // ------------------------------------------------
 //      store_pools_count
 // ------------------------------------------------
@@ -30,6 +36,14 @@ pub fn token_key(token_address: &String) -> String {
     format!("token:{}", token_address)
 }
 
+pub fn token_day_data_token_key(token_address: &String, day_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_DAY_DATA, token_address, day_id)
+}
+
+pub fn token_hour_data_token_key(token_address: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_HOUR_DATA, token_address, hour_id)
+}
+
 pub fn generate_tokens_key(token0: &str, token1: &str) -> String {
     if token0 > token1 {
         return format!("{}:{}", token1, token0);
@@ -49,6 +63,14 @@ pub fn token_pool_whitelist(token_address: &String) -> String {
 // ------------------------------------------------
 pub fn pool_sqrt_price_key(pool_address: &String) -> String {
     format!("sqrt_price:{}", pool_address)
+}
+
+pub fn pool_day_data_sqrt_price(pool_address: &String, day_id: String) -> String {
+    format!("{}:{}:{}", POOL_DAY_DATA, pool_address, day_id)
+}
+
+pub fn pool_hour_data_sqrt_price(pool_address: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", POOL_HOUR_DATA, pool_address, hour_id)
 }
 
 // ------------------------------------------------
@@ -73,6 +95,22 @@ pub fn prices_token_pair(
     )
 }
 
+pub fn pool_day_data_token_price(pool_address: &String, token: String, day_id: String) -> String {
+    format!("{}:{}:{}:{}", POOL_DAY_DATA, pool_address, token, day_id)
+}
+
+pub fn pool_hour_data_token_price(pool_address: &String, token: String, hour_id: String) -> String {
+    format!("{}:{}:{}:{}", POOL_HOUR_DATA, pool_address, token, hour_id)
+}
+
+pub fn token_day_data_token_price(token_address: &String, day_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_DAY_DATA, token_address, day_id)
+}
+
+pub fn token_hour_data_token_price(token_address: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_HOUR_DATA, token_address, hour_id)
+}
+
 // ------------------------------------------------
 //      store_totals
 // ------------------------------------------------
@@ -85,7 +123,23 @@ pub fn factory_total_value_locked_usd() -> String {
 }
 
 pub fn uniswap_total_value_locked_usd(day_id: String) -> String {
-    format!("uniswap_day_data:{}:totalValueLockedUSD", day_id)
+    format!("{}:{}", UNISWAP_DAY_DATA, day_id)
+}
+
+pub fn pool_day_data_total_value_locked_usd(pool_address: &String, day_id: String) -> String {
+    format!("{}:{}:{}", POOL_DAY_DATA, pool_address, day_id)
+}
+
+pub fn pool_hour_data_total_value_locked_usd(pool_address: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", POOL_HOUR_DATA, pool_address, hour_id)
+}
+
+pub fn token_day_data_total_value_locked_usd(token_addr: &String, day_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_DAY_DATA, token_addr, day_id)
+}
+
+pub fn token_hour_data_total_value_locked_usd(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_HOUR_DATA, token_addr, hour_id)
 }
 
 // ------------------------------------------------
@@ -93,6 +147,22 @@ pub fn uniswap_total_value_locked_usd(day_id: String) -> String {
 // ------------------------------------------------
 pub fn pool_fee_growth_global_x128(pool_address: &String, token: String) -> String {
     format!("fee:{}:{}", pool_address, token)
+}
+
+pub fn pool_day_data_fee_growth_global_x128(
+    pool_address: &String,
+    token: String,
+    day_id: String,
+) -> String {
+    format!("{}:{}:{}:{}", POOL_DAY_DATA, pool_address, token, day_id)
+}
+
+pub fn pool_hour_data_fee_growth_global_x128(
+    pool_address: &String,
+    token: String,
+    hour_id: String,
+) -> String {
+    format!("{}:{}:{}:{}", POOL_HOUR_DATA, pool_address, token, hour_id)
 }
 
 // ------------------------------------------------
@@ -157,10 +227,18 @@ pub fn pool_liquidity(pool_address: &String) -> String {
     format!("liquidity:{}", pool_address)
 }
 
+pub fn pool_day_data_liquidity(pool_address: &String, day_id: String) -> String {
+    format!("{}:{}:{}", POOL_DAY_DATA, pool_address, day_id)
+}
+
+pub fn pool_hour_data_liquidity(pool_address: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", POOL_HOUR_DATA, pool_address, hour_id)
+}
+
 // ------------------------------------------------
 //      store_total_value_locked_by_tokens
 // ------------------------------------------------
-pub fn total_value_locked_by_pool(
+pub fn pool_total_value_locked_by_token(
     pool_address: &String,
     token_address: &String,
     token: String,
@@ -168,8 +246,16 @@ pub fn total_value_locked_by_pool(
     format!("pool:{}:{}:{}", pool_address, token_address, token)
 }
 
-pub fn total_value_locked_by_token(token_address: &String) -> String {
+pub fn token_total_value_locked(token_address: &String) -> String {
     format!("token:{}", token_address)
+}
+
+pub fn token_day_data_total_value_locked(token_address: &String, day_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_DAY_DATA, token_address, day_id)
+}
+
+pub fn token_hour_data_total_value_locked(token_address: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_HOUR_DATA, token_address, hour_id)
 }
 
 // ------------------------------------------------
@@ -198,31 +284,38 @@ pub fn factory_total_tx_count() -> String {
     format!("factory:{}", Hex(utils::UNISWAP_V3_FACTORY))
 }
 
-pub fn uniswap_data_data_tx_count(day_id: String) -> String {
-    format!("uniswap_day_data:{}", day_id)
+pub fn uniswap_day_data_tx_count(day_id: String) -> String {
+    format!("{}:{}", UNISWAP_DAY_DATA, day_id)
+}
+
+pub fn pool_day_data_tx_count(pool_addr: &String, day_id: String) -> String {
+    format!("{}:{}:{}", POOL_DAY_DATA, pool_addr, day_id)
+}
+pub fn pool_hour_data_tx_count(pool_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", POOL_HOUR_DATA, pool_addr, hour_id)
 }
 
 // ------------------------------------------------
-//      store_swaps
+//      store_swaps_volume
 // ------------------------------------------------
-pub fn swap_volume_token_0(pool_address: &String) -> String {
-    format!("swap:{}:volume:token0", pool_address)
+pub fn swap_pool_volume_token_0(pool_address: &String) -> String {
+    format!("pool:{}:volumeToken0", pool_address)
 }
 
-pub fn swap_volume_token_1(pool_address: &String) -> String {
-    format!("swap:{}:volume:token1", pool_address)
+pub fn swap_pool_volume_token_1(pool_address: &String) -> String {
+    format!("pool:{}:volumeToken1", pool_address)
 }
 
-pub fn swap_volume_usd(pool_address: &String) -> String {
-    format!("swap:{}:volume:usd", pool_address)
+pub fn swap_pool_volume_usd(pool_address: &String) -> String {
+    format!("pool:{}:volumeUSD", pool_address)
 }
 
-pub fn swap_untracked_volume_usd(pool_address: &String) -> String {
-    format!("swap:{}:volume:untrackedUSD", pool_address)
+pub fn swap_pool_untracked_volume_usd(pool_address: &String) -> String {
+    format!("pool:{}:volumeUntrackedUSD", pool_address)
 }
 
-pub fn swap_fee_usd(pool_address: &String) -> String {
-    format!("swap:{}:feesUSD", pool_address)
+pub fn swap_pool_fee_usd(pool_address: &String) -> String {
+    format!("pool:{}:feesUSD", pool_address)
 }
 
 pub fn swap_token_volume(token_address: &String, token: String) -> String {
@@ -262,15 +355,83 @@ pub fn swap_factory_total_fees_eth() -> String {
 }
 
 pub fn swap_uniswap_day_data_volume_eth(day_id: String) -> String {
-    format!("uniswap_day_data:{}:volumeETH", day_id)
+    format!("{}:{}:volumeETH", UNISWAP_DAY_DATA, day_id)
 }
 
 pub fn swap_uniswap_day_data_volume_usd(day_id: String) -> String {
-    format!("uniswap_day_data:{}:volumeUSD", day_id)
+    format!("{}:{}:volumeUSD", UNISWAP_DAY_DATA, day_id)
 }
 
 pub fn swap_uniswap_day_data_fees_usd(day_id: String) -> String {
-    format!("uniswap_day_data:{}:feesUSD", day_id)
+    format!("{}:{}:feesUSD", UNISWAP_DAY_DATA, day_id)
+}
+
+pub fn swap_pool_day_data_volume_usd(pool_addr: &String, day_id: String) -> String {
+    format!("{}:{}:{}:volumeUSD", POOL_DAY_DATA, pool_addr, day_id)
+}
+
+pub fn swap_token_day_data_volume_usd(token_addr: &String, day_id: String) -> String {
+    format!("{}:{}:{}:volumeUSD", TOKEN_DAY_DATA, token_addr, day_id)
+}
+
+pub fn swap_pool_hour_data_volume_usd(pool_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}:volumeUSD", POOL_HOUR_DATA, pool_addr, hour_id)
+}
+
+pub fn swap_token_hour_data_volume_usd(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}:volumeUSD", TOKEN_HOUR_DATA, token_addr, hour_id)
+}
+
+// volumeToken0 and volumeToken1
+pub fn swap_pool_day_data_volume_token(
+    pool_addr: &String,
+    day_id: String,
+    token_addr: &String,
+    volume_token_index: String,
+) -> String {
+    format!(
+        "{}:{}:{}:{}:{}",
+        POOL_DAY_DATA, pool_addr, day_id, token_addr, volume_token_index
+    )
+}
+
+// volumeToken0 and volumeToken1
+pub fn swap_token_day_data_volume_token(token_addr: &String, day_id: String) -> String {
+    format!("{}:{}:{}:volume", TOKEN_DAY_DATA, token_addr, day_id)
+}
+
+// volumeToken0 and volumeToken1
+pub fn swap_token_hour_data_volume_token(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}:volume", TOKEN_HOUR_DATA, token_addr, hour_id)
+}
+
+// volumeToken0 and volumeToken1
+pub fn swap_pool_hour_data_volume_token(
+    pool_addr: &String,
+    hour_id: String,
+    token_addr: &String,
+    volume_token_index: String,
+) -> String {
+    format!(
+        "{}:{}:{}:{}:{}",
+        POOL_HOUR_DATA, pool_addr, hour_id, token_addr, volume_token_index
+    )
+}
+
+pub fn swap_pool_day_data_fees_usd(pool_addr: &String, day_id: String) -> String {
+    format!("{}:{}:{}:feesUSD", POOL_DAY_DATA, pool_addr, day_id)
+}
+
+pub fn swap_token_day_data_fees_usd(token_addr: &String, day_id: String) -> String {
+    format!("{}:{}:{}:feesUSD", TOKEN_DAY_DATA, token_addr, day_id)
+}
+
+pub fn swap_token_hour_data_fees_usd(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}:feesUSD", TOKEN_HOUR_DATA, token_addr, hour_id)
+}
+
+pub fn swap_pool_hour_data_fees_usd(pool_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}:feesUSD", POOL_HOUR_DATA, pool_addr, hour_id)
 }
 
 // ------------------------------------------------

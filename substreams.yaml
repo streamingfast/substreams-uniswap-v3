@@ -46,6 +46,7 @@ modules:
     updatePolicy: add
     valueType: int64
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_pools_created
 
   - name: store_pool_count
@@ -84,6 +85,7 @@ modules:
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Events.PoolSqrtPrice
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
   - name: store_prices
@@ -92,6 +94,7 @@ modules:
     initialBlock: 12369621
     valueType: bigdecimal
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
       - store: store_pools
 
@@ -101,6 +104,7 @@ modules:
     initialBlock: 12369621
     valueType: bigint
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
   - name: store_totals
@@ -139,6 +143,7 @@ modules:
     updatePolicy: set
     valueType: bigint
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
   - name: store_native_total_value_locked
@@ -167,6 +172,7 @@ modules:
     updatePolicy: add
     valueType: bigdecimal
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
   - name: store_total_value_locked
@@ -279,6 +285,8 @@ modules:
       ###- map: map_tokens_entities
       #- map: map_pools_created
       - store: store_tokens
+      - store: store_tokens
+        mode: deltas
       #- store: store_swaps_volume
       #  mode: deltas
       #- store: store_total_tx_counts
@@ -315,11 +323,3 @@ modules:
 
     output:
       type: proto:substreams.entity.v1.EntityChanges
-
-  - name: map_pool_day_data_entities
-    kind: map
-    initialBlock: 12369621
-    inputs:
-    output:
-      type: proto:substreams.entity.v1.EntityChanges
-

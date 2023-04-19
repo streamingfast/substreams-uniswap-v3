@@ -441,3 +441,108 @@ type PoolDayData @entity {
     # close price of token0
     close: BigDecimal!
 }
+
+type PoolHourData @entity {
+    # format: <pool address>-<timestamp>
+    id: ID!
+    # unix timestamp for start of hour
+    periodStartUnix: Int!
+    # pointer to pool
+    pool: Pool!
+    # in range liquidity at end of period
+    liquidity: BigInt!
+    # current price tracker at end of period
+    sqrtPrice: BigInt!
+    # price of token0 - derived from sqrtPrice
+    token0Price: BigDecimal!
+    # price of token1 - derived from sqrtPrice
+    token1Price: BigDecimal!
+    # current tick at end of period
+    tick: BigInt
+    # tracker for global fee growth
+    feeGrowthGlobal0X128: BigInt!
+    # tracker for global fee growth
+    feeGrowthGlobal1X128: BigInt!
+    # tvl derived in USD at end of period
+    totalValueLockedUSD: BigDecimal!
+    # volume in token0
+    volumeToken0: BigDecimal!
+    # volume in token1
+    volumeToken1: BigDecimal!
+    # volume in USD
+    volumeUSD: BigDecimal!
+    # fees in USD
+    feesUSD: BigDecimal!
+    # numebr of transactions during period
+    txCount: BigInt!
+    # opening price of token0
+    open: BigDecimal!
+    # high price of token0
+    high: BigDecimal!
+    # low price of token0
+    low: BigDecimal!
+    # close price of token0
+    close: BigDecimal!
+}
+
+type TokenDayData @entity {
+    # token address concatendated with date
+    id: ID!
+    # timestamp rounded to current day by dividing by 86400
+    date: Int!
+    # pointer to token
+    token: Token!
+    # volume in token units
+    volume: BigDecimal!
+    # volume in derived USD
+    volumeUSD: BigDecimal!
+    # volume in USD even on pools with less reliable USD values
+    volumeUSDUntracked: BigDecimal!
+    # liquidity across all pools in token units
+    totalValueLocked: BigDecimal!
+    # liquidity across all pools in derived USD
+    totalValueLockedUSD: BigDecimal!
+    # price at end of period in USD
+    priceUSD: BigDecimal!
+    # fees in USD
+    feesUSD: BigDecimal!
+    # opening price USD
+    open: BigDecimal!
+    # high price USD
+    high: BigDecimal!
+    # low price USD
+    low: BigDecimal!
+    # close price USD
+    close: BigDecimal!
+}
+
+type TokenHourData @entity {
+    # token address concatendated with date
+    id: ID!
+    # unix timestamp for start of hour
+    periodStartUnix: Int!
+    # pointer to token
+    token: Token!
+    # volume in token units
+    volume: BigDecimal!
+    # volume in derived USD
+    volumeUSD: BigDecimal!
+    # volume in USD even on pools with less reliable USD values
+    volumeUSDUntracked: BigDecimal!
+    # liquidity across all pools in token units
+    totalValueLocked: BigDecimal!
+    # liquidity across all pools in derived USD
+    totalValueLockedUSD: BigDecimal!
+    # price at end of period in USD
+    priceUSD: BigDecimal!
+    # fees in USD
+    feesUSD: BigDecimal!
+    # opening price USD
+    open: BigDecimal!
+    # high price USD
+    high: BigDecimal!
+    # low price USD
+    low: BigDecimal!
+    # close price USD
+    close: BigDecimal!
+}
