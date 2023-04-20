@@ -361,7 +361,7 @@ pub fn extract_item_from_key_last_item(delta_key: &String) -> String {
 }
 
 pub fn extract_item_from_key_at_position(delta_key: &String, position: usize) -> String {
-    return delta_key.as_str().split(":").nth(position).unwrap().to_string();
+    return delta_key.split(":").nth(position).unwrap().to_string();
 }
 
 pub fn pool_time_data_id<T: AsRef<str> + Display>(pool_address: T, time_id: T) -> String {

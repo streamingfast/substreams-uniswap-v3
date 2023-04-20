@@ -194,6 +194,7 @@ modules:
     updatePolicy: add
     valueType: bigdecimal
     inputs:
+      - source: sf.substreams.v1.Clock
       - store: store_derived_tvl
         mode: deltas
 

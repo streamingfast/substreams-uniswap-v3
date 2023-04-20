@@ -15,7 +15,6 @@ mod tables;
 mod utils;
 
 use crate::ethpb::v2::{Block, StorageChange};
-use crate::keyer::UNISWAP_DAY_DATA;
 use crate::pb::uniswap::events::pool_event::Type;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::PoolSqrtPrice;
@@ -710,7 +709,11 @@ pub fn store_swaps_volume(
             true => {
                 log::info!("type of pool event {:?}", event);
                 match event.r#type.unwrap() {
-                    MintEvent(_) => output.add(ord, format!("pool:liquidityProviderCount"), &BigDecimal::one()),
+                    MintEvent(_) => output.add(
+                        ord,
+                        format!("pool:{}:liquidityProviderCount", pool.address),
+                        &BigDecimal::one(),
+                    ),
                     SwapEvent(swap) => {
                         log::info!("transaction: {}", pool.transaction_id);
                         let eth_price_in_usd: BigDecimal = match store_eth_prices.get_at(ord, "bundle") {
@@ -1134,9 +1137,18 @@ pub fn store_derived_tvl(
 }
 
 #[substreams::handlers::store]
-pub fn store_derived_factory_tvl(derived_pool_tvl_deltas: Deltas<DeltaBigDecimal>, output: StoreAddBigDecimal) {
-    for delta in derived_pool_tvl_deltas.deltas {
-        if utils::extract_item_from_key_at_position(&delta.key, 0).starts_with("pool:") {
+pub fn store_derived_factory_tvl(
+    clock: Clock,
+    derived_tvl_deltas: Deltas<DeltaBigDecimal>,
+    output: StoreAddBigDecimal,
+) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id: i64 = timestamp_seconds / 86400;
+    output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
+
+    for delta in derived_tvl_deltas.deltas {
+        if utils::extract_item_from_key_at_position(&delta.key, 0).eq("pool") {
+            log::info!("stats with pool:");
             if utils::extract_item_from_key_last_item(&delta.key).eq("eth") {
                 output.add(
                     delta.ordinal,
@@ -1158,7 +1170,7 @@ pub fn store_derived_factory_tvl(derived_pool_tvl_deltas: Deltas<DeltaBigDecimal
                     delta.ordinal,
                     &vec![
                         format!("factory:totalValueLockedUSD"),
-                        format!("{}:totalValueLockedUSD", UNISWAP_DAY_DATA),
+                        format!("{}:totalValueLockedUSD:{}", keyer::UNISWAP_DAY_DATA, day_id.to_string()),
                     ],
                     calculate_diff(&delta),
                 );
