@@ -1235,7 +1235,6 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
     }
 }
 
-//
 // #[substreams::handlers::map]
 // pub fn map_positions(
 //     block: Block,
@@ -1246,12 +1245,11 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
 //     let mut enriched_positions: HashMap<String, events::Position> = HashMap::new();
 //
 //     for log in block.logs() {
-//         if log.address() != NON_FUNGIBLE_POSITION_MANAGER {
+//         if log.address() != utils::NON_FUNGIBLE_POSITION_MANAGER {
 //             continue;
 //         }
 //
-//         if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log)
-//         {
+//         if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log) {
 //             let token_id: String = event.token_id.to_string();
 //             if !enriched_positions.contains_key(&token_id) {
 //                 match all_positions_store.get_at(
@@ -1273,10 +1271,7 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
 //         } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
 //             let token_id: String = event.token_id.to_string();
 //             let mut position = if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(
-//                     log.ordinal(),
-//                     keyer::all_position(&token_id, &Collect.to_string()),
-//                 ) {
+//                 match all_positions_store.get_at(log.ordinal(), keyer::all_position(&token_id, &Collect.to_string())) {
 //                     None => {
 //                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
 //                         continue;
@@ -1284,14 +1279,10 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
 //                     Some(pos) => pos,
 //                 }
 //             } else {
-//                 enriched_positions
-//                     .remove(&event.token_id.to_string())
-//                     .unwrap()
+//                 enriched_positions.remove(&event.token_id.to_string()).unwrap()
 //             };
 //
-//             if let Some(position_call_result) =
-//                 rpc::positions_call(&Hex(log.address()).to_string(), event.token_id)
-//             {
+//             if let Some(position_call_result) = rpc::positions_call(&Hex(log.address()).to_string(), event.token_id) {
 //                 position.fee_growth_inside_0_last_x_128 = Some(position_call_result.5.into());
 //                 position.fee_growth_inside_1_last_x_128 = Some(position_call_result.6.into());
 //                 enriched_positions.insert(token_id.clone(), position);
@@ -1299,17 +1290,12 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
 //                     ordered_positions.push(String::from(token_id))
 //                 }
 //             }
-//         } else if let Some(event) =
-//             abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log)
-//         {
+//         } else if let Some(event) = abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log) {
 //             let token_id: String = event.token_id.to_string();
 //             if !enriched_positions.contains_key(&token_id) {
 //                 match all_positions_store.get_at(
 //                     log.ordinal(),
-//                     keyer::all_position(
-//                         &event.token_id.to_string(),
-//                         &DecreaseLiquidity.to_string(),
-//                     ),
+//                     keyer::all_position(&event.token_id.to_string(), &DecreaseLiquidity.to_string()),
 //                 ) {
 //                     None => {
 //                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
@@ -1326,10 +1312,7 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
 //         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
 //             let token_id: String = event.token_id.to_string();
 //             let mut position = if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(
-//                     log.ordinal(),
-//                     keyer::all_position(&token_id, &Transfer.to_string()),
-//                 ) {
+//                 match all_positions_store.get_at(log.ordinal(), keyer::all_position(&token_id, &Transfer.to_string())) {
 //                     None => {
 //                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
 //                         continue;
