@@ -88,6 +88,11 @@ impl Tables {
                     });
                 }
                 entities.entity_changes.push(change.clone());
+                if row.finalized {
+                    entities
+                        .entity_changes
+                        .push(EntityChange::new(table, pk, 0, Operation::Final));
+                }
             }
         }
         entities
