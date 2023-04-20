@@ -130,8 +130,8 @@ pub fn pools_created_pool_entity_change(tables: &mut Tables, pools: &Pools) {
 
     for pool in &pools.pools {
         tables
-            .update_row("Pool", &format!("0x{}", pool.address.clone().as_str()))
-            .set("id", &pool.address)
+            .update_row("Pool", format!("0x{}", pool.address))
+            .set("id", format!("0x{}", pool.address))
             .set("createdAtTimestamp", pool.created_at_timestamp)
             .set("createdAtBlockNumber", pool.created_at_block_number)
             .set("token0", &pool.token0.as_ref().unwrap().address)
@@ -430,18 +430,26 @@ pub fn derived_eth_prices_token_entity_change(tables: &mut Tables, deltas: &Delt
 pub fn whitelist_token_entity_change(tables: &mut Tables, deltas: Deltas<DeltaArray<String>>) {
     for delta in deltas.deltas {
         let token_address = format!("0x{}", delta.key.split(":").nth(1).unwrap().to_string());
+
+        let mut whitelist = delta.new_value;
+        whitelist = whitelist.iter().map(|item| format!("0x{}", item)).collect();
+
         tables
             .update_row("Token", token_address.as_str())
-            .set("whitelistPools", &delta.new_value);
+            .set("whitelistPools", &whitelist);
     }
 }
 
 fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token) {
     let bigdecimal0 = BigDecimal::from(0);
     let bigint0 = BigInt::from(0);
+
+    let mut whitelist = token.clone().whitelist_pools;
+    whitelist = whitelist.iter().map(|item| format!("0x{}", item)).collect();
+
     tables
-        .update_row("Token", &format!("0x{}", &token.address))
-        .set("id", &token.address)
+        .update_row("Token", format!("0x{}", &token.address))
+        .set("id", format!("0x{}", &token.address))
         .set("symbol", &token.symbol)
         .set("name", &token.name)
         .set("decimals", token.decimals)
@@ -456,7 +464,7 @@ fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token) {
         .set("totalValueLockedUSD", &bigdecimal0)
         .set("totalValueLockedUSDUntracked", &bigdecimal0)
         .set("derivedETH", &bigdecimal0)
-        .set("whitelistPools", &token.whitelist_pools);
+        .set("whitelistPools", &whitelist);
 }
 
 // --------------------
@@ -666,8 +674,8 @@ pub fn snapshot_position_entity_change(tables: &mut Tables, snapshot_positions: 
 pub fn transaction_entity_change(tables: &mut Tables, transactions: Vec<events::Transaction>) {
     for transaction in transactions {
         tables
-            .update_row("Transaction", &transaction.id)
-            .set("id", &transaction.id)
+            .update_row("Transaction", format!("0x{}", &transaction.id))
+            .set("id", format!("0x{}", &transaction.id))
             .set("blockNumber", transaction.block_number)
             .set("timestamp", transaction.timestamp)
             .set("gasUsed", transaction.gas_used)
