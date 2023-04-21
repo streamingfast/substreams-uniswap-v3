@@ -1235,6 +1235,21 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
     }
 }
 
+// #[substreams::handlers::store]
+// pub fn store_all_positions(events: Events, store: StoreSetProto<events::Position>) {
+//     for position in events.positions {
+//         store.set(
+//             position.log_ordinal,
+//             keyer::all_position(
+//                 &position.id,
+//                 &crate::pb::uniswap::events::position::PositionType::get_position_type(position.position_type)
+//                     .to_string(),
+//             ),
+//             &position,
+//         )
+//     }
+// }
+
 // #[substreams::handlers::map]
 // pub fn map_positions(
 //     block: Block,
@@ -1283,8 +1298,9 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
 //             };
 //
 //             if let Some(position_call_result) = rpc::positions_call(&Hex(log.address()).to_string(), event.token_id) {
-//                 position.fee_growth_inside_0_last_x_128 = Some(position_call_result.5.into());
-//                 position.fee_growth_inside_1_last_x_128 = Some(position_call_result.6.into());
+//                 // todo: this needs to be refactored as we can get this data out of the smart contract
+//                 // position.fee_growth_inside_0_last_x_128 = Some(position_call_result.5.into());
+//                 // position.fee_growth_inside_1_last_x_128 = Some(position_call_result.6.into());
 //                 enriched_positions.insert(token_id.clone(), position);
 //                 if !ordered_positions.contains(&String::from(token_id.clone())) {
 //                     ordered_positions.push(String::from(token_id))

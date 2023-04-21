@@ -487,15 +487,15 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.141"
+version = "0.2.142"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3304a64d199bb964be99741b7a14d26972741915b3649639149b2479bb46f4b5"
+checksum = "6a987beff54b60ffa6d51982e1aa1146bc42f19bd26be28b0586f252fccf5317"
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f508063cc7bb32987c71511216bd5a32be15bccb6a80b52df8b9d7f01fc3aa2"
+checksum = "9b085a4f2cde5781fc4b1717f2e86c62f5cda49de7ba99a7c2eae02b61c9064c"
 
 [[package]]
 name = "log"
@@ -796,9 +796,9 @@ checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
 name = "rustix"
-version = "0.37.12"
+version = "0.37.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "722529a737f5a942fdbac3a46cee213053196737c5eaa3386d52e85b786f2659"
+checksum = "f79bef90eb6d984c72722595b5b1348ab39275a5e5123faca6863bf07d75a4e0"
 dependencies = [
  "bitflags",
  "errno",
@@ -894,7 +894,6 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "substreams"
 version = "0.5.6"
-source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#b7ef867b533fdfdd4532aada67608918f6e8f5b2"
 dependencies = [
  "anyhow",
  "bigdecimal",
@@ -914,7 +913,7 @@ dependencies = [
 [[package]]
 name = "substreams-entity-change"
 version = "1.0.0"
-source = "git+https://github.com/streamingfast/substreams-entity-change/?branch=develop#53757f5007d0fdc456c89fb72bb6cf364c4a12db"
+source = "git+https://github.com/streamingfast/substreams-entity-change/?branch=develop#1bbb4f859f42fdba5fbdaf1429cc4af69610fa71"
 dependencies = [
  "base64",
  "prost",
@@ -984,7 +983,6 @@ dependencies = [
 [[package]]
 name = "substreams-macro"
 version = "0.5.6"
-source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#b7ef867b533fdfdd4532aada67608918f6e8f5b2"
 dependencies = [
  "proc-macro2",
  "quote",

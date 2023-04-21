@@ -126,8 +126,6 @@ pub fn pools_created_pool_entity_change(tables: &mut Tables, pools: &Pools) {
     let bigint0 = BigInt::zero();
     let bigdecimal0 = BigDecimal::zero();
 
-    // TODO: liquidityProviderCount is increased everytime we have a mint
-
     for pool in &pools.pools {
         tables
             .update_row("Pool", format!("0x{}", pool.address))
@@ -303,6 +301,13 @@ pub fn swap_volume_pool_entity_change(tables: &mut Tables, deltas: &Deltas<Delta
             "liquidityProviderCount" => "liquidityProviderCount",
             _ => continue,
         };
+
+        if name.eq("liquidityProviderCount") {
+            tables
+                .update_row("Pool", &format!("0x{}", pool_address.as_str()))
+                .set("liquidityProviderCount", &delta.new_value.to_bigint());
+            return;
+        }
 
         tables
             .update_row("Pool", &format!("0x{}", pool_address.as_str()))

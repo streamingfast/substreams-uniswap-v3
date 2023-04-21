@@ -8,7 +8,6 @@ use crate::uniswap::events::Transaction;
 use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
 use std::fmt::Display;
 use std::ops::{Add, Mul};
-use std::str::FromStr;
 use substreams::prelude::{DeltaBigDecimal, DeltaProto, StoreGetBigDecimal};
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
@@ -271,14 +270,15 @@ pub fn get_position(
     block_number: u64,
     event: PositionEvent,
 ) -> Option<events::Position> {
+    // todo here we can get the data from the storage_changes
     if let Some(positions_call_result) = rpc::positions_call(log_address, event.get_token_id()) {
-        let token_id_0_bytes = positions_call_result.0;
-        let token_id_1_bytes = positions_call_result.1;
-        let fee = positions_call_result.2;
-        let tick_lower: BigInt = positions_call_result.3.into();
-        let tick_upper: BigInt = positions_call_result.4.into();
-        let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into();
-        let fee_growth_inside_1_last_x128: BigInt = positions_call_result.6.into();
+        let token_id_0_bytes = positions_call_result.0; // get from PoolKey.token0
+        let token_id_1_bytes = positions_call_result.1; // get from PoolKey.token1
+        let fee = positions_call_result.2; // get from PoolKey.fee
+        let tick_lower: BigInt = positions_call_result.3.into(); // get from Position.tickLower
+        let tick_upper: BigInt = positions_call_result.4.into(); // get from Position.tickLower
+        let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into(); // get from Position.feeGrowthInside0LastX128
+        let fee_growth_inside_1_last_x128: BigInt = positions_call_result.6.into(); // get from Position.feeGrowthInside1LastX128
 
         let token0: String = Hex(&token_id_0_bytes.as_slice()).to_string();
         let token1: String = Hex(&token_id_1_bytes.as_slice()).to_string();
