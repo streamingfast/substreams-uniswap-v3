@@ -26,7 +26,6 @@ pub fn extract_pool_events(
         pool_address: pool.address.to_string(),
         ..Default::default()
     };
-
     if let Some(swap) = abi::pool::events::Swap::match_and_decode(log) {
         if !pool.should_handle_swap() {
             return;
@@ -95,20 +94,9 @@ pub fn extract_pool_events(
         });
 
         let storage = UniswapPoolStorage::new(storage_changes, &log.address);
-        for storage_change in storage.storage_changes {
-            log::info!("addr {}", Hex(&storage_change.address).to_string());
-            log::info!("key {}", Hex(&storage_change.key).to_string());
-            log::info!("old value {}", Hex(&storage_change.old_value).to_string());
-            log::info!("new value {}", Hex(&storage_change.new_value).to_string());
-        }
-
-        log::info!("lower {}", mint.tick_lower);
-        log::info!("upper {}", mint.tick_upper);
         let create_lower_tick = initialized_changed(storage.get_ticks_initialized(&mint.tick_lower));
         let create_upper_tick = initialized_changed(storage.get_ticks_initialized(&mint.tick_upper));
-        // panic!();
-        log::info!("create lower tick {}", create_lower_tick);
-        log::info!("create upper tick {}", create_upper_tick);
+
         if create_lower_tick || create_upper_tick {
             let common_tick = events::TickCreated {
                 pool_address: pool.address.to_string(),
@@ -118,22 +106,20 @@ pub fn extract_pool_events(
                 amount: mint.amount.into(),
                 ..Default::default()
             };
-            if create_lower_tick {
-                let mut lower_tick = common_tick.clone();
-                let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
-                lower_tick.idx = mint.tick_upper.as_ref().into();
-                lower_tick.price0 = price0.into();
-                lower_tick.price1 = price1.into();
-                ticks_created.push(lower_tick);
-            }
-            if create_upper_tick {
-                let mut upper_tick = common_tick.clone();
-                let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
-                upper_tick.idx = mint.tick_upper.as_ref().into();
-                upper_tick.price0 = price0.into();
-                upper_tick.price1 = price1.into();
-                ticks_created.push(upper_tick);
-            }
+
+            let mut lower_tick = common_tick.clone();
+            let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
+            lower_tick.idx = mint.tick_lower.as_ref().into();
+            lower_tick.price0 = price0.into();
+            lower_tick.price1 = price1.into();
+            ticks_created.push(lower_tick);
+
+            let mut upper_tick = common_tick.clone();
+            let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
+            upper_tick.idx = mint.tick_upper.as_ref().into();
+            upper_tick.price0 = price0.into();
+            upper_tick.price1 = price1.into();
+            ticks_created.push(upper_tick);
         }
 
         ticks_updated.push(events::TickUpdated {

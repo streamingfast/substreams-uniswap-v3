@@ -235,24 +235,24 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
                     filtering::extract_transactions(&mut transactions, log, &trx, timestamp, block.number);
 
                     filtering::extract_flashes(&mut flashes, &log, &pools_store, pool_key);
+
+                    //todo: pools_store needed to check if the pool exists in the store
+                    // by checking the index:token1:token2 instead of the address...
+                    // could this be done smarter and checked with the log_address ?
+
+                    // Positions
+                    filtering::extract_positions(
+                        &mut positions,
+                        log,
+                        &transactions_id,
+                        &pools_store,
+                        timestamp,
+                        block.number,
+                    );
+                    // Positions
                 }
                 _ => (), // do nothing
             }
-
-            //todo: pools_store needed to check if the pool exists in the store
-            // by checking the index:token1:token2 instead of the address...
-            // could this be done smarter and checked with the log_address ?
-
-            // Positions
-            filtering::extract_positions(
-                &mut positions,
-                log,
-                &transactions_id,
-                &pools_store,
-                timestamp,
-                block.number,
-            );
-            // Positions
         }
     }
 

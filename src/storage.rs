@@ -152,7 +152,6 @@ impl<'a> UniswapPoolStorage<'a> {
     }
 
     pub fn get_ticks_initialized(&self, tick_idx: &BigInt) -> Option<(bool, bool)> {
-        log::info!("ticks initialized");
         let ticks_slot = BigInt::from(5);
         let tick_info_struct_initialized_slot = BigInt::from(3);
         let offset = 31;
@@ -160,9 +159,7 @@ impl<'a> UniswapPoolStorage<'a> {
 
         // ----
         let ticker_struct_slot = calc_map_slot(&left_pad_from_bigint(&tick_idx), &left_pad_from_bigint(&ticks_slot));
-        log::info!("ticker_struct_slot {}", Hex(ticker_struct_slot.to_vec()).to_string());
         let slot_key = calc_struct_slot(&ticker_struct_slot, tick_info_struct_initialized_slot);
-        log::info!("slot_key {}", Hex(slot_key.to_vec()).to_string());
         // ----
 
         if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
@@ -214,10 +211,8 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
-    // seems that we are never matching the storage key
     fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
         let storage_change_opt = self.storage_changes.iter().find(|storage_change| {
-            log::info!("storage_key {}", Hex(&storage_change.key).to_string());
             storage_change.address == self.contract_addr && storage_change.key.eq(slot_key.as_slice())
         });
 
@@ -468,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tick_storage_initialized_negative_numbers() {
+    fn test_tick_storage_initialized_negative_number() {
         //  inputs from AST
         let ticks_mapping_slot = BigInt::from(5);
         let ticks_struct_initialized_slot = BigInt::from(3);
