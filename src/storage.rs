@@ -233,14 +233,18 @@ impl<'a> UniswapPoolStorage<'a> {
 }
 
 pub fn left_pad_from_bigint(input: &BigInt) -> [u8; 32] {
-    return left_pad(&input.to_signed_bytes_le());
+    if input.lt(&BigInt::zero()) {
+        return left_pad(&input.to_signed_bytes_be(), 255);
+    }
+
+    return left_pad(&input.to_signed_bytes_be(), 0);
 }
 
-pub fn left_pad(input: &Vec<u8>) -> [u8; 32] {
+pub fn left_pad(input: &Vec<u8>, padding_value: u8) -> [u8; 32] {
     if input.len() > 32 {
         panic!("cannot convert vec<u8> to H256");
     }
-    let mut data = [0u8; 32];
+    let mut data = [padding_value; 32];
     let offset = 32 - input.len();
     for i in 0..input.len() {
         data[offset + i] = input[i];
@@ -313,7 +317,7 @@ mod tests {
                 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
                 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8
             ],
-            left_pad(&input)
+            left_pad(&input, 0)
         )
     }
 
@@ -328,7 +332,7 @@ mod tests {
                 0u8, 0u8, 0u8, 0u8, 10u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 93u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
                 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8
             ],
-            left_pad(&input)
+            left_pad(&input, 0)
         )
     }
 
@@ -339,7 +343,7 @@ mod tests {
             7u8, 0u8, 0u8, 0u8, 0u8, 10u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 93u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
             0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8,
         ];
-        let _ = left_pad(&input);
+        let _ = left_pad(&input, 0);
     }
 
     #[test]
@@ -438,7 +442,33 @@ mod tests {
     }
 
     #[test]
-    fn test_tick_storage_initialized() {
+    fn test_tick_storage_initialized_positive_number() {
+        //  inputs from AST
+        let ticks_mapping_slot = BigInt::from(5);
+        let ticks_struct_initialized_slot = BigInt::from(3);
+        let tick_idx = BigInt::from(10);
+
+        // we create a hasher
+        let mut hasher = Keccak::v256();
+        // append the map key
+        hasher.update(left_pad_from_bigint(&tick_idx).as_slice());
+
+        // append the slot
+        hasher.update(left_pad_from_bigint(&ticks_mapping_slot).as_slice());
+
+        let mut output = [0u8; 32];
+        hasher.finalize(&mut output);
+
+        let mut next_key = BigInt::from_signed_bytes_be(&output);
+        next_key = next_key.add(ticks_struct_initialized_slot);
+        assert_eq!(
+            encode_hex(next_key.to_signed_bytes_be().as_slice()),
+            "a18b128af1c8fc61ff46f02d146e54546f34d340574cf2cef6a753cba6b67020"
+        );
+    }
+
+    #[test]
+    fn test_tick_storage_initialized_negative_numbers() {
         //  inputs from AST
         let ticks_mapping_slot = BigInt::from(5);
         let ticks_struct_initialized_slot = BigInt::from(3);
@@ -459,7 +489,7 @@ mod tests {
         next_key = next_key.add(ticks_struct_initialized_slot);
         assert_eq!(
             encode_hex(next_key.to_signed_bytes_be().as_slice()),
-            "a18b128af1c8fc61ff46f02d146e54546f34d340574cf2cef6a753cba6b67020"
+            "f53d694f31704a17922a426c3a5cd5a22ebebe6f1780e36b59dc0f3733e2cdd1"
         );
     }
 

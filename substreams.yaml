@@ -213,14 +213,14 @@ modules:
       substreams gui blah blah
       ```
 
-  - name: map_positions
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_all_positions
-    output:
-      type: proto:uniswap.types.v1.Positions
+#  - name: map_positions
+#    kind: map
+#    initialBlock: 12369621
+#    inputs:
+#      - source: sf.ethereum.type.v2.Block
+#      - store: store_all_positions
+#    output:
+#      type: proto:uniswap.types.v1.Positions
 
   - name: store_positions
     kind: store
