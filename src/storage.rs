@@ -15,8 +15,6 @@ pub struct PositionManagerStorage<'a> {
 }
 
 fn calc_map_slot(map_index: &[u8; 32], base_slot: &[u8; 32]) -> [u8; 32] {
-    log::info!("map_index {}", Hex(map_index.to_vec()).to_string());
-    log::info!("base_slot {}", Hex(base_slot.to_vec()).to_string());
     let mut output = [0u8; 32];
     let mut hasher = Keccak::v256();
     hasher.update(map_index);

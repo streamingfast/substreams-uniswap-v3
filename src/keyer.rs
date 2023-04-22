@@ -475,6 +475,7 @@ pub fn all_position(id: &String, event_type: &String) -> String {
 pub fn position(id: &String, position_type: &String) -> String {
     format!("position:{}:{}", id, position_type)
 }
+
 pub fn position_liquidity(id: &String) -> String {
     format!("position:{}:liquidity", id)
 }

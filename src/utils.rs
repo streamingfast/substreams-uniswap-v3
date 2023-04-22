@@ -314,6 +314,7 @@ pub fn get_position(
             block_number,
         });
     }
+
     return None;
 }
 

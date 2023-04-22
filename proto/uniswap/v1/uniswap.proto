@@ -49,10 +49,15 @@ message Events {
   repeated FeeGrowthOutside fee_growth_outside_updates = 11;
   repeated PoolEvent pool_events = 3;
   repeated Transaction transactions = 4;
-  repeated Position positions = 5;
   repeated Flash flashes = 6;
   repeated TickCreated ticks_created = 8;
   repeated TickUpdated ticks_updated = 9;
+
+  repeated CreatedPosition created_positions = 20;
+  repeated IncreaseLiquidityPosition increase_liquidity_positions = 21;
+  repeated DecreaseLiquidityPosition decrease_liquidity_positions = 22;
+  repeated CollectPosition collect_positions = 23;
+  repeated TransferPosition transfer_positions = 24;
 
   message FeeGrowthGlobal {
     string pool_address = 1;
@@ -205,6 +210,48 @@ message Events {
     // Integer
     string gas_price = 5;
     uint64 log_ordinal = 6;
+  }
+
+  message Positions {
+    repeated Position positions = 1;
+  }
+
+  message CreatedPosition {
+    string token_id = 1;
+    string pool = 2;
+    string token0 = 3;
+    string token1 = 4;
+    string tick_lower = 5;
+    string tick_upper = 6;
+    string transaction = 7;
+    uint64 log_ordinal = 8;
+    uint64 timestamp = 9;
+    uint64 block_number = 10;
+  }
+
+  message IncreaseLiquidityPosition {
+    string token_id = 1;
+    string liquidity = 2; // BigInt
+    string deposited_token0 = 3; // BigDecimal
+    string deposited_token1 = 4; // BigDecimal
+  }
+
+  message DecreaseLiquidityPosition {
+    string token_id = 1;
+    string liquidity = 2; // BigInt
+    string withdrawn_token0 = 3; // BigDecimal
+    string withdrawn_token1 = 4; // BigDecimal
+  }
+
+  message CollectPosition {
+    string token_id = 1;
+    string collected_fees_token0 = 2; // BigInt
+    string collected_fees_token1 = 3; // BigInt
+  }
+
+  message TransferPosition {
+    string token_id = 1;
+    string owner = 2;
   }
 
   message Position {

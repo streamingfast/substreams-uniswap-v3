@@ -1,6 +1,9 @@
 use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::position::PositionType::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
+use crate::pb::uniswap::events::{
+    CollectPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, TransferPosition,
+};
 use crate::pb::PositionEvent;
 use crate::storage::UniswapPoolStorage;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
@@ -318,7 +321,11 @@ pub fn extract_transactions(
 }
 
 pub fn extract_positions(
-    positions: &mut Vec<events::Position>,
+    created_positions: &mut Vec<events::CreatedPosition>,
+    increase_liquidity_positions: &mut Vec<events::IncreaseLiquidityPosition>,
+    decrease_liquidity_positions: &mut Vec<events::DecreaseLiquidityPosition>,
+    collect_positions: &mut Vec<events::CollectPosition>,
+    transfer_positions: &mut Vec<events::TransferPosition>,
     log: &Log,
     transaction_id: &String,
     pools_store: &StoreGetProto<Pool>,
@@ -330,66 +337,38 @@ pub fn extract_positions(
         return;
     }
 
+    //TODO: check the tokenId in the storage changes
+    // then emit positions created
+
+    //TODO: in the subgraph, on each of these 4 events: they will make an eth_call to fetch
+    // the tick upper, tick lower, feeGrowthInside0LastX128 and feeGrowthInside1LastX128
+    // should we check the SC for changes on these values, and if so, then we can
+    // set them?? Maybe we can uncouple the feeGrowthInside*LastX128 and check the SC...
     if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log) {
-        if let Some(position) = utils::get_position(
-            &pools_store,
-            &Hex(log_address).to_string(),
-            transaction_id,
-            IncreaseLiquidity,
-            log.ordinal,
-            timestamp,
-            block_number,
-            PositionEvent {
-                event: PositionEventType::IncreaseLiquidity(event),
-            },
-        ) {
-            positions.push(position);
-        }
-    } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
-        if let Some(position) = utils::get_position(
-            &pools_store,
-            &Hex(log_address).to_string(),
-            transaction_id,
-            Collect,
-            log.ordinal,
-            timestamp,
-            block_number,
-            PositionEvent {
-                event: PositionEventType::Collect(event),
-            },
-        ) {
-            positions.push(position);
-        }
+        increase_liquidity_positions.push(IncreaseLiquidityPosition {
+            token_id: event.token_id.to_string(),
+            liquidity: event.liquidity.to_string(),
+            deposited_token0: event.amount0.to_string(),
+            deposited_token1: event.amount1.to_string(),
+        });
     } else if let Some(event) = abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log) {
-        if let Some(position) = utils::get_position(
-            &pools_store,
-            &Hex(log_address).to_string(),
-            transaction_id,
-            DecreaseLiquidity,
-            log.ordinal,
-            timestamp,
-            block_number,
-            PositionEvent {
-                event: PositionEventType::DecreaseLiquidity(event),
-            },
-        ) {
-            positions.push(position);
-        }
+        decrease_liquidity_positions.push(DecreaseLiquidityPosition {
+            token_id: event.token_id.to_string(),
+            liquidity: event.liquidity.to_string(),
+            withdrawn_token0: event.amount0.to_string(),
+            withdrawn_token1: event.amount1.to_string(),
+        });
+    } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
+        collect_positions.push(CollectPosition {
+            token_id: event.token_id.to_string(),
+            collected_fees_token0: event.amount0.to_string(),
+            collected_fees_token1: event.amount1.to_string(),
+        });
     } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-        if let Some(position) = utils::get_position(
-            &pools_store,
-            &Hex(log_address).to_string(),
-            transaction_id,
-            Transfer,
-            log.ordinal,
-            timestamp,
-            block_number,
-            PositionEvent {
-                event: PositionEventType::Transfer(event.clone()),
-            },
-        ) {
-            positions.push(position);
-        }
+        transfer_positions.push(TransferPosition {
+            token_id: event.token_id.to_string(),
+            owner: Hex(&event.to).to_string(),
+        });
     }
 }
 

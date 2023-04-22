@@ -213,7 +213,7 @@ modules:
       substreams gui blah blah
       ```
 
-#  - name: map_positions
+#  - name: map_joined_positions
 #    kind: map
 #    initialBlock: 12369621
 #    inputs:
@@ -242,7 +242,6 @@ modules:
     initialBlock: 12369621
     inputs:
       - map: map_extract_data_types
-      - store: store_position_changes
     output:
       type: proto:uniswap.types.v1.SnapshotPositions
 
@@ -312,8 +311,6 @@ modules:
       ###- map: map_position_entities
       #- map: map_extract_data_types
       - store: store_positions
-      - store: store_position_changes
-        mode: deltas
 
       ###- map: map_position_snapshot_entities
       - map: map_position_snapshots

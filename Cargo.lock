@@ -925,7 +925,7 @@ dependencies = [
 [[package]]
 name = "substreams-ethereum"
 version = "0.9.1"
-source = "git+https://github.com/streamingfast/substreams-ethereum#3773640da86c772bd7b41f9d1227f1a2db380d51"
+source = "git+https://github.com/streamingfast/substreams-ethereum#7aae5fdfa79acf0773b6a09713c8358ae101e6b4"
 dependencies = [
  "getrandom",
  "num-bigint",
@@ -938,7 +938,7 @@ dependencies = [
 [[package]]
 name = "substreams-ethereum-abigen"
 version = "0.9.1"
-source = "git+https://github.com/streamingfast/substreams-ethereum#3773640da86c772bd7b41f9d1227f1a2db380d51"
+source = "git+https://github.com/streamingfast/substreams-ethereum#7aae5fdfa79acf0773b6a09713c8358ae101e6b4"
 dependencies = [
  "anyhow",
  "ethabi",
@@ -954,7 +954,7 @@ dependencies = [
 [[package]]
 name = "substreams-ethereum-core"
 version = "0.9.1"
-source = "git+https://github.com/streamingfast/substreams-ethereum#3773640da86c772bd7b41f9d1227f1a2db380d51"
+source = "git+https://github.com/streamingfast/substreams-ethereum#7aae5fdfa79acf0773b6a09713c8358ae101e6b4"
 dependencies = [
  "bigdecimal",
  "ethabi",
@@ -969,7 +969,7 @@ dependencies = [
 [[package]]
 name = "substreams-ethereum-derive"
 version = "0.9.1"
-source = "git+https://github.com/streamingfast/substreams-ethereum#3773640da86c772bd7b41f9d1227f1a2db380d51"
+source = "git+https://github.com/streamingfast/substreams-ethereum#7aae5fdfa79acf0773b6a09713c8358ae101e6b4"
 dependencies = [
  "ethabi",
  "heck",
