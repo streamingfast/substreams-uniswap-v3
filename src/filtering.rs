@@ -341,7 +341,7 @@ pub fn extract_positions(
     // then emit positions created
 
     //TODO: in the subgraph, on each of these 4 events: they will make an eth_call to fetch
-    // the tick upper, tick lower, feeGrowthInside0LastX128 and feeGrowthInside1LastX128
+    // the tick upper, tick lower, fee_growth_inside0last_x128 and feeGrowthInside1LastX128
     // should we check the SC for changes on these values, and if so, then we can
     // set them?? Maybe we can uncouple the feeGrowthInside*LastX128 and check the SC...
     if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log) {

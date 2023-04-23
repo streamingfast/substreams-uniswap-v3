@@ -15,7 +15,7 @@ impl<'a> UniswapPoolStorage<'a> {
         };
     }
 
-    pub fn get_fee_growth_global0x128(&self) -> Option<(BigInt, BigInt)> {
+    pub fn fee_growth_global0x128(&self) -> Option<(BigInt, BigInt)> {
         let fee_growth_global0x128_slot = BigInt::from(1);
         let offset = 0;
         let number_of_bytes = 32;
@@ -34,7 +34,7 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
-    pub fn get_fee_growth_global1x128(&self) -> Option<(BigInt, BigInt)> {
+    pub fn fee_growth_global1x128(&self) -> Option<(BigInt, BigInt)> {
         let fee_growth_global1x128_slot = BigInt::from(2);
         let offset = 0;
         let number_of_bytes = 32;

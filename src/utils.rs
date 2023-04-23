@@ -92,7 +92,7 @@ pub fn extract_pool_fee_growth_global_updates(
 
     let storage = storage::uniswap_v3_pool::UniswapPoolStorage::new(storage_changes, pool_address);
 
-    if let Some((old_value, new_value)) = storage.get_fee_growth_global0x128() {
+    if let Some((old_value, new_value)) = storage.fee_growth_global0x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
@@ -101,7 +101,7 @@ pub fn extract_pool_fee_growth_global_updates(
         })
     }
 
-    if let Some((old_value, new_value)) = storage.get_fee_growth_global1x128() {
+    if let Some((old_value, new_value)) = storage.fee_growth_global1x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
@@ -277,7 +277,7 @@ pub fn get_position(
         let fee = positions_call_result.2; // get from PoolKey.fee
         let tick_lower: BigInt = positions_call_result.3.into(); // get from Position.tickLower
         let tick_upper: BigInt = positions_call_result.4.into(); // get from Position.tickLower
-        let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into(); // get from Position.feeGrowthInside0LastX128
+        let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into(); // get from Position.fee_growth_inside0last_x128
         let fee_growth_inside_1_last_x128: BigInt = positions_call_result.6.into(); // get from Position.feeGrowthInside1LastX128
 
         let token0: String = Hex(&token_id_0_bytes.as_slice()).to_string();
