@@ -1242,7 +1242,7 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
 //     let mut enriched_positions: HashMap<String, events::Position> = HashMap::new();
 //
 //     for log in block.logs() {
-//         if log.address() != utils::NON_FUNGIBLE_POSITION_MANAGER {
+//         if log.address() != utils.rs::NON_FUNGIBLE_POSITION_MANAGER {
 //             continue;
 //         }
 //

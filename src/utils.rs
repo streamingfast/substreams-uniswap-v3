@@ -5,7 +5,7 @@ use crate::pb::{AdjustedAmounts, PositionEvent};
 use crate::tables::Tables;
 use crate::uniswap::events::position::PositionType;
 use crate::uniswap::events::Transaction;
-use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
+use crate::{keyer, rpc, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS, storage};
 use std::fmt::Display;
 use std::ops::{Add, Mul};
 use substreams::prelude::{DeltaBigDecimal, DeltaProto, StoreGetBigDecimal};
@@ -90,7 +90,7 @@ pub fn extract_pool_fee_growth_global_updates(
     let fee_growth_global_0 = hex!("0000000000000000000000000000000000000000000000000000000000000001");
     let fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
 
-    let storage = storage::UniswapPoolStorage::new(storage_changes, pool_address);
+    let storage = storage::uniswap_v3_pool::UniswapPoolStorage::new(storage_changes, pool_address);
 
     if let Some((old_value, new_value)) = storage.get_fee_growth_global0x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {

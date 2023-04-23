@@ -5,7 +5,7 @@ use crate::pb::uniswap::events::{
     CollectPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, TransferPosition,
 };
 use crate::pb::PositionEvent;
-use crate::storage::UniswapPoolStorage;
+use crate::storage::uniswap_v3_pool::UniswapPoolStorage;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
 use crate::{abi, math, rpc, utils, BurnEvent, EventTrait, MintEvent, Pool, SwapEvent};
 use substreams::prelude::{BigDecimal, BigInt, StoreGet, StoreGetProto};
@@ -97,8 +97,8 @@ pub fn extract_pool_events(
         });
 
         let storage = UniswapPoolStorage::new(storage_changes, &log.address);
-        let create_lower_tick = initialized_changed(storage.get_ticks_initialized(&mint.tick_lower));
-        let create_upper_tick = initialized_changed(storage.get_ticks_initialized(&mint.tick_upper));
+        let create_lower_tick = initialized_changed(storage.ticks(&mint.tick_lower).initialized());
+        let create_upper_tick = initialized_changed(storage.ticks(&mint.tick_upper).initialized());
 
         if create_lower_tick || create_upper_tick {
             let common_tick = events::TickCreated {
@@ -127,14 +127,14 @@ pub fn extract_pool_events(
 
         ticks_updated.push(events::TickUpdated {
             idx: mint.tick_upper.as_ref().into(),
-            fee_growth_outside_0x_128: bigint_if_some(storage.get_ticks_fee_growth_outside_0_x128(&mint.tick_upper)),
-            fee_growth_outside_1x_128: bigint_if_some(storage.get_ticks_fee_growth_outside_1_x128(&mint.tick_upper)),
+            fee_growth_outside_0x_128: bigint_if_some(storage.ticks(&mint.tick_upper).fee_growth_outside_0_x128()),
+            fee_growth_outside_1x_128: bigint_if_some(storage.ticks(&mint.tick_upper).fee_growth_outside_1_x128()),
             ..common_tick_updated.clone()
         });
         ticks_updated.push(events::TickUpdated {
             idx: mint.tick_lower.as_ref().into(),
-            fee_growth_outside_0x_128: bigint_if_some(storage.get_ticks_fee_growth_outside_0_x128(&mint.tick_lower)),
-            fee_growth_outside_1x_128: bigint_if_some(storage.get_ticks_fee_growth_outside_1_x128(&mint.tick_lower)),
+            fee_growth_outside_0x_128: bigint_if_some(storage.ticks(&mint.tick_lower).fee_growth_outside_0_x128()),
+            fee_growth_outside_1x_128: bigint_if_some(storage.ticks(&mint.tick_lower).fee_growth_outside_1_x128()),
             ..common_tick_updated.clone()
         });
     } else if let Some(burn) = abi::pool::events::Burn::match_and_decode(log) {
@@ -175,14 +175,14 @@ pub fn extract_pool_events(
 
         ticks_updated.push(events::TickUpdated {
             idx: burn.tick_upper.as_ref().into(),
-            fee_growth_outside_0x_128: bigint_if_some(storage.get_ticks_fee_growth_outside_0_x128(&burn.tick_upper)),
-            fee_growth_outside_1x_128: bigint_if_some(storage.get_ticks_fee_growth_outside_1_x128(&burn.tick_upper)),
+            fee_growth_outside_0x_128: bigint_if_some(storage.ticks(&burn.tick_upper).fee_growth_outside_0_x128()),
+            fee_growth_outside_1x_128: bigint_if_some(storage.ticks(&burn.tick_upper).fee_growth_outside_1_x128()),
             ..common_tick_updated.clone()
         });
         ticks_updated.push(events::TickUpdated {
             idx: burn.tick_lower.as_ref().into(),
-            fee_growth_outside_0x_128: bigint_if_some(storage.get_ticks_fee_growth_outside_0_x128(&burn.tick_lower)),
-            fee_growth_outside_1x_128: bigint_if_some(storage.get_ticks_fee_growth_outside_1_x128(&burn.tick_lower)),
+            fee_growth_outside_0x_128: bigint_if_some(storage.ticks(&burn.tick_lower).fee_growth_outside_0_x128()),
+            fee_growth_outside_1x_128: bigint_if_some(storage.ticks(&burn.tick_lower).fee_growth_outside_1_x128()),
             ..common_tick_updated.clone()
         });
     }
