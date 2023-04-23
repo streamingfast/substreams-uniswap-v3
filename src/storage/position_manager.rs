@@ -66,6 +66,35 @@ impl<'a> PositionManagerStorage<'a> {
         return PositionStruct::new(filtered_changes, position_struct_slot)
     }
 
+    pub fn pool_id_to_pool_key(&self, poold_id: &BigInt) -> PoolKeyStruct {
+        let filtered_changes: Vec<&StorageChange> = self.storage_changes.iter()
+            .filter(|change| { change.address == self.contract_addr })
+            .collect();
+
+        let pool_id_to_pool_key_slot = utils::left_pad_from_bigint(&BigInt::from(11));
+        let pool_id_to_pool_ke_struct_slot = utils::calc_map_slot(&utils::left_pad_from_bigint(&poold_id), &pool_id_to_pool_key_slot);
+
+        return PoolKeyStruct::new(filtered_changes, pool_id_to_pool_ke_struct_slot)
+    }
+
+    pub fn pool_ids(&self, pool_address: &[u8;20]) -> Option<(BigInt, BigInt)> {
+        let filtered_changes: Vec<&StorageChange> = self.storage_changes.iter()
+            .filter(|change| { change.address == self.contract_addr })
+            .collect();
+
+        let pool_ids_slot = utils::left_pad_from_bigint(&BigInt::from(10));
+        let pool_ids_address_slot = utils::calc_map_slot(&utils::left_pad(&pool_address.to_vec(), 0), &pool_ids_slot);
+
+        if let Some((old_data, new_data)) = self.get_storage_changes(pool_ids_address_slot, 0, 20) {
+            Some((
+                BigInt::from_signed_bytes_be(old_data),
+                BigInt::from_signed_bytes_be(new_data),
+            ))
+        } else {
+            None
+        }
+    }
+
     fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
         let storage_change_opt = self.storage_changes.iter().find(|storage_change| {
             storage_change.address == self.contract_addr && storage_change.key.eq(slot_key.as_slice())
@@ -112,7 +141,7 @@ impl<'a> PositionStruct<'a> {
         }
     }
 
-    pub fn address(&self) -> Option<([u8;32], [u8;32])> {
+    pub fn address(&self) -> Option<([u8;20], [u8;20])> {
         let slot = BigInt::from(0);
         let offset = 12;
         let number_of_bytes = 20;
@@ -121,8 +150,8 @@ impl<'a> PositionStruct<'a> {
 
         if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
             Some((
-                <[u8; 32]>::try_from(old_data).unwrap(),
-                <[u8; 32]>::try_from(new_data).unwrap()
+                <[u8; 20]>::try_from(old_data).unwrap(),
+                <[u8; 20]>::try_from(new_data).unwrap()
             ))
         } else {
             None
@@ -281,6 +310,89 @@ impl<'a> PositionStruct<'a> {
     }
 }
 
+
+pub struct PoolKeyStruct<'a> {
+    pub storage_changes: Vec<&'a StorageChange>,
+    pub struct_slot: [u8; 32],
+}
+
+impl<'a> PoolKeyStruct<'a> {
+    pub fn new(storage_changes: Vec<&'a StorageChange>, struct_slot: [u8; 32]) -> PoolKeyStruct<'a> {
+        return Self {
+            struct_slot: struct_slot,
+            storage_changes: storage_changes,
+        };
+    }
+
+    pub fn token0(&self) -> Option<([u8;20], [u8;20])> {
+        let slot = BigInt::from(0);
+        let offset = 0;
+        let number_of_bytes = 20;
+
+        let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
+
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+            Some((
+                <[u8; 20]>::try_from(old_data).unwrap(),
+                <[u8; 20]>::try_from(new_data).unwrap(),
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub fn token1(&self) -> Option<([u8;20], [u8;20])> {
+        let slot = BigInt::from(1);
+        let offset = 0;
+        let number_of_bytes = 20;
+
+        let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
+
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+            Some((
+                <[u8; 20]>::try_from(old_data).unwrap(),
+                <[u8; 20]>::try_from(new_data).unwrap(),
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub fn fee(&self) -> Option<(BigInt,BigInt)> {
+        let slot = BigInt::from(1);
+        let offset = 20;
+        let number_of_bytes = 3;
+
+        let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
+
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+            Some((
+                BigInt::from_signed_bytes_be(old_data),
+                BigInt::from_signed_bytes_be(new_data),
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
+        let storage_change_opt = self.storage_changes.iter().find(|storage_change| {
+            storage_change.key.eq(slot_key.as_slice())
+        });
+
+        if storage_change_opt.is_none() {
+            return None;
+        }
+        let storage = storage_change_opt.unwrap();
+
+        let old_data = utils::read_bytes(&storage.old_value, offset, number_of_bytes);
+        let new_data = utils::read_bytes(&storage.new_value, offset, number_of_bytes);
+        Some((old_data, new_data))
+    }
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -435,6 +547,63 @@ mod tests {
         let v_opt = storage.positions(&BigInt::from_str("1").unwrap()).tokens1wed0();
         assert_eq!(
             None,
+            v_opt
+        );
+    }
+
+    #[test]
+    fn pool_ids() {
+        let changes = get_store_changes();
+        let storage = get_position_manager(&changes);
+        let pool_address = hex!("1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801");
+        let v_opt = storage.pool_ids(&pool_address);
+        assert_eq!(
+            Some((
+                BigInt::from_str("0").unwrap(),
+                BigInt::from_str("1").unwrap()
+            )),
+            v_opt
+        );
+    }
+
+    #[test]
+    fn pool_key_token0() {
+        let changes = get_store_changes();
+        let storage = get_position_manager(&changes);
+        let v_opt = storage.pool_id_to_pool_key(&BigInt::from_str("1").unwrap()).token0();
+        assert_eq!(
+            Some((
+                hex!("0000000000000000000000000000000000000000"),
+                hex!("1f9840a85d5af5bf1d1762f925bdaddc4201f984"),
+            )),
+            v_opt
+        );
+    }
+
+    #[test]
+    fn pool_key_token1() {
+        let changes = get_store_changes();
+        let storage = get_position_manager(&changes);
+        let v_opt = storage.pool_id_to_pool_key(&BigInt::from_str("1").unwrap()).token1();
+        assert_eq!(
+            Some((
+                hex!("0000000000000000000000000000000000000000"),
+                hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"),
+            )),
+            v_opt
+        );
+    }
+
+    #[test]
+    fn pool_key_fee() {
+        let changes = get_store_changes();
+        let storage = get_position_manager(&changes);
+        let v_opt = storage.pool_id_to_pool_key(&BigInt::from_str("1").unwrap()).fee();
+        assert_eq!(
+            Some((
+                BigInt::from_str("0").unwrap(),
+                BigInt::from_str("3000").unwrap()
+            )),
             v_opt
         );
     }
