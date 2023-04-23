@@ -14,7 +14,10 @@ use crate::keyer::{POOL_DAY_DATA, POOL_HOUR_DATA, TOKEN_DAY_DATA, TOKEN_HOUR_DAT
 use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::position::PositionType;
-use crate::pb::uniswap::events::PoolSqrtPrice;
+use crate::pb::uniswap::events::{
+    CollectPosition, CreatedPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, PoolSqrtPrice,
+    TransferPosition,
+};
 use crate::tables::Tables;
 use crate::uniswap::{Erc20Token, Pools, SnapshotPositions};
 use crate::utils::{extract_item_from_key_at_position, extract_item_from_key_last_item};
@@ -556,8 +559,8 @@ pub fn position_create_entity_change(
         tables
             .update_row("Position", position.token_id.clone().as_str())
             .set("id", &position.token_id)
-            .set("owner", format!("TODO")) // value is 0x00..00 I think
-            .set("pool", &format!("0x{}", &position.pool))
+            .set("owner", format!("0x{}", Hex(utils::ZERO_ADDRESS).to_string())) // value is 0x00..00 I think
+            .set("pool", format!("0x{}", &position.pool))
             .set("token0", &position.token0)
             .set("token1", &position.token1)
             .set("tickLower", format!("0x{}#{}", &position.pool, &position.tick_lower))
@@ -647,33 +650,114 @@ pub fn transfer_position_entity_change(tables: &mut Tables, positions: &Vec<even
 // --------------------
 //  Map Snapshot Position Entities
 // --------------------
-pub fn snapshot_position_entity_change(tables: &mut Tables, snapshot_positions: SnapshotPositions) {
-    for snapshot_position in snapshot_positions.snapshot_positions {
-        let id = format!("{}#{}", snapshot_position.position, snapshot_position.block_number);
+pub fn snapshot_positions_create_entity_change(
+    tables: &mut Tables,
+    positions: &Vec<CreatedPosition>,
+    positions_store: &StoreGetInt64,
+) {
+    for position in positions {
+        //TODO: Here we have check the position store and check the value of the key
+        // if == 1 -> create position
+        // else -> skip, position was already created
+
+        let id = format!("{}#{}", position.token_id, position.block_number);
+        // TODO: decode `PositionsSnapshot.owner` from hex into bytes, and use in "owner" below
         tables
             .update_row("PositionSnapshot", &id)
             .set("id", &id)
-            .set("owner", &snapshot_position.owner.into_bytes())
-            .set("pool", &format!("0x{}", &snapshot_position.pool))
-            .set("position", &snapshot_position.position)
-            .set("blockNumber", snapshot_position.block_number)
-            .set("timestamp", snapshot_position.timestamp)
-            .set_bigdecimal("liquidity", &snapshot_position.liquidity)
-            .set_bigdecimal("depositedToken0", &snapshot_position.deposited_token0)
-            .set_bigdecimal("depositedToken1", &snapshot_position.deposited_token1)
-            .set_bigdecimal("withdrawnToken0", &snapshot_position.withdrawn_token0)
-            .set_bigdecimal("withdrawnToken1", &snapshot_position.withdrawn_token1)
-            .set_bigdecimal("collectedFeesToken0", &snapshot_position.collected_fees_token0)
-            .set_bigdecimal("collectedFeesToken1", &snapshot_position.collected_fees_token1)
-            .set("transaction", &format!("0x{}", &snapshot_position.transaction))
+            .set("owner", format!("0x{}", Hex(utils::ZERO_ADDRESS).to_string()))
+            .set("pool", format!("0x{}", &position.pool))
+            .set("position", &position.token_id)
+            .set("blockNumber", position.block_number)
+            .set("timestamp", position.timestamp)
+            .set_bigdecimal("liquidity", &"0".to_string())
+            .set_bigdecimal("depositedToken0", &"0".to_string())
+            .set_bigdecimal("depositedToken1", &"0".to_string())
+            .set_bigdecimal("withdrawnToken0", &"0".to_string())
+            .set_bigdecimal("withdrawnToken1", &"0".to_string())
+            .set_bigdecimal("collectedFeesToken0", &"0".to_string())
+            .set_bigdecimal("collectedFeesToken1", &"0".to_string())
+            .set("transaction", &format!("0x{}", &position.transaction))
+            .set_bigint("feeGrowthInside0LastX128", &"0".to_string())
+            .set_bigint("feeGrowthInside1LastX128", &"0".to_string());
+    }
+}
+
+pub fn increase_liquidity_snapshot_position_entity_change(
+    tables: &mut Tables,
+    block_number: u64,
+    positions: &Vec<IncreaseLiquidityPosition>,
+) {
+    for position in positions {
+        let id = format!("{}#{}", position.token_id, block_number);
+        tables
+            .update_row("PositionSnapshot", id)
+            .set("liquidity", BigInt::try_from(&position.liquidity).unwrap())
             .set(
-                "feeGrowthInside0LastX128", // TODO: use the same SnapshotPosition updates stream as TickUpdates
-                BigInt::try_from(snapshot_position.fee_growth_inside_0_last_x_128).unwrap(),
+                "depositedToken0",
+                BigDecimal::try_from(&position.deposited_token0).unwrap(),
             )
             .set(
-                "feeGrowthInside1LastX128",
-                BigInt::try_from(snapshot_position.fee_growth_inside_1_last_x_128).unwrap(),
+                "depositedToken1",
+                BigDecimal::try_from(&position.deposited_token1).unwrap(),
             );
+    }
+}
+
+pub fn decrease_liquidity_snapshot_position_entity_change(
+    tables: &mut Tables,
+    block_number: u64,
+    positions: &Vec<DecreaseLiquidityPosition>,
+) {
+    for position in positions {
+        let id = format!("{}#{}", position.token_id, block_number);
+        tables
+            .update_row("PositionSnapshot", id)
+            .set(
+                "liquidity",
+                BigDecimal::try_from(&position.liquidity).unwrap().to_bigint(),
+            )
+            .set(
+                "withdrawnToken0",
+                BigDecimal::try_from(&position.withdrawn_token0).unwrap(),
+            )
+            .set(
+                "withdrawnToken1",
+                BigDecimal::try_from(&position.withdrawn_token1).unwrap(),
+            );
+    }
+}
+
+pub fn collect_snapshot_position_entity_change(
+    tables: &mut Tables,
+    block_number: u64,
+    positions: &Vec<CollectPosition>,
+) {
+    for position in positions {
+        let id = format!("{}#{}", position.token_id, block_number);
+        tables
+            .update_row("PositionSnapshot", id)
+            .set(
+                "collectedFeesToken0",
+                BigInt::try_from(&position.collected_fees_token0).unwrap(),
+            )
+            .set(
+                "collectedFeesToken1",
+                BigInt::try_from(&position.collected_fees_token1).unwrap(),
+            );
+    }
+}
+
+pub fn transfer_snapshot_position_entity_change(
+    tables: &mut Tables,
+    block_number: u64,
+    positions: &Vec<TransferPosition>,
+) {
+    for position in positions {
+        let id = format!("{}#{}", position.token_id, block_number);
+        tables
+            .update_row("PositionSnapshot", id)
+            .set("owner", &position.owner.clone().into_bytes());
     }
 }
 

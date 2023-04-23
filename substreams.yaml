@@ -237,14 +237,6 @@ modules:
     inputs:
       - map: map_extract_data_types
 
-  - name: map_position_snapshots
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_extract_data_types
-    output:
-      type: proto:uniswap.types.v1.SnapshotPositions
-
   - name: graph_out
     kind: map
     initialBlock: 12369621
@@ -311,9 +303,6 @@ modules:
       ###- map: map_position_entities
       #- map: map_extract_data_types
       - store: store_positions
-
-      ###- map: map_position_snapshot_entities
-      - map: map_position_snapshots
 
       ###- map: map_flash_entities
       #- map: map_extract_data_types

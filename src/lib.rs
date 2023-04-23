@@ -1348,106 +1348,6 @@ pub fn store_positions(events: Events, store: StoreSetInt64) {
     // position:{pool_id}:{pool_addr}:{token0_addr}:{token1_addr}:{fee}
 }
 
-// I THINK THAT WE CAN REMOVE THIS ENTIRE MAPPER
-#[substreams::handlers::map]
-pub fn map_position_snapshots(events: Events) -> Result<SnapshotPositions, Error> {
-    let mut snapshot_positions: SnapshotPositions = SnapshotPositions {
-        snapshot_positions: vec![],
-    };
-
-    //TODO: here we have to loop over all the type of events and create snapshot positions events with this
-    // We have to do the same as with the positions -> we need to emit different types of snapshot positions
-
-    for position in events.created_positions {
-        // TODO -> create snapshot positions
-    }
-
-    // for position in events.positions {
-    //     let mut snapshot_position: SnapshotPosition = SnapshotPosition {
-    //         owner: position.owner,
-    //         pool: position.pool,
-    //         position: position.token_id.clone(),
-    //         block_number: position.block_number,
-    //         timestamp: position.timestamp,
-    //         transaction: position.transaction,
-    //         fee_growth_inside_0_last_x_128: position.fee_growth_inside_0_last_x_128,
-    //         fee_growth_inside_1_last_x_128: position.fee_growth_inside_1_last_x_128,
-    //         log_ordinal: position.log_ordinal,
-    //         ..Default::default()
-    //     };
-    //
-    //     //TODO: when the value is not found, do we really want to set the liquidity, deposited_token0, etc.
-    //     // to 0? We could simply not touch the data point...
-    //     match position_changes_store.get_at(position.log_ordinal, keyer::position_liquidity(&position.token_id)) {
-    //         Some(liquidity) => snapshot_position.liquidity = liquidity.into(),
-    //         _ => snapshot_position.liquidity = "0.0".to_string(),
-    //     }
-    //
-    //     match position_changes_store.get_at(
-    //         position.log_ordinal,
-    //         keyer::position_deposited_token(&position.token_id, "Token0"),
-    //     ) {
-    //         Some(deposited_token0) => {
-    //             snapshot_position.deposited_token0 = deposited_token0.into();
-    //         }
-    //         _ => snapshot_position.deposited_token0 = "0.0".to_string(),
-    //     }
-    //
-    //     match position_changes_store.get_at(
-    //         position.log_ordinal,
-    //         keyer::position_deposited_token(&position.token_id, "Token1"),
-    //     ) {
-    //         Some(deposited_token1) => {
-    //             snapshot_position.deposited_token1 = deposited_token1.into();
-    //         }
-    //         _ => snapshot_position.deposited_token1 = "0.0".to_string(),
-    //     }
-    //
-    //     match position_changes_store.get_at(
-    //         position.log_ordinal,
-    //         keyer::position_withdrawn_token(&position.token_id, "Token0"),
-    //     ) {
-    //         Some(withdrawn_token0) => {
-    //             snapshot_position.withdrawn_token0 = withdrawn_token0.into();
-    //         }
-    //         _ => snapshot_position.withdrawn_token0 = "0.0".to_string(),
-    //     }
-    //
-    //     match position_changes_store.get_at(
-    //         position.log_ordinal,
-    //         keyer::position_withdrawn_token(&position.token_id, "Token1"),
-    //     ) {
-    //         Some(withdrawn_token1) => {
-    //             snapshot_position.withdrawn_token1 = withdrawn_token1.into();
-    //         }
-    //         _ => snapshot_position.withdrawn_token1 = "0.0".to_string(),
-    //     }
-    //
-    //     match position_changes_store.get_at(
-    //         position.log_ordinal,
-    //         keyer::position_collected_fees_token(&position.token_id, "Token0"),
-    //     ) {
-    //         Some(collected_fees_token0) => {
-    //             snapshot_position.collected_fees_token0 = collected_fees_token0.into();
-    //         }
-    //         _ => snapshot_position.collected_fees_token0 = "0.0".to_string(),
-    //     }
-    //
-    //     match position_changes_store.get_at(
-    //         position.log_ordinal,
-    //         keyer::position_collected_fees_token(&position.token_id, "Token1"),
-    //     ) {
-    //         Some(collected_fees_token1) => {
-    //             snapshot_position.collected_fees_token1 = collected_fees_token1.into();
-    //         }
-    //         _ => snapshot_position.collected_fees_token1 = "0.0".to_string(),
-    //     }
-    //
-    //     snapshot_positions.snapshot_positions.push(snapshot_position);
-
-    Ok(snapshot_positions)
-}
-
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
@@ -1469,7 +1369,6 @@ pub fn graph_out(
     derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
     positions_store: StoreGetInt64,                      /* store_positions */
-    snapshot_positions: SnapshotPositions,               /* map_position_snapshots */
     tx_count_store: StoreGetBigInt,                      /* store_total_tx_counts */
     store_eth_prices: StoreGetBigDecimal,                /* store_eth_prices */
 ) -> Result<EntityChanges, Error> {
@@ -1526,7 +1425,19 @@ pub fn graph_out(
 
     // PositionSnapshot:
     // TODO: validate all the snapshot positions here
-    db::snapshot_position_entity_change(&mut tables, snapshot_positions);
+    db::snapshot_positions_create_entity_change(&mut tables, &events.created_positions, &positions_store);
+    db::increase_liquidity_snapshot_position_entity_change(
+        &mut tables,
+        clock.number,
+        &events.increase_liquidity_positions,
+    );
+    db::decrease_liquidity_snapshot_position_entity_change(
+        &mut tables,
+        clock.number,
+        &events.decrease_liquidity_positions,
+    );
+    db::collect_snapshot_position_entity_change(&mut tables, clock.number, &events.collect_positions);
+    db::transfer_snapshot_position_entity_change(&mut tables, clock.number, &events.transfer_positions);
 
     // Transaction:
     db::transaction_entity_change(&mut tables, events.transactions);
