@@ -227,6 +227,8 @@ message Events {
     uint64 log_ordinal = 8;
     uint64 timestamp = 9;
     uint64 block_number = 10;
+    optional string fee_growth_inside0_last_x128 = 11; // BigInt
+    optional string fee_growth_inside1_last_x128 = 12; // BigInt
   }
 
   message IncreaseLiquidityPosition {
@@ -234,6 +236,8 @@ message Events {
     string liquidity = 2; // BigInt
     string deposited_token0 = 3; // BigDecimal
     string deposited_token1 = 4; // BigDecimal
+    optional string fee_growth_inside0_last_x128 = 5; // BigInt
+    optional string fee_growth_inside1_last_x128 = 6; // BigInt
   }
 
   message DecreaseLiquidityPosition {
@@ -241,12 +245,16 @@ message Events {
     string liquidity = 2; // BigInt
     string withdrawn_token0 = 3; // BigDecimal
     string withdrawn_token1 = 4; // BigDecimal
+    optional string fee_growth_inside0_last_x128 = 5; // BigInt
+    optional string fee_growth_inside1_last_x128 = 6; // BigInt
   }
 
   message CollectPosition {
     string token_id = 1;
     string collected_fees_token0 = 2; // BigInt
     string collected_fees_token1 = 3; // BigInt
+    optional string fee_growth_inside0_last_x128 = 5; // BigInt
+    optional string fee_growth_inside1_last_x128 = 6; // BigInt
   }
 
   message TransferPosition {

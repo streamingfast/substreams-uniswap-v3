@@ -201,7 +201,7 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
     let timestamp = block.timestamp_seconds();
 
     for trx in block.transactions() {
-        for (log, call) in trx.logs_with_calls() {
+        for (log, call_view) in trx.logs_with_calls() {
             let pool_address = &Hex(log.clone().address).to_string();
             let pool_key = &keyer::pool_key(&pool_address);
             let transactions_id = Hex(&trx.hash).to_string();
@@ -209,25 +209,35 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
             match pools_store.get_last(pool_key) {
                 Some(pool) => {
                     filtering::extract_pool_sqrt_prices(&mut pool_sqrt_prices, log, pool_address);
-                    filtering::extract_pool_liquidities(&mut pool_liquidities, log, &call.storage_changes, &pool);
+                    filtering::extract_pool_liquidities(
+                        &mut pool_liquidities,
+                        log,
+                        &call_view.call.storage_changes,
+                        &pool,
+                    );
                     filtering::extract_fee_growth_update(
                         &mut fee_growth_global_updates,
                         log,
-                        &call.storage_changes,
+                        &call_view.call.storage_changes,
                         &pool,
                     );
 
-                    filtering::extract_pool_events(
+                    filtering::extract_pool_events_and_positions(
                         &mut pool_events,
                         &mut ticks_created,
                         &mut ticks_updated,
+                        &mut positions_created,
+                        &mut positions_increase_liquidity,
+                        &mut positions_decrease_liquidity,
+                        &mut positions_collect,
+                        &mut positions_transfer,
                         &transactions_id,
                         &Hex(&trx.from).to_string(),
                         log,
+                        &call_view,
                         &pool,
                         timestamp,
                         block.number,
-                        &call.storage_changes,
                     );
 
                     filtering::extract_transactions(&mut transactions, log, &trx, timestamp, block.number);
@@ -235,19 +245,6 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
                 }
                 _ => (),
             }
-
-            filtering::extract_positions(
-                &mut positions_created,
-                &mut positions_increase_liquidity,
-                &mut positions_decrease_liquidity,
-                &mut positions_collect,
-                &mut positions_transfer,
-                log,
-                &transactions_id,
-                &pools_store,
-                timestamp,
-                block.number,
-            );
         }
     }
 
@@ -1218,136 +1215,6 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
     }
 }
 
-// #[substreams::handlers::store]
-// pub fn store_all_positions(events: Events, store: StoreSetProto<events::Position>) {
-//     for position in events.positions {
-//         store.set(
-//             position.log_ordinal,
-//             keyer::all_position(
-//                 &position.token_id,
-//                 &events::position::PositionType::get_position_type(position.position_type).to_string(),
-//             ),
-//             &position,
-//         )
-//     }
-// }
-
-// #[substreams::handlers::map]
-// pub fn map_joined_positions(
-//     block: Block,
-//     all_positions_store: StoreGetProto<events::Position>,
-// ) -> Result<events::Positions, Error> {
-//     let mut positions: events::Positions = Default::default();
-//     let mut ordered_positions: Vec<String> = vec![];
-//     let mut enriched_positions: HashMap<String, events::Position> = HashMap::new();
-//
-//     for log in block.logs() {
-//         if log.address() != utils.rs::NON_FUNGIBLE_POSITION_MANAGER {
-//             continue;
-//         }
-//
-//         if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log) {
-//             let token_id: String = event.token_id.to_string();
-//             if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(
-//                     log.ordinal(),
-//                     keyer::all_position(&token_id, &IncreaseLiquidity.to_string()),
-//                 ) {
-//                     None => {
-//                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
-//                         continue;
-//                     }
-//                     Some(pos) => {
-//                         enriched_positions.insert(token_id.clone(), pos);
-//                         if !ordered_positions.contains(&String::from(token_id.clone())) {
-//                             ordered_positions.push(String::from(token_id))
-//                         }
-//                     }
-//                 }
-//             }
-//         } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
-//             let token_id: String = event.token_id.to_string();
-//             let mut position = if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(log.ordinal(), keyer::all_position(&token_id, &Collect.to_string())) {
-//                     None => {
-//                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
-//                         continue;
-//                     }
-//                     Some(pos) => pos,
-//                 }
-//             } else {
-//                 enriched_positions.remove(&event.token_id.to_string()).unwrap()
-//             };
-//
-//             if let Some(position_call_result) = rpc::positions_call(&Hex(log.address()).to_string(), event.token_id) {
-//                 // todo: this needs to be refactored as we can get this data out of the smart contract
-//                 // position.fee_growth_inside_0_last_x_128 = Some(position_call_result.5.into());
-//                 // position.fee_growth_inside_1_last_x_128 = Some(position_call_result.6.into());
-//                 enriched_positions.insert(token_id.clone(), position);
-//                 if !ordered_positions.contains(&String::from(token_id.clone())) {
-//                     ordered_positions.push(String::from(token_id))
-//                 }
-//             }
-//         } else if let Some(event) = abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log) {
-//             let token_id: String = event.token_id.to_string();
-//             if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(
-//                     log.ordinal(),
-//                     keyer::all_position(&event.token_id.to_string(), &DecreaseLiquidity.to_string()),
-//                 ) {
-//                     None => {
-//                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
-//                         continue;
-//                     }
-//                     Some(pos) => {
-//                         enriched_positions.insert(token_id.clone(), pos);
-//                         if !ordered_positions.contains(&String::from(token_id.clone())) {
-//                             ordered_positions.push(String::from(token_id))
-//                         }
-//                     }
-//                 }
-//             }
-//         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-//             let token_id: String = event.token_id.to_string();
-//             let mut position = if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(log.ordinal(), keyer::all_position(&token_id, &Transfer.to_string())) {
-//                     None => {
-//                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
-//                         continue;
-//                     }
-//                     Some(pos) => pos,
-//                 }
-//             } else {
-//                 enriched_positions.remove(&token_id).unwrap()
-//             };
-//
-//             position.owner = Hex(event.to.as_slice()).to_string();
-//             enriched_positions.insert(token_id.clone(), position);
-//             if !ordered_positions.contains(&String::from(token_id.clone())) {
-//                 ordered_positions.push(String::from(token_id))
-//             }
-//         }
-//     }
-//
-//     log::debug!("len of map: {}", enriched_positions.len());
-//     for element in ordered_positions.iter() {
-//         let pos = enriched_positions.remove(element);
-//         if pos.is_some() {
-//             positions.push(pos.unwrap());
-//         }
-//     }
-//
-//     Ok(positions)
-// }
-
-#[substreams::handlers::store]
-pub fn store_positions(events: Events, store: StoreSetInt64) {
-    //TODO(@eduard and @julien)
-    // Here we need to store the positions created, to not send created positions
-    // everytime we get a position. We need to store an int to the key
-    // position:{pool_id}:{pool_addr}:{token0_addr}:{token1_addr}:{fee}
-}
-
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
@@ -1368,7 +1235,6 @@ pub fn graph_out(
     tokens_whitelist_pools: Deltas<DeltaArray<String>>,  /* store_tokens_whitelist_pools */
     derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
-    positions_store: StoreGetInt64,                      /* store_positions */
     tx_count_store: StoreGetBigInt,                      /* store_total_tx_counts */
     store_eth_prices: StoreGetBigDecimal,                /* store_eth_prices */
 ) -> Result<EntityChanges, Error> {
@@ -1417,7 +1283,7 @@ pub fn graph_out(
 
     // Position:
     // TODO: validate all the positions here
-    db::position_create_entity_change(&mut tables, &events.created_positions, &positions_store);
+    db::position_create_entity_change(&mut tables, &events.created_positions);
     db::increase_liquidity_position_entity_change(&mut tables, &events.increase_liquidity_positions);
     db::decrease_liquidity_position_entity_change(&mut tables, &events.decrease_liquidity_positions);
     db::collect_position_entity_change(&mut tables, &events.collect_positions);
@@ -1425,7 +1291,7 @@ pub fn graph_out(
 
     // PositionSnapshot:
     // TODO: validate all the snapshot positions here
-    db::snapshot_positions_create_entity_change(&mut tables, &events.created_positions, &positions_store);
+    db::snapshot_positions_create_entity_change(&mut tables, &events.created_positions);
     db::increase_liquidity_snapshot_position_entity_change(
         &mut tables,
         clock.number,

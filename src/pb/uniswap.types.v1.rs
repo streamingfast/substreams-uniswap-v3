@@ -376,6 +376,12 @@ pub mod events {
         pub timestamp: u64,
         #[prost(uint64, tag="10")]
         pub block_number: u64,
+        /// BigInt
+        #[prost(string, optional, tag="11")]
+        pub fee_growth_inside0_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        /// BigInt
+        #[prost(string, optional, tag="12")]
+        pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -391,6 +397,12 @@ pub mod events {
         /// BigDecimal
         #[prost(string, tag="4")]
         pub deposited_token1: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, optional, tag="5")]
+        pub fee_growth_inside0_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        /// BigInt
+        #[prost(string, optional, tag="6")]
+        pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -406,6 +418,12 @@ pub mod events {
         /// BigDecimal
         #[prost(string, tag="4")]
         pub withdrawn_token1: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, optional, tag="5")]
+        pub fee_growth_inside0_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        /// BigInt
+        #[prost(string, optional, tag="6")]
+        pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -418,6 +436,12 @@ pub mod events {
         /// BigInt
         #[prost(string, tag="3")]
         pub collected_fees_token1: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, optional, tag="5")]
+        pub fee_growth_inside0_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        /// BigInt
+        #[prost(string, optional, tag="6")]
+        pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

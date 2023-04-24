@@ -259,7 +259,7 @@ type PositionSnapshot @entity {
     # timestamp of block in which the snap was created
     timestamp: BigInt!
     # total position liquidity
-    liquidity: BigDecimal! # Originally this was BigInt
+    liquidity: BigInt!
     # amount of token 0 ever deposited to position
     depositedToken0: BigDecimal!
     # amount of token 1 ever deposited to position
