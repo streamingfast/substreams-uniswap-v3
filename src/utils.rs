@@ -8,7 +8,6 @@ use crate::uniswap::events::Transaction;
 use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
 use std::fmt::Display;
 use std::ops::{Add, Mul};
-use std::str::FromStr;
 use substreams::prelude::{DeltaBigDecimal, DeltaProto, StoreGetBigDecimal};
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
@@ -89,11 +88,11 @@ pub fn extract_pool_fee_growth_global_updates(
     let mut fee_growth_global = vec![];
 
     let fee_growth_global_0 = hex!("0000000000000000000000000000000000000000000000000000000000000001");
-    let fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
+    let _fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
 
     let storage = storage::UniswapPoolStorage::new(storage_changes, pool_address);
 
-    if let Some((old_value, new_value)) = storage.get_fee_growth_global0x128() {
+    if let Some((_old_value, new_value)) = storage.get_fee_growth_global0x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
@@ -102,7 +101,7 @@ pub fn extract_pool_fee_growth_global_updates(
         })
     }
 
-    if let Some((old_value, new_value)) = storage.get_fee_growth_global1x128() {
+    if let Some((_old_value, new_value)) = storage.get_fee_growth_global1x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,

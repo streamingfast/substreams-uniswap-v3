@@ -17,7 +17,7 @@ use crate::pb::uniswap::events::PoolSqrtPrice;
 use crate::tables::Tables;
 use crate::uniswap::{Erc20Token, Pools, SnapshotPositions};
 use crate::utils::{extract_item_from_key_at_position, extract_item_from_key_last_item};
-use crate::{keyer, utils};
+use crate::{key, keyer, utils};
 
 // -------------------
 //  Map Bundle Entities
@@ -165,7 +165,7 @@ pub fn pools_created_pool_entity_change(tables: &mut Tables, pools: &Pools) {
 
 pub fn sqrt_price_and_tick_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaProto<PoolSqrtPrice>>) {
     for delta in deltas.deltas.iter() {
-        let pool_address = delta.key.split(":").nth(1).unwrap().to_string();
+        let pool_address = key::split(&delta.key, 1);
 
         tables
             .update_row("Pool", &format!("0x{}", pool_address.as_str()))
@@ -176,9 +176,9 @@ pub fn sqrt_price_and_tick_pool_entity_change(tables: &mut Tables, deltas: &Delt
 
 pub fn liquidities_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in deltas.deltas.iter() {
-        let pool_address = delta.key.split(":").nth(1).unwrap().to_string();
+        let pool_address = key::split(&delta.key, 1);
         tables
-            .update_row("Pool", &format!("0x{}", pool_address.as_str()))
+            .update_row("Pool", &format!("0x{pool_address}"))
             .set("liquidity", &delta.new_value);
     }
 }
@@ -241,8 +241,9 @@ pub fn fee_growth_global_x128_pool_entity_change(tables: &mut Tables, deltas: &D
             continue;
         }
 
-        let pool_address = delta.key.as_str().split(":").nth(1).unwrap().to_string();
-        let name = match delta.key.as_str().split(":").last().unwrap() {
+        let pool_address = key::split(&delta.key, 1);
+        let name = match key::last(&delta.key) {
+            // delta.key.as_str().split(":").last().unwrap() {
             "token0" => "feeGrowthGlobal0X128",
             "token1" => "feeGrowthGlobal1X128",
             _ => continue,
@@ -939,7 +940,7 @@ fn create_uniswap_day_data(tables: &mut Tables, day_id: i64, day_start_timestamp
     let bigdecimal0 = BigDecimal::zero();
     let id = day_id.to_string();
     tables
-        .update_row(keyer::UNISWAP_DAY_DATA, &id)
+        .update_row("UniswapDayData", &id)
         .set("id", &id)
         .set("date", day_start_timestamp)
         .set("volumeETH", &bigdecimal0)

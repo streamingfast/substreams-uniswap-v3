@@ -2,7 +2,7 @@ use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::events::pool_event::Type;
 use crate::pb::uniswap::events::PoolEvent;
 use crate::uniswap::events::position::PositionType;
-use crate::uniswap::events::{PoolSqrtPrice, Position};
+use crate::uniswap::events::Position;
 use crate::utils::ZERO_ADDRESS;
 use crate::{BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Transfer};
 use std::str::FromStr;

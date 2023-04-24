@@ -1,4 +1,3 @@
-use std::fmt::Write;
 use std::ops::Add;
 use substreams::scalar::BigInt;
 use substreams_ethereum::pb::eth::v2::StorageChange;
@@ -25,10 +24,7 @@ fn calc_struct_slot(struct_slot: &[u8; 32], member_slot: BigInt) -> [u8; 32] {
 }
 
 impl<'a> UniswapPoolStorage<'a> {
-    pub fn new(
-        storage_changes: &'a Vec<StorageChange>,
-        contract_addr: &Vec<u8>,
-    ) -> UniswapPoolStorage<'a> {
+    pub fn new(storage_changes: &'a Vec<StorageChange>, contract_addr: &Vec<u8>) -> UniswapPoolStorage<'a> {
         return Self {
             storage_changes,
             contract_addr: contract_pad(contract_addr),
@@ -44,9 +40,7 @@ impl<'a> UniswapPoolStorage<'a> {
         let slot_key = left_pad_from_bigint(&feeGrowthGlobal0X128_slot);
         // ----
 
-        if let Some((old_data, new_data)) =
-            self.get_storage_changes(slot_key, offset, number_of_bytes)
-        {
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_unsigned_bytes_be(old_data),
                 BigInt::from_unsigned_bytes_be(new_data),
@@ -65,9 +59,7 @@ impl<'a> UniswapPoolStorage<'a> {
         let slot_key = left_pad_from_bigint(&feeGrowthGlobal1X128_slot);
         // ----
 
-        if let Some((old_data, new_data)) =
-            self.get_storage_changes(slot_key, offset, number_of_bytes)
-        {
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_unsigned_bytes_be(old_data),
                 BigInt::from_unsigned_bytes_be(new_data),
@@ -84,15 +76,10 @@ impl<'a> UniswapPoolStorage<'a> {
         let number_of_bytes = 20;
 
         // ----
-        let slot_key = calc_struct_slot(
-            &left_pad_from_bigint(&slot0_slot),
-            slot0_struct_sqrt_price_x96_slot,
-        );
+        let slot_key = calc_struct_slot(&left_pad_from_bigint(&slot0_slot), slot0_struct_sqrt_price_x96_slot);
         // ----
 
-        if let Some((old_data, new_data)) =
-            self.get_storage_changes(slot_key, offset, number_of_bytes)
-        {
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_unsigned_bytes_be(old_data),
                 BigInt::from_unsigned_bytes_be(new_data),
@@ -109,42 +96,29 @@ impl<'a> UniswapPoolStorage<'a> {
         let number_of_bytes = 1;
 
         // ----
-        let ticker_struct_slot = calc_map_slot(
-            &left_pad_from_bigint(&tick_idx),
-            &left_pad_from_bigint(&ticks_slot),
-        );
+        let ticker_struct_slot = calc_map_slot(&left_pad_from_bigint(&tick_idx), &left_pad_from_bigint(&ticks_slot));
         let slot_key = calc_struct_slot(&ticker_struct_slot, tick_info_struct_initialized_slot);
         // ----
 
-        if let Some((old_data, new_data)) =
-            self.get_storage_changes(slot_key, offset, number_of_bytes)
-        {
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
             Some((old_data == [01u8], new_data == [01u8]))
         } else {
             None
         }
     }
 
-    pub fn get_ticks_fee_growth_outside_0_x128(
-        &self,
-        tick_idx: &BigInt,
-    ) -> Option<(BigInt, BigInt)> {
+    pub fn get_ticks_fee_growth_outside_0_x128(&self, tick_idx: &BigInt) -> Option<(BigInt, BigInt)> {
         let ticks_slot = BigInt::from(5);
         let tick_info_struct_initialized_slot = BigInt::from(1);
         let offset = 0;
         let number_of_bytes = 32;
 
         // ----
-        let ticker_struct_slot = calc_map_slot(
-            &left_pad_from_bigint(&tick_idx),
-            &left_pad_from_bigint(&ticks_slot),
-        );
+        let ticker_struct_slot = calc_map_slot(&left_pad_from_bigint(&tick_idx), &left_pad_from_bigint(&ticks_slot));
         let slot_key = calc_struct_slot(&ticker_struct_slot, tick_info_struct_initialized_slot);
         // ----
 
-        if let Some((old_data, new_data)) =
-            self.get_storage_changes(slot_key, offset, number_of_bytes)
-        {
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_unsigned_bytes_be(old_data),
                 BigInt::from_unsigned_bytes_be(new_data),
@@ -154,26 +128,18 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
-    pub fn get_ticks_fee_growth_outside_1_x128(
-        &self,
-        tick_idx: &BigInt,
-    ) -> Option<(BigInt, BigInt)> {
+    pub fn get_ticks_fee_growth_outside_1_x128(&self, tick_idx: &BigInt) -> Option<(BigInt, BigInt)> {
         let ticks_slot = BigInt::from(5);
         let tick_info_struct_initialized_slot = BigInt::from(2);
         let offset = 0;
         let number_of_bytes = 32;
 
         // ----
-        let ticker_struct_slot = calc_map_slot(
-            &left_pad_from_bigint(&tick_idx),
-            &left_pad_from_bigint(&ticks_slot),
-        );
+        let ticker_struct_slot = calc_map_slot(&left_pad_from_bigint(&tick_idx), &left_pad_from_bigint(&ticks_slot));
         let slot_key = calc_struct_slot(&ticker_struct_slot, tick_info_struct_initialized_slot);
         // ----
 
-        if let Some((old_data, new_data)) =
-            self.get_storage_changes(slot_key, offset, number_of_bytes)
-        {
+        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_unsigned_bytes_be(old_data),
                 BigInt::from_unsigned_bytes_be(new_data),
@@ -183,15 +149,9 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
-    fn get_storage_changes(
-        &self,
-        slot_key: [u8; 32],
-        offset: usize,
-        number_of_bytes: usize,
-    ) -> Option<(&[u8], &[u8])> {
+    fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
         let storage_change_opt = self.storage_changes.iter().find(|storage_change| {
-            storage_change.address == self.contract_addr
-                && storage_change.key.eq(slot_key.as_slice())
+            storage_change.address == self.contract_addr && storage_change.key.eq(slot_key.as_slice())
         });
 
         if storage_change_opt.is_none() {
@@ -283,9 +243,8 @@ mod tests {
         let input = vec![221u8, 98u8, 237u8, 62u8];
         assert_eq!(
             [
-                0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
-                0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8,
-                62u8
+                0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8
             ],
             left_pad(&input)
         )
@@ -294,14 +253,13 @@ mod tests {
     #[test]
     fn left_pad_eq_32_bytes() {
         let input = vec![
-            0u8, 0u8, 0u8, 0u8, 10u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 93u8, 0u8, 0u8, 0u8, 0u8, 0u8,
-            0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8,
+            0u8, 0u8, 0u8, 0u8, 10u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 93u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+            0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8,
         ];
         assert_eq!(
             [
-                0u8, 0u8, 0u8, 0u8, 10u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 93u8, 0u8, 0u8, 0u8, 0u8,
-                0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8,
-                62u8
+                0u8, 0u8, 0u8, 0u8, 10u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 93u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+                0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8
             ],
             left_pad(&input)
         )
@@ -311,8 +269,8 @@ mod tests {
     #[should_panic]
     fn left_pad_gt_32_bytes() {
         let input = vec![
-            7u8, 0u8, 0u8, 0u8, 0u8, 10u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 93u8, 0u8, 0u8, 0u8, 0u8,
-            0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8,
+            7u8, 0u8, 0u8, 0u8, 0u8, 10u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 93u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+            0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 221u8, 98u8, 237u8, 62u8,
         ];
         let _ = left_pad(&input);
     }
@@ -353,21 +311,16 @@ mod tests {
 
     #[test]
     fn read_bytes_with_no_offset() {
-        let buf =
-            decode_hex("ffffffffffffffffffffecb6826b89a60000000000000000000013497d94765a").unwrap();
+        let buf = decode_hex("ffffffffffffffffffffecb6826b89a60000000000000000000013497d94765a").unwrap();
         let offset = 0;
         let number_of_bytes = 16;
         let out = read_bytes(&buf, offset, number_of_bytes);
-        assert_eq!(
-            encode_hex(out),
-            "0000000000000000000013497d94765a".to_string()
-        );
+        assert_eq!(encode_hex(out), "0000000000000000000013497d94765a".to_string());
     }
 
     #[test]
     fn read_byte_with_big_offset() {
-        let buf =
-            decode_hex("0100000000000000000000000000000000000000000000000000000000000000").unwrap();
+        let buf = decode_hex("0100000000000000000000000000000000000000000000000000000000000000").unwrap();
         let offset = 31;
         let number_of_bytes = 1;
         let out = read_bytes(&buf, offset, number_of_bytes);
@@ -379,10 +332,8 @@ mod tests {
         let storage_changes = vec![StorageChange {
             address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
             key: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
-            old_value: hex!("0001000001000100000000000000000000000001000000000000000000000000")
-                .to_vec(),
-            new_value: hex!("000100000100010000000000000000000000000100000402dad5eda8db022960")
-                .to_vec(),
+            old_value: hex!("0001000001000100000000000000000000000001000000000000000000000000").to_vec(),
+            new_value: hex!("000100000100010000000000000000000000000100000402dad5eda8db022960").to_vec(),
             ordinal: 0,
         }];
 
@@ -405,10 +356,8 @@ mod tests {
         let storage_changes = vec![StorageChange {
             address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
             key: hex!("a18b128af1c8fc61ff46f02d146e54546f34d340574cf2cef6a753cba6b67020").to_vec(),
-            old_value: hex!("0000000000000000000000000000000000000000000000000000000000000000")
-                .to_vec(),
-            new_value: hex!("0100000000000000000000000000000000000000000000000000000000000000")
-                .to_vec(),
+            old_value: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
+            new_value: hex!("0100000000000000000000000000000000000000000000000000000000000000").to_vec(),
             ordinal: 0,
         }];
 
