@@ -128,7 +128,7 @@ pub fn pools_created_pool_entity_change(tables: &mut Tables, pools: &Pools) {
         tables
             .update_row("Pool", format!("0x{}", pool.address))
             .set("id", format!("0x{}", pool.address))
-            .set("createdAtTimestamp", pool.created_at_timestamp)
+            .set("createdAtTimestamp", BigInt::from(pool.created_at_timestamp))
             .set("createdAtBlockNumber", pool.created_at_block_number)
             .set("token0", &pool.token0.as_ref().unwrap().address)
             .set("token1", &pool.token1.as_ref().unwrap().address)
@@ -560,11 +560,11 @@ pub fn position_create_entity_change(tables: &mut Tables, positions: &Vec<events
             .set("transaction", format!("0x{}", position.transaction))
             .set_bigint(
                 "feeGrowthInside0LastX128",
-                &position.fee_growth_inside0_last_x128.clone().unwrap_or_default(),
+                &position.fee_growth_inside0_last_x128.clone().unwrap_or("0".to_string()),
             )
             .set_bigint(
                 "feeGrowthInside1LastX128",
-                &position.fee_growth_inside1_last_x128.clone().unwrap_or_default(),
+                &position.fee_growth_inside1_last_x128.clone().unwrap_or("0".to_string()),
             );
     }
 }
@@ -678,11 +678,11 @@ pub fn snapshot_positions_create_entity_change(tables: &mut Tables, positions: &
             .set("transaction", &format!("0x{}", &position.transaction))
             .set_bigint(
                 "feeGrowthInside0LastX128",
-                &position.fee_growth_inside0_last_x128.clone().unwrap_or_default(),
+                &position.fee_growth_inside0_last_x128.clone().unwrap_or("0".to_string()),
             )
             .set_bigint(
                 "feeGrowthInside1LastX128",
-                &position.fee_growth_inside1_last_x128.clone().unwrap_or_default(),
+                &position.fee_growth_inside1_last_x128.clone().unwrap_or("0".to_string()),
             );
     }
 }
