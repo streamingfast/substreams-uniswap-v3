@@ -1,17 +1,15 @@
 use crate::ethpb::v2::TransactionTrace;
 use crate::pb::uniswap::events;
-use crate::pb::uniswap::events::PoolSqrtPrice;
-use crate::pb::{AdjustedAmounts, PositionEvent};
+use crate::pb::{AdjustedAmounts};
 use crate::tables::Tables;
-use crate::uniswap::events::position::PositionType;
 use crate::uniswap::events::Transaction;
-use crate::{key, keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
+use crate::{key, keyer, storage, Erc20Token, StorageChange, WHITELIST_TOKENS};
 use std::fmt::Display;
 use std::ops::{Add, Mul};
 use std::string::ToString;
-use substreams::prelude::{DeltaBigDecimal, DeltaProto, StoreGetBigDecimal};
+use substreams::prelude::{DeltaBigDecimal, StoreGetBigDecimal};
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
+use substreams::store::{DeltaBigInt, StoreGet};
 use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
@@ -89,12 +87,9 @@ pub fn extract_pool_fee_growth_global_updates(
 ) -> Vec<events::FeeGrowthGlobal> {
     let mut fee_growth_global = vec![];
 
-    let fee_growth_global_0 = hex!("0000000000000000000000000000000000000000000000000000000000000001");
-    let _fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
-
     let storage = storage::uniswap_v3_pool::UniswapPoolStorage::new(storage_changes, pool_address);
 
-    if let Some((old_value, new_value)) = storage.fee_growth_global0x128() {
+    if let Some((_, new_value)) = storage.fee_growth_global0x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
@@ -103,7 +98,7 @@ pub fn extract_pool_fee_growth_global_updates(
         })
     }
 
-    if let Some((old_value, new_value)) = storage.fee_growth_global1x128() {
+    if let Some((_, new_value)) = storage.fee_growth_global1x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,

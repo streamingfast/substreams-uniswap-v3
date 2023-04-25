@@ -1,13 +1,9 @@
-use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::events::pool_event::Type;
 use crate::pb::uniswap::events::PoolEvent;
 use crate::uniswap::events::position::PositionType;
-use crate::uniswap::events::Position;
-use crate::utils::ZERO_ADDRESS;
-use crate::{BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Transfer};
-use std::str::FromStr;
+use crate::{Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Transfer};
 use substreams::scalar::BigDecimal;
-use substreams::{log, Hex};
+use substreams::{log};
 
 #[allow(unused_imports)]
 #[allow(dead_code)]
@@ -63,83 +59,6 @@ impl Pool {
 impl Erc20Token {
     pub fn address(&self) -> &String {
         &self.address
-    }
-}
-
-impl Position {
-    pub fn convert_position_type(&self) -> PositionType {
-        match self.position_type {
-            pt if pt == PositionType::Unset as i32 => return PositionType::Unset,
-            pt if pt == PositionType::IncreaseLiquidity as i32 => return PositionType::IncreaseLiquidity,
-            pt if pt == PositionType::DecreaseLiquidity as i32 => return PositionType::DecreaseLiquidity,
-            pt if pt == PositionType::Collect as i32 => return PositionType::Collect,
-            pt if pt == PositionType::Transfer as i32 => return PositionType::Transfer,
-            _ => panic!("unhandled operation: {}", self.position_type),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PositionEvent {
-    pub event: PositionEventType,
-}
-
-pub mod position_event {
-    use crate::abi::positionmanager::events::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
-
-    #[derive(Clone, Debug, PartialEq)]
-    pub enum PositionEventType {
-        IncreaseLiquidity(IncreaseLiquidity),
-        DecreaseLiquidity(DecreaseLiquidity),
-        Collect(Collect),
-        Transfer(Transfer),
-    }
-}
-
-impl PositionEvent {
-    pub fn get_token_id(&self) -> BigInt {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => evt.token_id.clone(),
-            PositionEventType::DecreaseLiquidity(evt) => evt.token_id.clone(),
-            PositionEventType::Collect(evt) => evt.token_id.clone(),
-            PositionEventType::Transfer(evt) => evt.token_id.clone(),
-        };
-    }
-
-    pub fn get_liquidity(&self) -> String {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => evt.liquidity.to_string(),
-            PositionEventType::DecreaseLiquidity(evt) => evt.liquidity.to_string(),
-            PositionEventType::Collect(_) => "0".to_string(),
-            PositionEventType::Transfer(_) => "0".to_string(),
-        };
-    }
-
-    pub fn get_amount0(&self) -> BigInt {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
-            PositionEventType::DecreaseLiquidity(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
-            PositionEventType::Collect(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
-            PositionEventType::Transfer(_) => BigInt::from(0 as i32),
-        };
-    }
-
-    pub fn get_amount1(&self) -> BigInt {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
-            PositionEventType::DecreaseLiquidity(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
-            PositionEventType::Collect(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
-            PositionEventType::Transfer(_) => BigInt::from(0 as i32),
-        };
-    }
-
-    pub fn get_owner(&self) -> String {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(_)
-            | PositionEventType::DecreaseLiquidity(_)
-            | PositionEventType::Collect(_) => Hex(ZERO_ADDRESS).to_string(),
-            PositionEventType::Transfer(evt) => Hex(&evt.to).to_string(),
-        };
     }
 }
 

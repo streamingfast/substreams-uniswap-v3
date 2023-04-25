@@ -183,7 +183,7 @@ impl Row {
     }
 }
 
-trait ToValue {
+pub trait ToValue {
     fn to_value(&self) -> Value;
 }
 

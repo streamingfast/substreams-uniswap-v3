@@ -1,11 +1,10 @@
 use crate::pb::uniswap::events;
-use crate::pb::uniswap::events::position::PositionType::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
-use crate::pb::uniswap::events::{CreatedPosition, Position};
-use crate::storage::position_manager::{PositionManagerStorage, PositionStruct};
+use crate::pb::uniswap::events::{CreatedPosition};
+use crate::storage::position_manager::{PositionManagerStorage};
 use crate::storage::uniswap_v3_pool::UniswapPoolStorage;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
 use crate::{abi, math, rpc, utils, BurnEvent, EventTrait, MintEvent, Pool, SwapEvent};
-use substreams::prelude::{BigDecimal, BigInt, StoreGet, StoreGetProto};
+use substreams::prelude::{BigDecimal, BigInt};
 use substreams::{log, Hex};
 use substreams_ethereum::block_view::CallView;
 use substreams_ethereum::pb::eth::v2::{Call, Log, StorageChange, TransactionTrace};
@@ -495,7 +494,7 @@ fn extract_positions(
     }
 }
 
-pub fn extract_flashes(flashes: &mut Vec<events::Flash>, log: &Log, pool: &Pool) {
+pub fn extract_flashes(flashes: &mut Vec<events::Flash>, log: &Log) {
     if abi::pool::events::Flash::match_log(&log) {
         let pool_address: String = Hex(&log.address).to_string();
 

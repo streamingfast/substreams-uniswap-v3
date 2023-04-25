@@ -1,4 +1,3 @@
-use std::cmp;
 use substreams::scalar::BigInt;
 use tiny_keccak::{Hasher, Keccak};
 use std::ops::Add;

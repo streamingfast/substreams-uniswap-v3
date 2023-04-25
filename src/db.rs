@@ -1,10 +1,9 @@
-use std::ops::{Div, Mul};
-
 use substreams::pb::substreams::store_delta;
+use std::ops::{Div};
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
+    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
     StoreGetBigInt,
 };
 use substreams::{log, Hex};
@@ -794,8 +793,8 @@ pub fn swaps_mints_burns_created_entity_change(
                     let amount0 = BigDecimal::try_from(swap.amount_0).unwrap();
                     let amount1 = BigDecimal::try_from(swap.amount_1).unwrap();
 
-                    let mut amount0_abs = amount0.absolute();
-                    let mut amount1_abs = amount1.absolute();
+                    let amount0_abs = amount0.absolute();
+                    let amount1_abs = amount1.absolute();
 
                     let amount_total_usd_tracked = utils::get_tracked_amount_usd(
                         &event.token0,

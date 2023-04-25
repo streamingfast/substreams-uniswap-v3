@@ -1,5 +1,3 @@
-use crate::utils;
-use substreams::Hex;
 
 pub const UNISWAP_DAY_DATA: &str = "UniswapDayData";
 pub const POOL_DAY_DATA: &str = "PoolDayData";
@@ -76,28 +74,6 @@ pub fn token_hour_data_token_price(token_address: &String, hour_id: String) -> S
     format!("{}:{}:{}", TOKEN_HOUR_DATA, token_address, hour_id)
 }
 
-pub fn native_token_from_key(key: &String) -> Option<String> {
-    let chunks: Vec<&str> = key.split(":").collect();
-    if chunks.len() != 3 {
-        return None;
-    }
-    if chunks[0] != "token" {
-        return None;
-    }
-    return Some(chunks[1].to_string());
-}
-
-pub fn native_pool_from_key(key: &String) -> Option<(String, String)> {
-    let chunks: Vec<&str> = key.split(":").collect();
-    if chunks.len() != 4 {
-        return None;
-    }
-    if chunks[0] != "pool" {
-        return None;
-    }
-    return Some((chunks[1].to_string(), chunks[2].to_string()));
-}
-
 // ------------------------------------------------
 //      store_pool_liquidities
 // ------------------------------------------------
@@ -130,36 +106,13 @@ pub fn tick_liquidities_net(pool: &String, tick_idx: &String) -> String {
 pub fn tick_liquidities_gross(pool: &String, tick_idx: &String) -> String {
     format!("tick:{}:{}:liquidityGross", pool, tick_idx)
 }
-
-// ------------------------------------------------
-//      store_positions_misc
-// ------------------------------------------------
-pub fn position(id: &String, position_type: &String) -> String {
-    format!("position:{}:{}", id, position_type)
-}
-
-pub fn position_liquidity(id: &String) -> String {
-    format!("position:{}:liquidity", id)
-}
-
-pub fn position_deposited_token(id: &String, token: &str) -> String {
-    format!("position:{}:deposited{}", id, token)
-}
-
-pub fn position_withdrawn_token(id: &String, token: &str) -> String {
-    format!("position:{}:withdrawn{}", id, token)
-}
-
-pub fn position_collected_fees_token(id: &String, token: &str) -> String {
-    format!("position:{}:collectedFees{}", id, token)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use bigdecimal::BigDecimal;
     use prost::bytes::Buf;
     use std::str::FromStr;
+    use substreams::Hex;
 
     #[test]
     fn test_bigdecimal_from_string() {
@@ -172,15 +125,5 @@ mod tests {
         assert_eq!(true, eql)
     }
 
-    #[test]
-    fn test_invalid_token_key() {
-        let input = "pool:bb:aa".to_string();
-        assert_eq!(None, native_token_from_key(&input));
-    }
 
-    #[test]
-    fn test_invalid_pool_key() {
-        let input = "token:bb".to_string();
-        assert_eq!(None, native_pool_from_key(&input));
-    }
 }
