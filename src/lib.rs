@@ -19,15 +19,18 @@ use crate::ethpb::v2::{Block, StorageChange};
 use crate::pb::uniswap;
 use crate::pb::uniswap::events::pool_event::Type;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
+use crate::pb::uniswap::events::position_event::Type::{
+    CollectPosition, CreatedPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, TransferPosition,
+};
+use crate::pb::uniswap::events::PositionEvent;
 use crate::pb::uniswap::{events, Events, SnapshotPosition, SnapshotPositions};
 use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, Pools};
 use crate::price::WHITELIST_TOKENS;
 use crate::tables::Tables;
-use crate::uniswap::events::position::PositionType::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
 use crate::utils::UNISWAP_V3_FACTORY;
+use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
 use substreams::errors::Error;
-use substreams::hex;
 use substreams::pb::substreams::Clock;
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
@@ -35,6 +38,7 @@ use substreams::store::{
     DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigDecimal, StoreAddBigInt, StoreAppend,
     StoreGetBigDecimal, StoreGetBigInt, StoreGetProto, StoreGetRaw, StoreSetBigDecimal, StoreSetBigInt, StoreSetProto,
 };
+use substreams::{hex, proto};
 use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::EntityChanges;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
@@ -1098,6 +1102,68 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
     }
 }
 
+#[substreams::handlers::store]
+pub fn store_positions(events: Events, output: StoreSetProto<PositionEvent>) {
+    let mut positions_events: Vec<PositionEvent> = vec![];
+    for pos in events.created_positions {
+        positions_events.push(PositionEvent {
+            r#type: Some(CreatedPosition(pos)),
+        });
+    }
+
+    for pos in events.increase_liquidity_positions {
+        positions_events.push(PositionEvent {
+            r#type: Some(IncreaseLiquidityPosition(pos)),
+        });
+    }
+
+    for pos in events.decrease_liquidity_positions {
+        positions_events.push(PositionEvent {
+            r#type: Some(DecreaseLiquidityPosition(pos)),
+        });
+    }
+
+    for pos in events.collect_positions {
+        positions_events.push(PositionEvent {
+            r#type: Some(CollectPosition(pos)),
+        });
+    }
+
+    for pos in events.transfer_positions {
+        positions_events.push(PositionEvent {
+            r#type: Some(TransferPosition(pos)),
+        });
+    }
+
+    positions_events.sort_by(|x, y| x.get_ordinal().cmp(&y.get_ordinal()));
+
+    for position in positions_events {
+        match position.r#type.as_ref().unwrap() {
+            CreatedPosition(pos) => {
+                output.set(pos.log_ordinal, format!("position_created:{}", pos.token_id), &position)
+            }
+            IncreaseLiquidityPosition(pos) => output.set(
+                pos.log_ordinal,
+                format!("position_increase_liquidity:{}", pos.token_id),
+                &position,
+            ),
+            DecreaseLiquidityPosition(pos) => output.set(
+                pos.log_ordinal,
+                format!("position_decrease_liquidity:{}", pos.token_id),
+                &position,
+            ),
+            CollectPosition(pos) => {
+                output.set(pos.log_ordinal, format!("position_collect:{}", pos.token_id), &position)
+            }
+            TransferPosition(pos) => output.set(
+                pos.log_ordinal,
+                format!("position_transfer:{}", pos.token_id),
+                &position,
+            ),
+        }
+    }
+}
+
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
@@ -1119,6 +1185,7 @@ pub fn graph_out(
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
     tx_count_store: StoreGetBigInt,                      /* store_total_tx_counts */
     store_eth_prices: StoreGetBigDecimal,                /* store_eth_prices */
+    store_positions: StoreGetProto<PositionEvent>,       /* store_positions */
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
 
@@ -1178,14 +1245,21 @@ pub fn graph_out(
         &mut tables,
         clock.number,
         &events.increase_liquidity_positions,
+        &store_positions,
     );
     db::decrease_liquidity_snapshot_position_entity_change(
         &mut tables,
         clock.number,
         &events.decrease_liquidity_positions,
+        &store_positions,
     );
-    db::collect_snapshot_position_entity_change(&mut tables, clock.number, &events.collect_positions);
-    db::transfer_snapshot_position_entity_change(&mut tables, clock.number, &events.transfer_positions);
+    db::collect_snapshot_position_entity_change(&mut tables, clock.number, &events.collect_positions, &store_positions);
+    db::transfer_snapshot_position_entity_change(
+        &mut tables,
+        clock.number,
+        &events.transfer_positions,
+        &store_positions,
+    );
 
     // Transaction:
     db::transaction_entity_change(&mut tables, events.transactions);

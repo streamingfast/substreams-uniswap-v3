@@ -1,11 +1,10 @@
 use crate::pb::uniswap::events;
-use crate::pb::uniswap::events::position::PositionType::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
-use crate::pb::uniswap::events::{CreatedPosition, Position};
-use crate::storage::position_manager::{PositionManagerStorage, PositionStruct};
+use crate::pb::uniswap::events::CreatedPosition;
+use crate::storage::position_manager::PositionManagerStorage;
 use crate::storage::uniswap_v3_pool::UniswapPoolStorage;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
 use crate::{abi, math, rpc, utils, BurnEvent, EventTrait, MintEvent, Pool, SwapEvent};
-use substreams::prelude::{BigDecimal, BigInt, StoreGet, StoreGetProto};
+use substreams::prelude::{BigDecimal, BigInt};
 use substreams::{log, Hex};
 use substreams_ethereum::block_view::CallView;
 use substreams_ethereum::pb::eth::v2::{Call, Log, StorageChange, TransactionTrace};
@@ -446,6 +445,7 @@ fn extract_positions(
                 deposited_token1: event.amount1.to_decimal(pool.token1().decimals).to_string(),
                 fee_growth_inside0_last_x128,
                 fee_growth_inside1_last_x128,
+                log_ordinal: log.ordinal,
             });
         } else if let Some(event) = abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log) {
             if let Some((_old_value, new_value)) =
@@ -466,6 +466,7 @@ fn extract_positions(
                 withdrawn_token1: event.amount1.to_decimal(pool.token1().decimals).to_string(),
                 fee_growth_inside0_last_x128,
                 fee_growth_inside1_last_x128,
+                log_ordinal: log.ordinal,
             });
         } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
             if let Some((_old_value, new_value)) =
@@ -485,11 +486,13 @@ fn extract_positions(
                 collected_fees_token1: event.amount1.to_decimal(pool.token1().decimals).to_string(),
                 fee_growth_inside0_last_x128,
                 fee_growth_inside1_last_x128,
+                log_ordinal: log.ordinal,
             });
         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
             transfer_positions.push(events::TransferPosition {
                 token_id: event.token_id.to_string(),
                 owner: Hex(&event.to).to_string(),
+                log_ordinal: log.ordinal,
             });
         }
     }

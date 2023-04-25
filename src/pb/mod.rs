@@ -1,13 +1,11 @@
-use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::events::pool_event::Type;
-use crate::pb::uniswap::events::PoolEvent;
-use crate::uniswap::events::position::PositionType;
-use crate::uniswap::events::Position;
-use crate::utils::ZERO_ADDRESS;
-use crate::{BigInt, Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Transfer};
-use std::str::FromStr;
+use crate::pb::uniswap::events::position_event::Type::{
+    CollectPosition, CreatedPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, TransferPosition,
+};
+use crate::pb::uniswap::events::{PoolEvent, PositionEvent};
+use crate::{Erc20Token, Pool};
+use substreams::log;
 use substreams::scalar::BigDecimal;
-use substreams::{log, Hex};
 
 #[allow(unused_imports)]
 #[allow(dead_code)]
@@ -18,6 +16,18 @@ pub mod uniswap;
 #[allow(dead_code)]
 #[path = "./sf.ethereum.tokens.v1.rs"]
 pub mod tokens;
+
+impl PositionEvent {
+    pub fn get_ordinal(&self) -> u64 {
+        return match self.r#type.as_ref().unwrap() {
+            CreatedPosition(item) => item.log_ordinal,
+            IncreaseLiquidityPosition(item) => item.log_ordinal,
+            DecreaseLiquidityPosition(item) => item.log_ordinal,
+            CollectPosition(item) => item.log_ordinal,
+            TransferPosition(item) => item.log_ordinal,
+        };
+    }
+}
 
 impl Erc20Token {
     pub fn log(&self) {
@@ -66,83 +76,6 @@ impl Erc20Token {
     }
 }
 
-impl Position {
-    pub fn convert_position_type(&self) -> PositionType {
-        match self.position_type {
-            pt if pt == PositionType::Unset as i32 => return PositionType::Unset,
-            pt if pt == PositionType::IncreaseLiquidity as i32 => return PositionType::IncreaseLiquidity,
-            pt if pt == PositionType::DecreaseLiquidity as i32 => return PositionType::DecreaseLiquidity,
-            pt if pt == PositionType::Collect as i32 => return PositionType::Collect,
-            pt if pt == PositionType::Transfer as i32 => return PositionType::Transfer,
-            _ => panic!("unhandled operation: {}", self.position_type),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PositionEvent {
-    pub event: PositionEventType,
-}
-
-pub mod position_event {
-    use crate::abi::positionmanager::events::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
-
-    #[derive(Clone, Debug, PartialEq)]
-    pub enum PositionEventType {
-        IncreaseLiquidity(IncreaseLiquidity),
-        DecreaseLiquidity(DecreaseLiquidity),
-        Collect(Collect),
-        Transfer(Transfer),
-    }
-}
-
-impl PositionEvent {
-    pub fn get_token_id(&self) -> BigInt {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => evt.token_id.clone(),
-            PositionEventType::DecreaseLiquidity(evt) => evt.token_id.clone(),
-            PositionEventType::Collect(evt) => evt.token_id.clone(),
-            PositionEventType::Transfer(evt) => evt.token_id.clone(),
-        };
-    }
-
-    pub fn get_liquidity(&self) -> String {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => evt.liquidity.to_string(),
-            PositionEventType::DecreaseLiquidity(evt) => evt.liquidity.to_string(),
-            PositionEventType::Collect(_) => "0".to_string(),
-            PositionEventType::Transfer(_) => "0".to_string(),
-        };
-    }
-
-    pub fn get_amount0(&self) -> BigInt {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
-            PositionEventType::DecreaseLiquidity(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
-            PositionEventType::Collect(evt) => BigInt::from_str(evt.amount0.to_string().as_str()).unwrap(),
-            PositionEventType::Transfer(_) => BigInt::from(0 as i32),
-        };
-    }
-
-    pub fn get_amount1(&self) -> BigInt {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
-            PositionEventType::DecreaseLiquidity(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
-            PositionEventType::Collect(evt) => BigInt::from_str(evt.amount1.to_string().as_str()).unwrap(),
-            PositionEventType::Transfer(_) => BigInt::from(0 as i32),
-        };
-    }
-
-    pub fn get_owner(&self) -> String {
-        return match &self.event {
-            PositionEventType::IncreaseLiquidity(_)
-            | PositionEventType::DecreaseLiquidity(_)
-            | PositionEventType::Collect(_) => Hex(ZERO_ADDRESS).to_string(),
-            PositionEventType::Transfer(evt) => Hex(&evt.to).to_string(),
-        };
-    }
-}
-
 pub struct TokenAmounts {
     pub amount0: BigDecimal,
     pub amount1: BigDecimal,
@@ -186,32 +119,6 @@ impl PoolEvent {
                 token0_addr: self.token0.clone(),
                 token1_addr: self.token1.clone(),
             }),
-        };
-    }
-}
-
-impl PositionType {
-    pub fn to_string(self) -> String {
-        return match self {
-            IncreaseLiquidity => "IncreaseLiquidity".to_string(),
-            DecreaseLiquidity => "DecreaseLiquidity".to_string(),
-            Collect => "Collect".to_string(),
-            Transfer => "Transfer".to_string(),
-            _ => "".to_string(),
-        };
-    }
-
-    pub fn get_position_type(i: i32) -> PositionType {
-        return if i == 1 {
-            IncreaseLiquidity
-        } else if i == 2 {
-            Collect
-        } else if i == 3 {
-            DecreaseLiquidity
-        } else if i == 4 {
-            Transfer
-        } else {
-            panic!("Unset should never have occurred");
         };
     }
 }

@@ -212,8 +212,14 @@ message Events {
     uint64 log_ordinal = 6;
   }
 
-  message Positions {
-    repeated Position positions = 1;
+  message PositionEvent {
+    oneof type {
+      CreatedPosition created_position = 1;
+      IncreaseLiquidityPosition increase_liquidity_position = 2;
+      DecreaseLiquidityPosition decrease_liquidity_position = 3;
+      CollectPosition collect_position = 4;
+      TransferPosition transfer_position = 5;
+    }
   }
 
   message CreatedPosition {
@@ -238,6 +244,7 @@ message Events {
     string deposited_token1 = 4; // BigDecimal
     optional string fee_growth_inside0_last_x128 = 5; // BigInt
     optional string fee_growth_inside1_last_x128 = 6; // BigInt
+    uint64 log_ordinal = 10;
   }
 
   message DecreaseLiquidityPosition {
@@ -247,6 +254,7 @@ message Events {
     string withdrawn_token1 = 4; // BigDecimal
     optional string fee_growth_inside0_last_x128 = 5; // BigInt
     optional string fee_growth_inside1_last_x128 = 6; // BigInt
+    uint64 log_ordinal = 10;
   }
 
   message CollectPosition {
@@ -255,45 +263,13 @@ message Events {
     string collected_fees_token1 = 3; // BigInt
     optional string fee_growth_inside0_last_x128 = 5; // BigInt
     optional string fee_growth_inside1_last_x128 = 6; // BigInt
+    uint64 log_ordinal = 10;
   }
 
   message TransferPosition {
     string token_id = 1;
     string owner = 2;
-  }
-
-  message Position {
-    string token_id = 1;
-    string owner = 2;
-    string pool = 3;
-    string token0 = 4;
-    string token1 = 5;
-    string tick_lower = 6;
-    string tick_upper = 7;
-    string transaction = 8;
-    // Integer
-    string fee_growth_inside_0_last_X_128 = 9;
-    // Integer
-    string fee_growth_inside_1_last_X_128 = 10;
-    // Integer
-    string liquidity = 11;
-    // Decimal
-    string amount0 = 12;
-    // Decimal
-    string amount1 = 13;
-
-    // internals
-    enum PositionType {
-      UNSET = 0;
-      INCREASE_LIQUIDITY = 1;
-      COLLECT = 2;
-      DECREASE_LIQUIDITY = 3;
-      TRANSFER = 4;
-    }
-    PositionType position_type = 14;
-    uint64 log_ordinal = 15;
-    uint64 timestamp = 16;
-    uint64 block_number = 17;
+    uint64 log_ordinal = 10;
   }
 }
 

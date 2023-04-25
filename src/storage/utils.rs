@@ -1,13 +1,15 @@
 use std::cmp;
-use substreams::scalar::BigInt;
-use tiny_keccak::{Hasher, Keccak};
 use std::ops::Add;
+use substreams::scalar::BigInt;
 use substreams_ethereum::pb::eth::v2::StorageChange;
+use tiny_keccak::{Hasher, Keccak};
 
-
-pub fn get_storage_change<'a>(storage_changes: &'a Vec<&StorageChange>, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&'a [u8], &'a [u8])> {
-
-
+pub fn get_storage_change<'a>(
+    storage_changes: &'a Vec<&StorageChange>,
+    slot_key: [u8; 32],
+    offset: usize,
+    number_of_bytes: usize,
+) -> Option<(&'a [u8], &'a [u8])> {
     let storage_change_opt = storage_changes
         .iter()
         // filtering out storage changes which keys do not match ours
@@ -30,8 +32,6 @@ pub fn get_storage_change<'a>(storage_changes: &'a Vec<&StorageChange>, slot_key
     let new_data = read_bytes(&storage.new_value, offset, number_of_bytes);
     Some((old_data, new_data))
 }
-
-
 
 pub fn calc_map_slot(map_index: &[u8; 32], base_slot: &[u8; 32]) -> [u8; 32] {
     let mut output = [0u8; 32];
@@ -115,9 +115,9 @@ pub fn read_bytes(buf: &Vec<u8>, offset: usize, number_of_bytes: usize) -> &[u8]
     &buf[start..=end]
 }
 
-
 #[cfg(test)]
 mod tests {
+    use crate::storage::utils::{get_storage_change, left_pad, read_bytes};
     use std::ops::Add;
     use std::str::FromStr;
     use std::{fmt::Write, num::ParseIntError};
@@ -125,7 +125,6 @@ mod tests {
     use substreams::{hex, Hex};
     use substreams_ethereum::pb::eth::v2::StorageChange;
     use tiny_keccak::{Hasher, Keccak};
-    use crate::storage::utils::{get_storage_change, left_pad, read_bytes};
 
     #[test]
     fn left_pad_lt_32_bytes() {
@@ -240,12 +239,10 @@ mod tests {
         let filered = storage_changes.iter().collect();
         let v_opt = get_storage_change(&filered, slot_key, offset, number_of_bytes);
 
-
-        let expect_old_value : [u8; 1] = [0];
-        let expect_new_value : [u8; 1] = [1];
+        let expect_old_value: [u8; 1] = [0];
+        let expect_new_value: [u8; 1] = [1];
 
         assert_eq!(Some((expect_old_value.as_slice(), expect_new_value.as_slice())), v_opt);
-
     }
 
     #[test]
@@ -273,9 +270,8 @@ mod tests {
         let filered = storage_changes.iter().collect();
         let v_opt = get_storage_change(&filered, slot_key, offset, number_of_bytes);
 
-
-        let expect_old_value : [u8; 22] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
-        let expect_new_value : [u8; 22] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2];
+        let expect_old_value: [u8; 22] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+        let expect_new_value: [u8; 22] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2];
 
         assert_eq!(Some((expect_old_value.as_slice(), expect_new_value.as_slice())), v_opt);
     }

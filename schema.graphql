@@ -129,6 +129,8 @@ type Pool @entity {
     totalValueLockedUSD: BigDecimal!
     # TVL derived in USD untracked
     totalValueLockedUSDUntracked: BigDecimal!
+    # TVL derived in ETH untracked
+    totalValueLockedETHUntracked: BigDecimal!
     # Fields used to help derived relationship
     liquidityProviderCount: BigInt! # used to detect new exchanges
     # hourly snapshots of pool data
@@ -249,7 +251,7 @@ type PositionSnapshot @entity {
     # <NFT token id>#<block number>
     id: ID!
     # owner of the NFT
-    owner: Bytes! # FIXME: this should be bytes
+    owner: Bytes!
     # pool the position is within
     pool: Pool!
     # position of which the snap was taken of

@@ -5,13 +5,15 @@ use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
     DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
-    StoreGetBigInt,
+    StoreGetBigInt, StoreGetProto,
 };
 use substreams::{log, Hex};
 
-use crate::keyer::{POOL_DAY_DATA, POOL_HOUR_DATA, TOKEN_DAY_DATA, TOKEN_HOUR_DATA};
+use crate::keyer::{position, POOL_DAY_DATA, POOL_HOUR_DATA, TOKEN_DAY_DATA, TOKEN_HOUR_DATA};
 use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
+use crate::pb::uniswap::events::position_event::Type;
+use crate::pb::uniswap::events::{IncreaseLiquidityPosition, PositionEvent};
 use crate::tables::Tables;
 use crate::uniswap::{Erc20Token, Pools};
 use crate::{key, keyer, utils};
@@ -499,7 +501,7 @@ pub fn position_create_entity_change(tables: &mut Tables, positions: &Vec<events
         tables
             .update_row("Position", position.token_id.clone().as_str())
             .set("id", &position.token_id)
-            .set("owner", format!("0x{}", Hex(utils::ZERO_ADDRESS).to_string()))
+            .set("owner", &Hex(utils::ZERO_ADDRESS).to_string().into_bytes())
             .set("pool", format!("0x{}", &position.pool))
             .set("token0", format!("0x{}", position.token0))
             .set("token1", format!("0x{}", position.token1))
@@ -614,58 +616,67 @@ pub fn transfer_position_entity_change(tables: &mut Tables, positions: &Vec<even
 pub fn snapshot_positions_create_entity_change(tables: &mut Tables, positions: &Vec<events::CreatedPosition>) {
     for position in positions {
         let id = format!("{}#{}", position.token_id, position.block_number);
-        // TODO: decode `PositionsSnapshot.owner` from hex into bytes, and use in "owner" below
-        tables
-            .update_row("PositionSnapshot", &id)
-            .set("id", &id)
-            .set("owner", format!("0x{}", Hex(utils::ZERO_ADDRESS).to_string()))
-            .set("pool", format!("0x{}", &position.pool))
-            .set("position", &position.token_id)
-            .set("blockNumber", position.block_number)
-            .set("timestamp", position.timestamp)
-            .set_bigint("liquidity", &"0".to_string())
-            .set_bigdecimal("depositedToken0", &"0".to_string())
-            .set_bigdecimal("depositedToken1", &"0".to_string())
-            .set_bigdecimal("withdrawnToken0", &"0".to_string())
-            .set_bigdecimal("withdrawnToken1", &"0".to_string())
-            .set_bigdecimal("collectedFeesToken0", &"0".to_string())
-            .set_bigdecimal("collectedFeesToken1", &"0".to_string())
-            .set("transaction", &format!("0x{}", &position.transaction))
-            .set_bigint(
-                "feeGrowthInside0LastX128",
-                &position.fee_growth_inside0_last_x128.clone().unwrap_or("0".to_string()),
-            )
-            .set_bigint(
-                "feeGrowthInside1LastX128",
-                &position.fee_growth_inside1_last_x128.clone().unwrap_or("0".to_string()),
-            );
+        create_snapshot_position(tables, &id, position);
     }
+}
+
+fn create_snapshot_position(tables: &mut Tables, id: &String, position: &events::CreatedPosition) {
+    tables
+        .update_row("PositionSnapshot", &id)
+        .set("id", id)
+        .set("owner", &Hex(utils::ZERO_ADDRESS).to_string().into_bytes())
+        .set("pool", format!("0x{}", &position.pool))
+        .set("position", &position.token_id)
+        .set("blockNumber", position.block_number)
+        .set("timestamp", position.timestamp)
+        .set_bigint("liquidity", &"0".to_string())
+        .set_bigdecimal("depositedToken0", &"0".to_string())
+        .set_bigdecimal("depositedToken1", &"0".to_string())
+        .set_bigdecimal("withdrawnToken0", &"0".to_string())
+        .set_bigdecimal("withdrawnToken1", &"0".to_string())
+        .set_bigdecimal("collectedFeesToken0", &"0".to_string())
+        .set_bigdecimal("collectedFeesToken1", &"0".to_string())
+        .set("transaction", &format!("0x{}", &position.transaction))
+        .set_bigint(
+            "feeGrowthInside0LastX128",
+            &position.fee_growth_inside0_last_x128.clone().unwrap_or("0".to_string()),
+        )
+        .set_bigint(
+            "feeGrowthInside1LastX128",
+            &position.fee_growth_inside1_last_x128.clone().unwrap_or("0".to_string()),
+        );
 }
 
 pub fn increase_liquidity_snapshot_position_entity_change(
     tables: &mut Tables,
     block_number: u64,
-    positions: &Vec<events::IncreaseLiquidityPosition>,
+    positions: &Vec<IncreaseLiquidityPosition>,
+    store_positions: &StoreGetProto<PositionEvent>,
 ) {
     for position in positions {
         let id = format!("{}#{}", position.token_id, block_number);
+        fetch_and_update_snapshot_position(tables, &position.token_id, &id, &store_positions);
+        increase_liquidity_snapshot_position(tables, &id, &position)
+    }
+}
+
+fn increase_liquidity_snapshot_position(tables: &mut Tables, id: &String, position: &IncreaseLiquidityPosition) {
+    tables
+        .update_row("PositionSnapshot", &id)
+        .set_bigint("liquidity", &position.liquidity)
+        .set_bigdecimal("depositedToken0", &position.deposited_token0)
+        .set_bigdecimal("depositedToken1", &position.deposited_token1);
+
+    if let Some(fee_growth_inside0_last_x128) = &position.fee_growth_inside0_last_x128 {
         tables
             .update_row("PositionSnapshot", &id)
-            .set_bigint("liquidity", &position.liquidity)
-            .set_bigdecimal("depositedToken0", &position.deposited_token0)
-            .set_bigdecimal("depositedToken1", &position.deposited_token1);
+            .set_bigint("feeGrowthInside0LastX128", fee_growth_inside0_last_x128);
+    }
 
-        if let Some(fee_growth_inside0_last_x128) = &position.fee_growth_inside0_last_x128 {
-            tables
-                .update_row("PositionSnapshot", &id)
-                .set_bigint("feeGrowthInside0LastX128", fee_growth_inside0_last_x128);
-        }
-
-        if let Some(fee_growth_inside1_last_x128) = &position.fee_growth_inside1_last_x128 {
-            tables
-                .update_row("PositionSnapshot", &id)
-                .set_bigint("feeGrowthInside1LastX128", fee_growth_inside1_last_x128);
-        }
+    if let Some(fee_growth_inside1_last_x128) = &position.fee_growth_inside1_last_x128 {
+        tables
+            .update_row("PositionSnapshot", &id)
+            .set_bigint("feeGrowthInside1LastX128", fee_growth_inside1_last_x128);
     }
 }
 
@@ -673,26 +684,36 @@ pub fn decrease_liquidity_snapshot_position_entity_change(
     tables: &mut Tables,
     block_number: u64,
     positions: &Vec<events::DecreaseLiquidityPosition>,
+    store_positions: &StoreGetProto<PositionEvent>,
 ) {
     for position in positions {
         let id = format!("{}#{}", position.token_id, block_number);
+        fetch_and_update_snapshot_position(tables, &position.token_id, &id, &store_positions);
+        decrease_liquidity_snapshot_position(tables, &id, &position)
+    }
+}
+
+fn decrease_liquidity_snapshot_position(
+    tables: &mut Tables,
+    id: &String,
+    position: &events::DecreaseLiquidityPosition,
+) {
+    tables
+        .update_row("PositionSnapshot", &id)
+        .set_bigint("liquidity", &position.liquidity)
+        .set_bigdecimal("withdrawnToken0", &position.withdrawn_token0)
+        .set_bigdecimal("withdrawnToken1", &position.withdrawn_token1);
+
+    if let Some(fee_growth_inside0_last_x128) = &position.fee_growth_inside0_last_x128 {
         tables
             .update_row("PositionSnapshot", &id)
-            .set_bigint("liquidity", &position.liquidity)
-            .set_bigdecimal("withdrawnToken0", &position.withdrawn_token0)
-            .set_bigdecimal("withdrawnToken1", &position.withdrawn_token1);
+            .set_bigint("feeGrowthInside0LastX128", fee_growth_inside0_last_x128);
+    }
 
-        if let Some(fee_growth_inside0_last_x128) = &position.fee_growth_inside0_last_x128 {
-            tables
-                .update_row("PositionSnapshot", &id)
-                .set_bigint("feeGrowthInside0LastX128", fee_growth_inside0_last_x128);
-        }
-
-        if let Some(fee_growth_inside1_last_x128) = &position.fee_growth_inside1_last_x128 {
-            tables
-                .update_row("PositionSnapshot", &id)
-                .set_bigint("feeGrowthInside1LastX128", fee_growth_inside1_last_x128);
-        }
+    if let Some(fee_growth_inside1_last_x128) = &position.fee_growth_inside1_last_x128 {
+        tables
+            .update_row("PositionSnapshot", &id)
+            .set_bigint("feeGrowthInside1LastX128", fee_growth_inside1_last_x128);
     }
 }
 
@@ -700,25 +721,31 @@ pub fn collect_snapshot_position_entity_change(
     tables: &mut Tables,
     block_number: u64,
     positions: &Vec<events::CollectPosition>,
+    store_positions: &StoreGetProto<PositionEvent>,
 ) {
     for position in positions {
         let id = format!("{}#{}", position.token_id, block_number);
+        fetch_and_update_snapshot_position(tables, &position.token_id, &id, &store_positions);
+        collection_snapshot_position(tables, &id, &position);
+    }
+}
+
+fn collection_snapshot_position(tables: &mut Tables, id: &String, position: &events::CollectPosition) {
+    tables
+        .update_row("PositionSnapshot", &id)
+        .set_bigdecimal("collectedFeesToken0", &position.collected_fees_token0)
+        .set_bigdecimal("collectedFeesToken1", &position.collected_fees_token1);
+
+    if let Some(fee_growth_inside0_last_x128) = &position.fee_growth_inside0_last_x128 {
         tables
             .update_row("PositionSnapshot", &id)
-            .set_bigdecimal("collectedFeesToken0", &position.collected_fees_token0)
-            .set_bigdecimal("collectedFeesToken1", &position.collected_fees_token1);
+            .set_bigint("feeGrowthInside0LastX128", fee_growth_inside0_last_x128);
+    }
 
-        if let Some(fee_growth_inside0_last_x128) = &position.fee_growth_inside0_last_x128 {
-            tables
-                .update_row("PositionSnapshot", &id)
-                .set_bigint("feeGrowthInside0LastX128", fee_growth_inside0_last_x128);
-        }
-
-        if let Some(fee_growth_inside1_last_x128) = &position.fee_growth_inside1_last_x128 {
-            tables
-                .update_row("PositionSnapshot", &id)
-                .set_bigint("feeGrowthInside1LastX128", fee_growth_inside1_last_x128);
-        }
+    if let Some(fee_growth_inside1_last_x128) = &position.fee_growth_inside1_last_x128 {
+        tables
+            .update_row("PositionSnapshot", &id)
+            .set_bigint("feeGrowthInside1LastX128", fee_growth_inside1_last_x128);
     }
 }
 
@@ -726,12 +753,64 @@ pub fn transfer_snapshot_position_entity_change(
     tables: &mut Tables,
     block_number: u64,
     positions: &Vec<events::TransferPosition>,
+    store_positions: &StoreGetProto<PositionEvent>,
 ) {
     for position in positions {
         let id = format!("{}#{}", position.token_id, block_number);
-        tables
-            .update_row("PositionSnapshot", id)
-            .set("owner", &position.owner.clone().into_bytes());
+        fetch_and_update_snapshot_position(tables, &position.token_id, &id, &store_positions);
+        transfer_snapshot_position(tables, &id, &position);
+    }
+}
+
+fn transfer_snapshot_position(tables: &mut Tables, id: &String, position: &events::TransferPosition) {
+    tables
+        .update_row("PositionSnapshot", id)
+        .set("owner", &position.owner.clone().into_bytes());
+}
+
+fn fetch_and_update_snapshot_position(
+    tables: &mut Tables,
+    token_id: &String,
+    snapshot_id: &String,
+    store_positions: &StoreGetProto<PositionEvent>,
+) {
+    if let Some(position) = store_positions.get_last(format!("position_created:{}", token_id)) {
+        match position.r#type.unwrap() {
+            Type::CreatedPosition(position) => create_snapshot_position(tables, snapshot_id, &position),
+            _ => {}
+        }
+    }
+
+    if let Some(position) = store_positions.get_last(format!("position_increase_liquidity:{}", token_id)) {
+        match position.r#type.unwrap() {
+            Type::IncreaseLiquidityPosition(position) => {
+                increase_liquidity_snapshot_position(tables, snapshot_id, &position)
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(position) = store_positions.get_last(format!("position_decrease_liquidity:{}", token_id)) {
+        match position.r#type.unwrap() {
+            Type::DecreaseLiquidityPosition(position) => {
+                decrease_liquidity_snapshot_position(tables, snapshot_id, &position)
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(position) = store_positions.get_last(format!("position_collect:{}", token_id)) {
+        match position.r#type.unwrap() {
+            Type::CollectPosition(position) => collection_snapshot_position(tables, snapshot_id, &position),
+            _ => {}
+        }
+    }
+
+    if let Some(position) = store_positions.get_last(format!("position_transfer:{}", token_id)) {
+        match position.r#type.unwrap() {
+            Type::TransferPosition(position) => transfer_snapshot_position(tables, snapshot_id, &position),
+            _ => {}
+        }
     }
 }
 
@@ -815,9 +894,9 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("pool", format!("0x{pool_address}"))
                         .set("token0", format!("0x{}", event.token0))
                         .set("token1", format!("0x{}", event.token1))
-                        .set("sender", format!("0x{}", swap.sender))
+                        .set("sender", &swap.sender.into_bytes())
                         .set("recipient", &swap.recipient.into_bytes())
-                        .set("origin", format!("0x{}", swap.origin))
+                        .set("origin", &swap.origin.into_bytes())
                         .set("amount0", &amount0)
                         .set("amount1", &amount1)
                         .set("amountUSD", &amount_total_usd_tracked)
@@ -845,9 +924,9 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("pool", format!("0x{pool_address}"))
                         .set("token0", format!("0x{}", event.token0))
                         .set("token1", format!("0x{}", event.token1))
-                        .set("owner", &Hex::decode(mint.owner).unwrap())
-                        .set("sender", &Hex::decode(mint.sender).unwrap())
-                        .set("origin", &Hex::decode(mint.origin).unwrap())
+                        .set("owner", &mint.owner.into_bytes())
+                        .set("sender", &mint.sender.into_bytes())
+                        .set("origin", &mint.origin.into_bytes())
                         .set_bigint("amount", &mint.amount)
                         .set("amount0", amount0)
                         .set("amount1", amount1)
@@ -874,8 +953,8 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("token0", format!("0x{}", event.token0))
                         .set("token1", format!("0x{}", event.token1))
                         .set("timestamp", event.timestamp)
-                        .set("owner", &Hex::decode(&burn.owner).unwrap())
-                        .set("origin", &Hex::decode(&burn.origin).unwrap())
+                        .set("owner", &burn.owner.into_bytes())
+                        .set("origin", &burn.origin.into_bytes())
                         .set_bigint("amount", &burn.amount)
                         .set("amount0", amount0)
                         .set("amount1", amount1)
@@ -1152,7 +1231,6 @@ pub fn total_value_locked_usd_pool_day_data_entity_change(tables: &mut Tables, d
 // --------------------
 //  Map Pool Hour Data Entities
 // --------------------
-
 pub fn tx_count_pool_data(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
         update_tx_count_pool(tables, "PoolDayData", delta);

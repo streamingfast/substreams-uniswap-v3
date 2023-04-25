@@ -216,6 +216,13 @@ modules:
       substreams gui blah blah
       ```
 
+  - name: store_positions
+    kind: store
+    updatePolicy: set
+    valueType: proto:uniswap.types.v1.Events.PositionEvent
+    inputs:
+      - map: map_extract_data_types
+
   - name: graph_out
     kind: map
     initialBlock: 12369621
@@ -252,6 +259,7 @@ modules:
         mode: deltas
       - store: store_total_tx_counts
       - store: store_eth_prices
+      - store: store_positions
 
     output:
       type: proto:substreams.entity.v1.EntityChanges

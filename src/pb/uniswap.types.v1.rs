@@ -349,9 +349,26 @@ pub mod events {
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-    pub struct Positions {
-        #[prost(message, repeated, tag="1")]
-        pub positions: ::prost::alloc::vec::Vec<Position>,
+    pub struct PositionEvent {
+        #[prost(oneof="position_event::Type", tags="1, 2, 3, 4, 5")]
+        pub r#type: ::core::option::Option<position_event::Type>,
+    }
+    /// Nested message and enum types in `PositionEvent`.
+    pub mod position_event {
+        #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+        pub enum Type {
+            #[prost(message, tag="1")]
+            CreatedPosition(super::CreatedPosition),
+            #[prost(message, tag="2")]
+            IncreaseLiquidityPosition(super::IncreaseLiquidityPosition),
+            #[prost(message, tag="3")]
+            DecreaseLiquidityPosition(super::DecreaseLiquidityPosition),
+            #[prost(message, tag="4")]
+            CollectPosition(super::CollectPosition),
+            #[prost(message, tag="5")]
+            TransferPosition(super::TransferPosition),
+        }
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -403,6 +420,8 @@ pub mod events {
         /// BigInt
         #[prost(string, optional, tag="6")]
         pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        #[prost(uint64, tag="10")]
+        pub log_ordinal: u64,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -424,6 +443,8 @@ pub mod events {
         /// BigInt
         #[prost(string, optional, tag="6")]
         pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        #[prost(uint64, tag="10")]
+        pub log_ordinal: u64,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -442,6 +463,8 @@ pub mod events {
         /// BigInt
         #[prost(string, optional, tag="6")]
         pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        #[prost(uint64, tag="10")]
+        pub log_ordinal: u64,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -450,88 +473,8 @@ pub mod events {
         pub token_id: ::prost::alloc::string::String,
         #[prost(string, tag="2")]
         pub owner: ::prost::alloc::string::String,
-    }
-    #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-    pub struct Position {
-        #[prost(string, tag="1")]
-        pub token_id: ::prost::alloc::string::String,
-        #[prost(string, tag="2")]
-        pub owner: ::prost::alloc::string::String,
-        #[prost(string, tag="3")]
-        pub pool: ::prost::alloc::string::String,
-        #[prost(string, tag="4")]
-        pub token0: ::prost::alloc::string::String,
-        #[prost(string, tag="5")]
-        pub token1: ::prost::alloc::string::String,
-        #[prost(string, tag="6")]
-        pub tick_lower: ::prost::alloc::string::String,
-        #[prost(string, tag="7")]
-        pub tick_upper: ::prost::alloc::string::String,
-        #[prost(string, tag="8")]
-        pub transaction: ::prost::alloc::string::String,
-        /// Integer
-        #[prost(string, tag="9")]
-        pub fee_growth_inside_0_last_x_128: ::prost::alloc::string::String,
-        /// Integer
-        #[prost(string, tag="10")]
-        pub fee_growth_inside_1_last_x_128: ::prost::alloc::string::String,
-        /// Integer
-        #[prost(string, tag="11")]
-        pub liquidity: ::prost::alloc::string::String,
-        /// Decimal
-        #[prost(string, tag="12")]
-        pub amount0: ::prost::alloc::string::String,
-        /// Decimal
-        #[prost(string, tag="13")]
-        pub amount1: ::prost::alloc::string::String,
-        #[prost(enumeration="position::PositionType", tag="14")]
-        pub position_type: i32,
-        #[prost(uint64, tag="15")]
+        #[prost(uint64, tag="10")]
         pub log_ordinal: u64,
-        #[prost(uint64, tag="16")]
-        pub timestamp: u64,
-        #[prost(uint64, tag="17")]
-        pub block_number: u64,
-    }
-    /// Nested message and enum types in `Position`.
-    pub mod position {
-        /// internals
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-        #[repr(i32)]
-        pub enum PositionType {
-            Unset = 0,
-            IncreaseLiquidity = 1,
-            Collect = 2,
-            DecreaseLiquidity = 3,
-            Transfer = 4,
-        }
-        impl PositionType {
-            /// String value of the enum field names used in the ProtoBuf definition.
-            ///
-            /// The values are not transformed in any way and thus are considered stable
-            /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-            pub fn as_str_name(&self) -> &'static str {
-                match self {
-                    PositionType::Unset => "UNSET",
-                    PositionType::IncreaseLiquidity => "INCREASE_LIQUIDITY",
-                    PositionType::Collect => "COLLECT",
-                    PositionType::DecreaseLiquidity => "DECREASE_LIQUIDITY",
-                    PositionType::Transfer => "TRANSFER",
-                }
-            }
-            /// Creates an enum from field names used in the ProtoBuf definition.
-            pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-                match value {
-                    "UNSET" => Some(Self::Unset),
-                    "INCREASE_LIQUIDITY" => Some(Self::IncreaseLiquidity),
-                    "COLLECT" => Some(Self::Collect),
-                    "DECREASE_LIQUIDITY" => Some(Self::DecreaseLiquidity),
-                    "TRANSFER" => Some(Self::Transfer),
-                    _ => None,
-                }
-            }
-        }
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
