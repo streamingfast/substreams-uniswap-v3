@@ -26,7 +26,11 @@ impl Tables {
                 panic!("cannot create a row that was marked for update")
             }
             Operation::Delete => {
-                panic!("cannot create a row after a scheduled delete operation")
+                panic!(
+                    "cannot create a row after a scheduled delete operation - table: {} key: {}",
+                    table,
+                    key.as_ref().to_string()
+                )
             }
             Operation::Final => {}
         }
@@ -43,7 +47,11 @@ impl Tables {
             Operation::Create => {}
             Operation::Update => {}
             Operation::Delete => {
-                panic!("cannot update a row after a scheduled delete operation")
+                panic!(
+                    "cannot create a row after a scheduled delete operation - table: {} key: {}",
+                    table,
+                    key.as_ref().to_string()
+                )
             }
             Operation::Final => {}
         }
@@ -64,7 +72,11 @@ impl Tables {
             }
             Operation::Update => {}
             Operation::Delete => {
-                panic!("cannot update a row after a scheduled delete operation")
+                panic!(
+                    "cannot create a row after a scheduled delete operation - table: {} key: {}",
+                    table,
+                    key.as_ref().to_string()
+                )
             }
             Operation::Final => {}
         }
