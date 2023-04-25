@@ -1,3 +1,4 @@
+use hex::encode;
 use substreams_ethereum::pb::eth::v2::StorageChange;
 use substreams::scalar::BigInt;
 use crate::storage::utils;
@@ -346,6 +347,7 @@ mod tests {
     use substreams_ethereum::pb::eth::v2::StorageChange;
     use tiny_keccak::{Hasher, Keccak};
     use crate::storage::uniswap_v3_pool::UniswapPoolStorage;
+    use crate::storage::utils;
 
     #[test]
     fn slot0_sqrt_price_x96() {
@@ -526,17 +528,58 @@ mod tests {
     fn tick_initialized() {
         let storage_changes = vec![StorageChange {
             address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
-            key: hex!("a18b128af1c8fc61ff46f02d146e54546f34d340574cf2cef6a753cba6b67020").to_vec(),
+            key: hex!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29613").to_vec(),
             old_value: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
-            new_value: hex!("0100000000000000000000000000000000000000000000000000000000000000").to_vec(),
+            new_value: hex!("000000000000000000008b61432d9e96000000000000000000008b61432d9e96").to_vec(),
+            ordinal: 0,
+        },StorageChange {
+            address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
+            key: hex!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29615").to_vec(),
+            old_value: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
+            new_value: hex!("00000000000000000000000000000004d89db07e848644d71c4496a64b7ac568").to_vec(),
+            ordinal: 0,
+        },StorageChange {
+            address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
+            key: hex!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29616").to_vec(),
+            old_value: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
+            new_value: hex!("016091bfa60000000000000000314c3c8ef0a2c4b9b2ce9d0900000041d2241f").to_vec(),
             ordinal: 0,
         }];
+
 
         let storage = UniswapPoolStorage::new(
             &storage_changes,
             &hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
         );
-        let v_opt = storage.ticks(&BigInt::from(10)).initialized();
+
+        let tick_idx = BigInt::from(193200);
+        let v_opt = storage.ticks(&tick_idx).initialized();
         assert_eq!(Some((false, true)), v_opt);
+    }
+
+    #[test]
+    fn slot_calc() {
+        // slot of ticks map
+        let ticks_slot = BigInt::from(5);
+        // tick index in map we are looking for
+        let tick_idx = BigInt::from(193200);
+
+        let ticks_slot = utils::left_pad_from_bigint(&ticks_slot);
+        let ticker_struct_slot = utils::calc_map_slot(&utils::left_pad_from_bigint(&tick_idx), &ticks_slot);
+
+        // slot of the initialized attribute within the tick struct
+        let struct_attr_slot = BigInt::from(3);
+
+        let slot_key = utils::calc_struct_slot(&ticker_struct_slot, struct_attr_slot);
+        assert_eq!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29613", encode_hex(ticker_struct_slot.as_slice()));
+        assert_eq!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29616", encode_hex(slot_key.as_slice()));
+    }
+
+    fn encode_hex(bytes: &[u8]) -> String {
+        let mut s = String::with_capacity(bytes.len() * 2);
+        for &b in bytes {
+            write!(&mut s, "{:02x}", b).unwrap();
+        }
+        s
     }
 }
