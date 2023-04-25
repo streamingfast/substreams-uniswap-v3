@@ -8,7 +8,7 @@ use substreams::store::{
 };
 use substreams::{log, Hex};
 
-use crate::keyer::{position, POOL_DAY_DATA, POOL_HOUR_DATA, TOKEN_DAY_DATA, TOKEN_HOUR_DATA};
+use crate::keyer::{POOL_DAY_DATA, POOL_HOUR_DATA, TOKEN_DAY_DATA, TOKEN_HOUR_DATA};
 use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::position_event::Type;
@@ -153,6 +153,7 @@ pub fn pools_created_pool_entity_change(tables: &mut Tables, pools: &Pools) {
             .set("totalValueLockedETH", &bigdecimal0)
             .set("totalValueLockedUSD", &bigdecimal0)
             .set("totalValueLockedUSDUntracked", &bigdecimal0)
+            .set("totalValueLockedETHUntracked", &bigdecimal0)
             .set("liquidityProviderCount", &bigint0);
     }
 }
