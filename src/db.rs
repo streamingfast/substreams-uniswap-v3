@@ -14,7 +14,6 @@ use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::tables::Tables;
 use crate::uniswap::{Erc20Token, Pools};
-use crate::utils::{extract_item_from_key_at_position, extract_item_from_key_last_item};
 use crate::{key, keyer, utils};
 
 // -------------------
