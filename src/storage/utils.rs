@@ -1,6 +1,25 @@
 use substreams::scalar::BigInt;
 use tiny_keccak::{Hasher, Keccak};
 use std::ops::Add;
+use substreams_ethereum::pb::eth::v2::StorageChange;
+
+
+pub fn get_storage_change<'a>(storage_changes: &'a Vec<&StorageChange>, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&'a [u8], &'a [u8])> {
+    let storage_change_opt = storage_changes
+        .iter()
+        .filter(|&&storage_change| storage_change.key.eq(slot_key.as_slice()))
+        .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
+
+    if storage_change_opt.is_none() {
+        return None;
+    }
+    let storage = storage_change_opt.unwrap();
+
+    let old_data = read_bytes(&storage.old_value, offset, number_of_bytes);
+    let new_data = read_bytes(&storage.new_value, offset, number_of_bytes);
+    Some((old_data, new_data))
+}
+
 
 
 pub fn calc_map_slot(map_index: &[u8; 32], base_slot: &[u8; 32]) -> [u8; 32] {

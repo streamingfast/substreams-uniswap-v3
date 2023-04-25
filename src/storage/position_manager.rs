@@ -27,7 +27,7 @@ impl<'a> PositionManagerStorage<'a> {
 
         let slot_key = utils::left_pad_from_bigint(&slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.filtered_changes(),slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -44,7 +44,7 @@ impl<'a> PositionManagerStorage<'a> {
 
         let slot_key = utils::left_pad_from_bigint(&slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.filtered_changes(), slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -55,43 +55,26 @@ impl<'a> PositionManagerStorage<'a> {
     }
 
     pub fn positions(&self, position_idx: &BigInt) -> PositionStruct {
-        let filtered_changes: Vec<&StorageChange> = self
-            .storage_changes
-            .iter()
-            .filter(|change| change.address == self.contract_addr)
-            .collect();
 
         let positions_slot = utils::left_pad_from_bigint(&BigInt::from(12));
         let position_struct_slot = utils::calc_map_slot(&utils::left_pad_from_bigint(&position_idx), &positions_slot);
 
-        return PositionStruct::new(filtered_changes, position_struct_slot);
+        return PositionStruct::new(self.filtered_changes(), position_struct_slot);
     }
 
     pub fn pool_id_to_pool_key(&self, poold_id: &BigInt) -> PoolKeyStruct {
-        let filtered_changes: Vec<&StorageChange> = self
-            .storage_changes
-            .iter()
-            .filter(|change| change.address == self.contract_addr)
-            .collect();
-
-        let pool_id_to_pool_key_slot = utils::left_pad_from_bigint(&BigInt::from(11));
+       let pool_id_to_pool_key_slot = utils::left_pad_from_bigint(&BigInt::from(11));
         let pool_id_to_pool_ke_struct_slot =
             utils::calc_map_slot(&utils::left_pad_from_bigint(&poold_id), &pool_id_to_pool_key_slot);
 
-        return PoolKeyStruct::new(filtered_changes, pool_id_to_pool_ke_struct_slot);
+        return PoolKeyStruct::new(self.filtered_changes(), pool_id_to_pool_ke_struct_slot);
     }
 
     pub fn pool_ids(&self, pool_address: &[u8; 20]) -> Option<(BigInt, BigInt)> {
-        let filtered_changes: Vec<&StorageChange> = self
-            .storage_changes
-            .iter()
-            .filter(|change| change.address == self.contract_addr)
-            .collect();
-
         let pool_ids_slot = utils::left_pad_from_bigint(&BigInt::from(10));
         let pool_ids_address_slot = utils::calc_map_slot(&utils::left_pad(&pool_address.to_vec(), 0), &pool_ids_slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(pool_ids_address_slot, 0, 20) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.filtered_changes(), pool_ids_address_slot, 0, 20) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -101,23 +84,12 @@ impl<'a> PositionManagerStorage<'a> {
         }
     }
 
-    fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
-        let storage_change_opt = self
+    fn filtered_changes(&self) -> Vec<&StorageChange>{
+        return self
             .storage_changes
             .iter()
-            .filter(|storage_change| {
-                storage_change.address == self.contract_addr && storage_change.key.eq(slot_key.as_slice())
-            })
-            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
-
-        if storage_change_opt.is_none() {
-            return None;
-        }
-        let storage = storage_change_opt.unwrap();
-
-        let old_data = utils::read_bytes(&storage.old_value, offset, number_of_bytes);
-        let new_data = utils::read_bytes(&storage.new_value, offset, number_of_bytes);
-        Some((old_data, new_data))
+            .filter(|change| change.address == self.contract_addr)
+            .collect();
     }
 }
 
@@ -141,7 +113,7 @@ impl<'a> PositionStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -158,7 +130,7 @@ impl<'a> PositionStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 <[u8; 20]>::try_from(old_data).unwrap(),
                 <[u8; 20]>::try_from(new_data).unwrap(),
@@ -175,7 +147,7 @@ impl<'a> PositionStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -192,7 +164,7 @@ impl<'a> PositionStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -209,7 +181,7 @@ impl<'a> PositionStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -226,7 +198,7 @@ impl<'a> PositionStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -243,7 +215,7 @@ impl<'a> PositionStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -260,7 +232,7 @@ impl<'a> PositionStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -270,58 +242,6 @@ impl<'a> PositionStruct<'a> {
         }
     }
 
-    // todo: this should be removed
-    pub fn tokensOwed0(&self) -> Option<(BigInt, BigInt)> {
-        let slot = BigInt::from(4);
-        let offset = 0;
-        let number_of_bytes = 16;
-
-        let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
-
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
-            Some((
-                BigInt::from_signed_bytes_be(old_data),
-                BigInt::from_signed_bytes_be(new_data),
-            ))
-        } else {
-            None
-        }
-    }
-
-    // todo: this should be removed
-    pub fn tokens1wed0(&self) -> Option<(BigInt, BigInt)> {
-        let slot = BigInt::from(4);
-        let offset = 16;
-        let number_of_bytes = 16;
-
-        let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
-
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
-            Some((
-                BigInt::from_signed_bytes_be(old_data),
-                BigInt::from_signed_bytes_be(new_data),
-            ))
-        } else {
-            None
-        }
-    }
-
-    fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
-        let storage_change_opt = self
-            .storage_changes
-            .iter()
-            .filter(|storage_change| storage_change.key.eq(slot_key.as_slice()))
-            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
-
-        if storage_change_opt.is_none() {
-            return None;
-        }
-        let storage = storage_change_opt.unwrap();
-
-        let old_data = utils::read_bytes(&storage.old_value, offset, number_of_bytes);
-        let new_data = utils::read_bytes(&storage.new_value, offset, number_of_bytes);
-        Some((old_data, new_data))
-    }
 }
 
 pub struct PoolKeyStruct<'a> {

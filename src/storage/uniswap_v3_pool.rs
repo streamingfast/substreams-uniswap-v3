@@ -25,7 +25,7 @@ impl<'a> UniswapPoolStorage<'a> {
         let slot_key = utils::left_pad_from_bigint(&fee_growth_global0x128_slot);
         // ----
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.filtered_changes(), slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -44,7 +44,7 @@ impl<'a> UniswapPoolStorage<'a> {
         let slot_key = utils::left_pad_from_bigint(&fee_growth_global1x128_slot);
         // ----
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.filtered_changes(), slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -55,45 +55,22 @@ impl<'a> UniswapPoolStorage<'a> {
     }
 
     pub fn slot0(&self) -> Slot0Struct {
-        let filtered_changes: Vec<&StorageChange> = self
-            .storage_changes
-            .iter()
-            .filter(|change| change.address == self.contract_addr)
-            .collect();
-
         let slot0_slot = utils::left_pad_from_bigint(&BigInt::from(0));
-        return Slot0Struct::new(filtered_changes, slot0_slot);
+        return Slot0Struct::new(self.filtered_changes(), slot0_slot);
     }
 
     pub fn ticks(&self, tick_idx: &BigInt) -> TickStruct {
-        let filtered_changes: Vec<&StorageChange> = self
+        let ticks_slot = utils::left_pad_from_bigint(&BigInt::from(5));
+        let ticker_struct_slot = utils::calc_map_slot(&utils::left_pad_from_bigint(&tick_idx), &ticks_slot);
+        return TickStruct::new(self.filtered_changes(), ticker_struct_slot);
+    }
+
+    fn filtered_changes(&self) -> Vec<&StorageChange>{
+        return self
             .storage_changes
             .iter()
             .filter(|change| change.address == self.contract_addr)
             .collect();
-
-        let ticks_slot = utils::left_pad_from_bigint(&BigInt::from(5));
-        let ticker_struct_slot = utils::calc_map_slot(&utils::left_pad_from_bigint(&tick_idx), &ticks_slot);
-        return TickStruct::new(filtered_changes, ticker_struct_slot);
-    }
-
-    fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
-        let storage_change_opt = self
-            .storage_changes
-            .iter()
-            .filter(|storage_change| {
-                storage_change.address == self.contract_addr && storage_change.key.eq(slot_key.as_slice())
-            })
-            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
-
-        if storage_change_opt.is_none() {
-            return None;
-        }
-        let storage = storage_change_opt.unwrap();
-
-        let old_data = utils::read_bytes(&storage.old_value, offset, number_of_bytes);
-        let new_data = utils::read_bytes(&storage.new_value, offset, number_of_bytes);
-        Some((old_data, new_data))
     }
 }
 
@@ -119,7 +96,7 @@ impl<'a> Slot0Struct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -138,7 +115,7 @@ impl<'a> Slot0Struct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -157,7 +134,7 @@ impl<'a> Slot0Struct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -176,7 +153,7 @@ impl<'a> Slot0Struct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes,slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -195,7 +172,7 @@ impl<'a> Slot0Struct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes,slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -215,7 +192,7 @@ impl<'a> Slot0Struct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes,slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -234,28 +211,11 @@ impl<'a> Slot0Struct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes,slot_key, offset, number_of_bytes) {
             Some((old_data == [01u8], new_data == [01u8]))
         } else {
             None
         }
-    }
-
-    fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
-        let storage_change_opt = self
-            .storage_changes
-            .iter()
-            .filter(|storage_change| storage_change.key.eq(slot_key.as_slice()))
-            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
-
-        if storage_change_opt.is_none() {
-            return None;
-        }
-        let storage = storage_change_opt.unwrap();
-
-        let old_data = utils::read_bytes(&storage.old_value, offset, number_of_bytes);
-        let new_data = utils::read_bytes(&storage.new_value, offset, number_of_bytes);
-        Some((old_data, new_data))
     }
 }
 
@@ -279,7 +239,7 @@ impl<'a> TickStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes,slot_key, offset, number_of_bytes) {
             Some((old_data == [01u8], new_data == [01u8]))
         } else {
             None
@@ -293,7 +253,7 @@ impl<'a> TickStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes,slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -310,7 +270,7 @@ impl<'a> TickStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = self.get_storage_changes(slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes,slot_key, offset, number_of_bytes) {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
@@ -318,23 +278,6 @@ impl<'a> TickStruct<'a> {
         } else {
             None
         }
-    }
-
-    fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
-        let storage_change_opt = self
-            .storage_changes
-            .iter()
-            .filter(|storage_change| storage_change.key.eq(slot_key.as_slice()))
-            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
-
-        if storage_change_opt.is_none() {
-            return None;
-        }
-        let storage = storage_change_opt.unwrap();
-
-        let old_data = utils::read_bytes(&storage.old_value, offset, number_of_bytes);
-        let new_data = utils::read_bytes(&storage.new_value, offset, number_of_bytes);
-        Some((old_data, new_data))
     }
 }
 
