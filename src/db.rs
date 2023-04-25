@@ -956,7 +956,8 @@ pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Delt
 
         // TODO: should this be done on all the updates?
         if delta.operation == store_delta::Operation::Delete {
-            tables.delete_row(keyer::UNISWAP_DAY_DATA, &day_id).mark_final();
+            // TODO: need to fix the delete operation
+            // tables.delete_row(keyer::UNISWAP_DAY_DATA, &day_id).mark_final();
             continue;
         }
 
@@ -982,6 +983,7 @@ fn create_uniswap_day_data(tables: &mut Tables, day_id: i64, day_start_timestamp
 
 pub fn pool_day_data_create(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        log::info!("delta key: {}", delta.key);
         if delta.new_value.ne(&BigInt::one()) {
             continue;
         }
@@ -1076,7 +1078,8 @@ pub fn swap_volume_pool_day_data_entity_change(tables: &mut Tables, deltas: &Del
         if let Some(name) = utils::extract_swap_volume_pool_entity_change_name(&delta.key) {
             // TODO: should this be done on all the updates?
             if delta.operation == store_delta::Operation::Delete {
-                tables.delete_row("PoolDayData", &day_id).mark_final();
+                // TODO: need to fix the delete operation
+                // tables.delete_row("PoolDayData", &day_id).mark_final();
                 continue;
             }
 
@@ -1218,7 +1221,8 @@ pub fn swap_volume_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigD
         if let Some(name) = utils::extract_swap_volume_pool_entity_change_name(&delta.key) {
             // TODO: should this be done on all update operations
             if delta.operation == store_delta::Operation::Delete {
-                tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+                // TODO: need to fix the delete operation
+                // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
                 continue;
             }
 
@@ -1333,7 +1337,8 @@ pub fn swap_volume_token_day_data_entity_change(tables: &mut Tables, deltas: &De
         //TODO: need to add the :volume key
         if let Some(name) = utils::extract_swap_volume_token_entity_change_name(&delta.key) {
             if delta.operation == store_delta::Operation::Delete {
-                tables.delete_row(TOKEN_DAY_DATA, &day_id).mark_final();
+                // TODO: need to fix the delete operation
+                // tables.delete_row(TOKEN_DAY_DATA, &day_id).mark_final();
                 continue;
             }
 
@@ -1429,7 +1434,8 @@ pub fn swap_volume_token_hour_data_entity_change(tables: &mut Tables, deltas: &D
 
         if let Some(name) = utils::extract_swap_volume_token_entity_change_name(&delta.key) {
             if delta.operation == store_delta::Operation::Delete {
-                tables.delete_row(TOKEN_HOUR_DATA, &hour_id).mark_final();
+                // TODO: need to fix the delete operation
+                // tables.delete_row(TOKEN_HOUR_DATA, &hour_id).mark_final();
                 continue;
             }
 

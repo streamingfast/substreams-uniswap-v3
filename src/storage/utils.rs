@@ -1,6 +1,36 @@
+use std::cmp;
 use substreams::scalar::BigInt;
 use tiny_keccak::{Hasher, Keccak};
 use std::ops::Add;
+use substreams_ethereum::pb::eth::v2::StorageChange;
+
+
+pub fn get_storage_change<'a>(storage_changes: &'a Vec<&StorageChange>, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&'a [u8], &'a [u8])> {
+
+
+    let storage_change_opt = storage_changes
+        .iter()
+        // filtering out storage changes which keys do not match ours
+        .filter(|&&storage_change| storage_change.key.eq(slot_key.as_slice()))
+        // keeping old the storage change slot where our values actually changed
+        .filter(|&&storage| {
+            let old_data = read_bytes(&storage.old_value, offset, number_of_bytes);
+            let new_data = read_bytes(&storage.new_value, offset, number_of_bytes);
+            return !old_data.eq(new_data);
+        })
+        // take the change with the highest ordinal
+        .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
+
+    if storage_change_opt.is_none() {
+        return None;
+    }
+    let storage = storage_change_opt.unwrap();
+
+    let old_data = read_bytes(&storage.old_value, offset, number_of_bytes);
+    let new_data = read_bytes(&storage.new_value, offset, number_of_bytes);
+    Some((old_data, new_data))
+}
+
 
 
 pub fn calc_map_slot(map_index: &[u8; 32], base_slot: &[u8; 32]) -> [u8; 32] {
@@ -93,8 +123,9 @@ mod tests {
     use std::{fmt::Write, num::ParseIntError};
     use substreams::scalar::BigInt;
     use substreams::{hex, Hex};
+    use substreams_ethereum::pb::eth::v2::StorageChange;
     use tiny_keccak::{Hasher, Keccak};
-    use crate::storage::utils::{left_pad, read_bytes};
+    use crate::storage::utils::{get_storage_change, left_pad, read_bytes};
 
     #[test]
     fn left_pad_lt_32_bytes() {
@@ -183,6 +214,70 @@ mod tests {
         let number_of_bytes = 1;
         let out = read_bytes(&buf, offset, number_of_bytes);
         assert_eq!(encode_hex(out), "01".to_string());
+    }
+
+    #[test]
+    fn get_storage_change_keep_last_change() {
+        let storage_changes = vec![
+            StorageChange {
+                address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
+                key: hex!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29616").to_vec(),
+                old_value: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
+                new_value: hex!("006091bfa60000000000000000314c3c8ef0a2c4b9b2ce9d0900000041d2241f").to_vec(),
+                ordinal: 0,
+            },
+            StorageChange {
+                address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
+                key: hex!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29616").to_vec(),
+                old_value: hex!("006091bfa60000000000000000314c3c8ef0a2c4b9b2ce9d0900000041d2241f").to_vec(),
+                new_value: hex!("016091bfa60000000000000000314c3c8ef0a2c4b9b2ce9d0900000041d2241f").to_vec(),
+                ordinal: 1,
+            },
+        ];
+        let slot_key = hex!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29616");
+        let offset = 31;
+        let number_of_bytes = 1;
+        let filered = storage_changes.iter().collect();
+        let v_opt = get_storage_change(&filered, slot_key, offset, number_of_bytes);
+
+
+        let expect_old_value : [u8; 1] = [0];
+        let expect_new_value : [u8; 1] = [1];
+
+        assert_eq!(Some((expect_old_value.as_slice(), expect_new_value.as_slice())), v_opt);
+
+    }
+
+    #[test]
+    fn get_storage_change_ignore_last_chane() {
+        let storage_changes = vec![
+            StorageChange {
+                address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
+                key: hex!("000000000000000000000000000000000000000000000000000000000000000d").to_vec(),
+                old_value: hex!("0000000000000000000100000000000000000000000000000000000000000001").to_vec(),
+                new_value: hex!("0000000000000000000100000000000000000000000000000000000000000002").to_vec(),
+                ordinal: 0,
+            },
+            StorageChange {
+                address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
+                key: hex!("000000000000000000000000000000000000000000000000000000000000000d").to_vec(),
+                old_value: hex!("0000000000000000000100000000000000000000000000000000000000000002").to_vec(),
+                new_value: hex!("0000000000000000000200000000000000000000000000000000000000000002").to_vec(),
+                ordinal: 1,
+            },
+        ];
+
+        let slot_key = hex!("000000000000000000000000000000000000000000000000000000000000000d");
+        let offset = 0;
+        let number_of_bytes = 22;
+        let filered = storage_changes.iter().collect();
+        let v_opt = get_storage_change(&filered, slot_key, offset, number_of_bytes);
+
+
+        let expect_old_value : [u8; 22] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+        let expect_new_value : [u8; 22] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2];
+
+        assert_eq!(Some((expect_old_value.as_slice(), expect_new_value.as_slice())), v_opt);
     }
 
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {

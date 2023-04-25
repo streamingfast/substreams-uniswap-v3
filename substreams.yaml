@@ -30,9 +30,13 @@ modules:
     output:
       type: proto:uniswap.types.v1.Pools
     doc: |
-      Dynamic data sources pattern for Uniswap V3 pools.
+      Dynamic data sources pattern for Uniswap V3 pools. This module will loop over block transactions and detect
+      pools created events. Once the pool created events have been detected, we will create `Pools` structs.
       
-      Try with: 
+      Try with
+      ```
+      substreams gui substreams.yaml map_pools_created -e $SUBSTREAMS_ENDPOINT -t +1000
+      ```
 
   - name: store_pools
     kind: store
@@ -126,7 +130,6 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
-  # merge this store with tvl
   - name: store_swaps_volume
     kind: store
     updatePolicy: add
