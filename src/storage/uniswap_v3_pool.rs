@@ -356,8 +356,9 @@ mod tests {
             &hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
         );
         let v_opt = storage.slot0().observation_index();
+        // going from 0 to 0 yields no cahnge
         assert_eq!(
-            Some((BigInt::from_str("0").unwrap(), BigInt::from_str("0").unwrap())),
+            None,
             v_opt
         );
     }
@@ -422,8 +423,9 @@ mod tests {
             &hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
         );
         let v_opt = storage.slot0().fee_protocol();
+        // going from 0 to 0 yields no change
         assert_eq!(
-            Some((BigInt::from_str("0").unwrap(), BigInt::from_str("0").unwrap())),
+            None,
             v_opt
         );
     }
