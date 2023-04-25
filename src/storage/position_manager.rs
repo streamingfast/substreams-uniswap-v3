@@ -102,9 +102,13 @@ impl<'a> PositionManagerStorage<'a> {
     }
 
     fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
-        let storage_change_opt = self.storage_changes.iter().find(|storage_change| {
-            storage_change.address == self.contract_addr && storage_change.key.eq(slot_key.as_slice())
-        });
+        let storage_change_opt = self
+            .storage_changes
+            .iter()
+            .filter(|storage_change| {
+                storage_change.address == self.contract_addr && storage_change.key.eq(slot_key.as_slice())
+            })
+            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
 
         if storage_change_opt.is_none() {
             return None;
@@ -306,7 +310,8 @@ impl<'a> PositionStruct<'a> {
         let storage_change_opt = self
             .storage_changes
             .iter()
-            .find(|storage_change| storage_change.key.eq(slot_key.as_slice()));
+            .filter(|storage_change| storage_change.key.eq(slot_key.as_slice()))
+            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
 
         if storage_change_opt.is_none() {
             return None;
@@ -387,7 +392,8 @@ impl<'a> PoolKeyStruct<'a> {
         let storage_change_opt = self
             .storage_changes
             .iter()
-            .find(|storage_change| storage_change.key.eq(slot_key.as_slice()));
+            .filter(|storage_change| storage_change.key.eq(slot_key.as_slice()))
+            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
 
         if storage_change_opt.is_none() {
             return None;
