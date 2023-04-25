@@ -142,7 +142,7 @@ pub fn store_tokens(clock: Clock, pools: Pools, store: StoreAddInt64) {
 #[substreams::handlers::store]
 pub fn store_pool_count(pools: Pools, store: StoreAddBigInt) {
     for pool in pools.pools {
-        store.add(pool.log_ordinal, keyer::factory_pool_count_key(), &BigInt::one())
+        store.add(pool.log_ordinal, format!("factory:poolCount"), &BigInt::one())
     }
 }
 
@@ -204,48 +204,42 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
     for trx in block.transactions() {
         for (log, call_view) in trx.logs_with_calls() {
             let pool_address = &Hex(log.clone().address).to_string();
-            let pool_key = &keyer::pool_key(&pool_address);
             let transactions_id = Hex(&trx.hash).to_string();
 
-            match pools_store.get_last(pool_key) {
-                Some(pool) => {
-                    filtering::extract_pool_sqrt_prices(&mut pool_sqrt_prices, log, pool_address);
-                    filtering::extract_pool_liquidities(
-                        &mut pool_liquidities,
-                        log,
-                        &call_view.call.storage_changes,
-                        &pool,
-                    );
-                    filtering::extract_fee_growth_update(
-                        &mut fee_growth_global_updates,
-                        log,
-                        &call_view.call.storage_changes,
-                        &pool,
-                    );
-
-                    filtering::extract_pool_events_and_positions(
-                        &mut pool_events,
-                        &mut ticks_created,
-                        &mut ticks_updated,
-                        &mut positions_created,
-                        &mut positions_increase_liquidity,
-                        &mut positions_decrease_liquidity,
-                        &mut positions_collect,
-                        &mut positions_transfer,
-                        &transactions_id,
-                        &Hex(&trx.from).to_string(),
-                        log,
-                        &call_view,
-                        &pool,
-                        timestamp,
-                        block.number,
-                    );
-
-                    filtering::extract_transactions(&mut transactions, log, &trx, timestamp, block.number);
-                    filtering::extract_flashes(&mut flashes, &log, &pools_store, pool_key);
-                }
-                _ => (),
+            let pool_opt = pools_store.get_last(format!("pool:{pool_address}"));
+            if pool_opt.is_none() {
+                continue;
             }
+            let pool = pool_opt.unwrap();
+            filtering::extract_pool_sqrt_prices(&mut pool_sqrt_prices, log, pool_address);
+            filtering::extract_pool_liquidities(&mut pool_liquidities, log, &call_view.call.storage_changes, &pool);
+            filtering::extract_fee_growth_update(
+                &mut fee_growth_global_updates,
+                log,
+                &call_view.call.storage_changes,
+                &pool,
+            );
+
+            filtering::extract_pool_events_and_positions(
+                &mut pool_events,
+                &mut ticks_created,
+                &mut ticks_updated,
+                &mut positions_created,
+                &mut positions_increase_liquidity,
+                &mut positions_decrease_liquidity,
+                &mut positions_collect,
+                &mut positions_transfer,
+                &transactions_id,
+                &Hex(&trx.from).to_string(),
+                log,
+                &call_view,
+                &pool,
+                timestamp,
+                block.number,
+            );
+
+            filtering::extract_transactions(&mut transactions, log, &trx, timestamp, block.number);
+            filtering::extract_flashes(&mut flashes, &log, &pool);
         }
     }
 
@@ -300,9 +294,10 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
     store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
 
     for sqrt_price_update in events.pool_sqrt_prices {
-        match pools_store.get_last(keyer::pool_key(&sqrt_price_update.pool_address)) {
+        let pool_address = &sqrt_price_update.pool_address;
+        match pools_store.get_last(format!("pool:{pool_address}")) {
             None => {
-                log::info!("skipping pool {}", &sqrt_price_update.pool_address,);
+                log::info!("skipping pool {}", &pool_address);
                 continue;
             }
             Some(pool) => {
@@ -394,12 +389,14 @@ pub fn store_totals(
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
 
-    output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
+    output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
+    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
     let mut pool_total_value_locked_eth_new_value: BigDecimal = BigDecimal::zero();
     for delta in derived_total_value_locked_deltas.deltas {
@@ -407,9 +404,10 @@ pub fn store_totals(
         // split on the first key to match the entity type
         // split on the last key to match the column
 
+        let ord = delta.ordinal;
         log::info!("delta key {:?}", delta.key);
 
-        match delta.key.as_str().split(":").nth(0).unwrap() {
+        match key::first_segment(&delta.key) {
             "pool" => {
                 //todo: here we need to take the difference (newValue - oldValue) and
                 // set the value for eth, usd, ethUntracked and userUntracked
@@ -422,7 +420,7 @@ pub fn store_totals(
             }
             _ => {}
         }
-        match delta.key.as_str().split(":").last().unwrap() {
+        match key::last_segment(&delta.key) {
             "eth" => {
                 let pool_total_value_locked_eth_old_value = delta.old_value;
                 pool_total_value_locked_eth_new_value = delta.new_value;
@@ -436,20 +434,19 @@ pub fn store_totals(
                 log::info!("diff: {}", pool_total_value_locked_eth_diff);
 
                 output.add(
-                    delta.ordinal,
-                    keyer::factory_total_value_locked_eth(),
+                    ord,
+                    format!("factory:totalValueLockedETH"),
                     &pool_total_value_locked_eth_diff,
                 )
             }
             "usd" => {
-                let bundle_eth_price: BigDecimal = match store_eth_prices.get_at(delta.ordinal, "bundle") {
+                let bundle_eth_price = match store_eth_prices.get_at(delta.ordinal, "bundle") {
                     None => continue, // FIXME(abourget): should we return zero?
                     Some(price) => price,
                 };
                 log::debug!("eth_price_usd: {}", bundle_eth_price);
 
-                let total_value_locked_usd: BigDecimal =
-                    pool_total_value_locked_eth_new_value.clone().mul(bundle_eth_price);
+                let total_value_locked_usd = pool_total_value_locked_eth_new_value.clone().mul(bundle_eth_price);
 
                 log::info!("total value locked usd {}", total_value_locked_usd);
 
@@ -458,8 +455,8 @@ pub fn store_totals(
                 // value instead of summing it, what we do is calculate the difference
                 // and simply add/sub the difference and that mimics the same as setting
                 // the value
-                let total_value_locked_usd_old_value: BigDecimal = delta.old_value;
-                let diff: BigDecimal = total_value_locked_usd
+                let total_value_locked_usd_old_value = delta.old_value;
+                let diff = total_value_locked_usd
                     .clone()
                     .sub(total_value_locked_usd_old_value.clone());
 
@@ -471,22 +468,18 @@ pub fn store_totals(
                 let token_address = "TODO".to_string();
 
                 output.add_many(
-                    delta.ordinal,
+                    ord,
                     &vec![
-                        keyer::factory_total_value_locked_usd(),
-                        keyer::pool_day_data_total_value_locked_usd(&pool_address, day_id.to_string()),
-                        keyer::pool_hour_data_total_value_locked_usd(&pool_address, hour_id.to_string()),
-                        keyer::token_day_data_total_value_locked_usd(&token_address, day_id.to_string()),
-                        keyer::token_hour_data_total_value_locked_usd(&token_address, day_id.to_string()),
+                        format!("factory:totalValueLockedUSD"),
+                        format!("PoolDayData:{pool_address}:{day_id}"),
+                        format!("PoolHourData:{pool_address}:{hour_id}"),
+                        format!("TokenDayData:{token_address}:{day_id}"),
+                        format!("TokenHourData:{token_address}:{hour_id}"),
                     ],
                     &diff,
                 );
                 // same as the pool day data here, we need to add the old and the new in the other place
-                output.add(
-                    delta.ordinal,
-                    keyer::uniswap_total_value_locked_usd(day_id.to_string()),
-                    &total_value_locked_usd,
-                )
+                output.add(ord, format!("UniswapDayData:{day_id}"), &total_value_locked_usd)
             }
             _ => continue,
         }
@@ -496,8 +489,8 @@ pub fn store_totals(
 #[substreams::handlers::store]
 pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigInt) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id: i64 = timestamp_seconds / 86400;
-    let hour_id: i64 = timestamp_seconds / 3600;
+    let day_id = timestamp_seconds / 86400;
+    let hour_id = timestamp_seconds / 3600;
     let prev_day_id = day_id - 1;
     let prev_hour_id = hour_id - 1;
     let factory_addr = Hex(utils::UNISWAP_V3_FACTORY);
@@ -505,28 +498,34 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
     output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
+    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
     for event in events.pool_events {
         let pool_address = &event.pool_address;
         let token0_addr = &event.token0;
         let token1_addr = &event.token1;
 
-        let keys: Vec<String> = vec![
-            format!("pool:{pool_address}"),
-            format!("token:{token0_addr}"),
-            format!("token:{token1_addr}"),
-            format!("factory:{factory_addr}"),
-            format!("UniswapDayData:{day_id}"),
-            format!("PoolDayData:{pool_address}:{day_id}"),
-            format!("PoolHourData:{pool_address}:{hour_id}"),
-            keyer::token_day_data_tx_count(&event.token0, day_id.to_string()),
-            keyer::token_day_data_tx_count(&event.token1, day_id.to_string()),
-            keyer::token_hour_data_tx_count(&event.token0, hour_id.to_string()),
-            keyer::token_hour_data_tx_count(&event.token1, hour_id.to_string()),
-        ];
-        output.add_many(event.log_ordinal, &keys, &BigInt::from(2 as i32));
+        output.add_many(
+            event.log_ordinal,
+            &vec![
+                format!("pool:{pool_address}"),
+                format!("token:{token0_addr}"),
+                format!("token:{token1_addr}"),
+                format!("factory:{factory_addr}"),
+                format!("UniswapDayData:{day_id}"),
+                // FIXME: these won't work properly with the `delete_prefix` above..
+                // the day_id and hour_id must be in the second position,
+                // so we need to fix the readers of this store, otherwise, we'll bust memory.
+                format!("PoolDayData:{pool_address}:{day_id}"),
+                format!("PoolHourData:{pool_address}:{hour_id}"),
+                format!("TokenDayData:{token0_addr}:{day_id}"),
+                format!("TokenDayData:{token1_addr}:{day_id}"),
+                format!("TokenHourData:{token0_addr}:{hour_id}"),
+                format!("TokenHourData:{token1_addr}:{hour_id}"),
+            ],
+            &BigInt::from(2 as i32),
+        );
     }
 }
 
@@ -543,13 +542,18 @@ pub fn store_pool_fee_growth_global_x128(clock: Clock, events: Events, output: S
 
     for event in events.pool_events {
         let pool_address = event.pool_address;
+        // FIXME: still doing an RPC call here? What's that!
+        //   Should we pick up the FeeGrowth events?
         log::info!("pool address: {} trx_id:{}", pool_address, event.transaction_id);
         let (big_int_0, big_int_1) = rpc::fee_growth_global_x128_call(&pool_address);
+        // FIXME: shouldn't it be the _delta_ between the old and new that we
 
         output.set_many(
             event.log_ordinal,
             &vec![
                 format!("fee:{pool_address}:token0"),
+                // FIXME: here again, the keys must _start_ with `day_id` to support
+                //  delete prefix.  Fix the reader in tandem.
                 format!("PoolDayData:{pool_address}:token0:{day_id}"),
                 format!("PoolHourData:{pool_address}:token0:{hour_id}"),
             ],
@@ -579,9 +583,9 @@ pub fn store_native_amounts(events: Events, store: StoreSetBigDecimal) {
             pool_event.r#type.as_ref().unwrap(),
         );
         if let Some(token_amounts) = pool_event.get_amounts() {
-            let amount0: BigDecimal = token_amounts.amount0;
-            let amount1: BigDecimal = token_amounts.amount1;
-            log::info!("amount 0: {} amount 1: {}", amount0, amount1);
+            let amount0 = token_amounts.amount0;
+            let amount1 = token_amounts.amount1;
+            log::info!("amount 0: {amount0} amount 1: {amount1}");
 
             let pool_address = &pool_event.pool_address;
             let token0_addr = token_amounts.token0_addr;
@@ -624,12 +628,15 @@ pub fn store_eth_prices(
             pool_sqrt_price.pool_address,
             pool_sqrt_price.sqrt_price
         );
-        let pool = pools_store.must_get_last(&keyer::pool_key(&pool_sqrt_price.pool_address));
-        let token_0 = pool.token0.as_ref().unwrap();
-        let token_1 = pool.token1.as_ref().unwrap();
+        let pool_address = &pool_sqrt_price.pool_address;
+        let pool = pools_store.must_get_last(format!("pool:{pool_address}"));
+        let token0 = pool.token0.as_ref().unwrap();
+        let token1 = pool.token1.as_ref().unwrap();
+        let token0_addr = &token0.address;
+        let token1_addr = &token1.address;
 
-        token_0.log();
-        token_1.log();
+        token0.log();
+        token1.log();
 
         let bundle_eth_price_usd = price::get_eth_price_in_usd(&prices_store, ord);
         log::info!("bundle_eth_price_usd: {}", bundle_eth_price_usd);
@@ -637,40 +644,38 @@ pub fn store_eth_prices(
         let token0_derived_eth_price: BigDecimal = price::find_eth_per_token(
             ord,
             &pool.address,
-            &token_0.address,
+            token0_addr,
             &pools_store,
             &pool_liquidities_store,
             &tokens_whitelist_pools_store,
             &total_native_amount_store,
             &prices_store,
         );
-        log::info!(
-            "token 0 {} derived eth price: {}",
-            token_0.address,
-            token0_derived_eth_price
-        );
+        log::info!("token 0 {token0_addr} derived eth price: {token0_derived_eth_price}");
 
         let token1_derived_eth_price: BigDecimal = price::find_eth_per_token(
             ord,
             &pool.address,
-            &token_1.address,
+            token1_addr,
             &pools_store,
             &pool_liquidities_store,
             &tokens_whitelist_pools_store,
             &total_native_amount_store,
             &prices_store,
         );
-        log::info!(
-            "token 1 {} derived eth price: {}",
-            token_1.address,
-            token1_derived_eth_price
-        );
+        log::info!("token 1 {token1_addr} derived eth price: {token1_derived_eth_price}");
 
         store.set(ord, "bundle", &bundle_eth_price_usd);
-
-        store.set(ord, keyer::token_eth_price(&token_0.address), &token0_derived_eth_price);
-
-        store.set(ord, keyer::token_eth_price(&token_1.address), &token1_derived_eth_price);
+        store.set(
+            ord,
+            format!("token:{token0_addr}:dprice:eth"),
+            &token0_derived_eth_price,
+        );
+        store.set(
+            ord,
+            format!("token:{token1_addr}:dprice:eth"),
+            &token1_derived_eth_price,
+        );
     }
 }
 
@@ -684,183 +689,168 @@ pub fn store_swaps_volume(
     output: StoreAddBigDecimal,
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id: i64 = timestamp_seconds / 86400;
-    let hour_id: i64 = timestamp_seconds / 3600;
+    let day_id = timestamp_seconds / 86400;
+    let hour_id = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
 
-    output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
+    output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
+    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
     for event in events.pool_events {
         let ord = event.log_ordinal;
-        let pool: Pool = match store_pool.get_last(keyer::pool_key(&event.pool_address)) {
-            None => continue,
-            Some(pool) => pool,
-        };
-        match store_total_tx_counts.has_last(keyer::pool_total_tx_count(&event.pool_address)) {
-            false => {}
-            true => {
-                log::info!("type of pool event {:?}", event);
-                match event.r#type.unwrap() {
-                    MintEvent(_) => output.add(
-                        ord,
-                        format!("pool:{}:liquidityProviderCount", pool.address),
-                        &BigDecimal::one(),
-                    ),
-                    SwapEvent(swap) => {
-                        log::info!("transaction: {}", pool.transaction_id);
-                        let eth_price_in_usd: BigDecimal = match store_eth_prices.get_at(ord, "bundle") {
-                            None => {
-                                panic!("bundle eth price not found")
-                            }
-                            Some(price) => price,
-                        };
+        let pool_address = &event.pool_address;
+        let pool = store_pool.must_get_last(format!("pool:{pool_address}"));
+        if !store_total_tx_counts.has_last(format!("pool:{pool_address}")) {
+            continue;
+        }
 
-                        let token0_derived_eth_price: BigDecimal =
-                            match store_eth_prices.get_at(ord, keyer::token_eth_price(&event.token0)) {
-                                None => continue,
-                                Some(price) => price,
-                            };
-
-                        let token1_derived_eth_price: BigDecimal =
-                            match store_eth_prices.get_at(ord, keyer::token_eth_price(&event.token1)) {
-                                None => continue,
-                                Some(price) => price,
-                            };
-
-                        let amount0_abs = BigDecimal::try_from(swap.amount_0).unwrap().absolute();
-                        let amount1_abs = BigDecimal::try_from(swap.amount_1).unwrap().absolute();
-
-                        let volume_amounts = utils::get_adjusted_amounts(
-                            &event.token0,
-                            &event.token1,
-                            &amount0_abs,
-                            &amount1_abs,
-                            &token0_derived_eth_price,
-                            &token1_derived_eth_price,
-                            &eth_price_in_usd,
-                        );
-                        let volume_eth = volume_amounts.stable_eth.clone().div(BigDecimal::from(2 as i32));
-                        let volume_usd = volume_amounts.stable_usd.clone().div(BigDecimal::from(2 as i32));
-                        let volume_usd_untracked = volume_amounts
-                            .stable_usd_untracked
-                            .clone()
-                            .div(BigDecimal::from(2 as i32));
-
-                        let fee_tier = BigDecimal::try_from(pool.fee_tier).unwrap();
-                        let fee_eth: BigDecimal = volume_eth
-                            .clone()
-                            .mul(fee_tier.clone())
-                            .div(BigDecimal::from(1000000 as u64));
-                        let fee_usd: BigDecimal = volume_usd
-                            .clone()
-                            .mul(fee_tier.clone())
-                            .div(BigDecimal::from(1000000 as u64));
-
-                        output.add_many(
-                            ord,
-                            &vec![
-                                keyer::swap_pool_volume_token_0(&event.pool_address),
-                                keyer::swap_token_volume(&event.token0, "token0".to_string()),
-                                keyer::swap_pool_day_data_volume_token(
-                                    &event.pool_address,
-                                    day_id.to_string(),
-                                    &event.token0,
-                                    "volumeToken0".to_string(),
-                                ),
-                                keyer::swap_token_day_data_volume_token(&event.token0, day_id.to_string()),
-                                keyer::swap_pool_hour_data_volume_token(
-                                    &event.pool_address,
-                                    hour_id.to_string(),
-                                    &event.token1,
-                                    "volumeToken0".to_string(),
-                                ),
-                                keyer::swap_token_hour_data_volume_token(&event.token0, hour_id.to_string()),
-                            ],
-                            &amount0_abs,
-                        );
-                        output.add_many(
-                            ord,
-                            &vec![
-                                keyer::swap_pool_volume_token_1(&event.pool_address),
-                                keyer::swap_token_volume(&event.token1, "token1".to_string()),
-                                keyer::swap_pool_day_data_volume_token(
-                                    &event.pool_address,
-                                    day_id.to_string(),
-                                    &event.token1,
-                                    "volumeToken1".to_string(),
-                                ),
-                                keyer::swap_token_day_data_volume_token(&event.token1, day_id.to_string()),
-                                keyer::swap_pool_hour_data_volume_token(
-                                    &event.pool_address,
-                                    hour_id.to_string(),
-                                    &event.token1,
-                                    "volumeToken1".to_string(),
-                                ),
-                                keyer::swap_token_hour_data_volume_token(&event.token1, hour_id.to_string()),
-                            ],
-                            &amount1_abs,
-                        );
-                        output.add_many(
-                            ord,
-                            &vec![
-                                keyer::swap_pool_volume_usd(&event.pool_address),
-                                keyer::swap_token_volume_usd(&event.token0),
-                                keyer::swap_token_volume_usd(&event.token1),
-                                keyer::swap_factory_total_volume_usd(),
-                                keyer::swap_uniswap_day_data_volume_usd(day_id.to_string()),
-                                keyer::swap_pool_day_data_volume_usd(&event.pool_address, day_id.to_string()),
-                                keyer::swap_token_day_data_volume_usd(&event.token0, day_id.to_string()),
-                                keyer::swap_token_day_data_volume_usd(&event.token1, day_id.to_string()),
-                                keyer::swap_pool_hour_data_volume_usd(&event.pool_address, hour_id.to_string()),
-                                keyer::swap_token_hour_data_volume_usd(&event.token0, hour_id.to_string()),
-                                keyer::swap_token_hour_data_volume_usd(&event.token1, hour_id.to_string()),
-                            ],
-                            //TODO: CONFIRM EQUALS -> IN THE SUBGRAPH THIS IS THE VOLUME USD
-                            &volume_usd,
-                        );
-                        output.add_many(
-                            ord,
-                            &vec![
-                                keyer::swap_factory_untracked_volume_usd(),
-                                keyer::swap_pool_untracked_volume_usd(&event.pool_address),
-                                keyer::swap_token_volume_untracked_volume_usd(&event.token0),
-                                keyer::swap_token_volume_untracked_volume_usd(&event.token1),
-                            ],
-                            &volume_usd_untracked,
-                        );
-                        output.add_many(
-                            ord,
-                            &vec![
-                                keyer::swap_factory_total_volume_eth(),
-                                keyer::swap_uniswap_day_data_volume_eth(day_id.to_string()),
-                            ],
-                            &volume_eth.clone(),
-                        );
-                        output.add_many(
-                            ord,
-                            &vec![
-                                keyer::swap_pool_fee_usd(&event.pool_address),
-                                keyer::swap_token_fee_usd(&event.token0),
-                                keyer::swap_token_fee_usd(&event.token1),
-                                keyer::swap_factory_total_fees_usd(),
-                                keyer::swap_uniswap_day_data_fees_usd(day_id.to_string()),
-                                keyer::swap_pool_day_data_fees_usd(&event.pool_address, day_id.to_string()),
-                                keyer::swap_token_day_data_fees_usd(&event.token0, day_id.to_string()),
-                                keyer::swap_token_day_data_fees_usd(&event.token1, day_id.to_string()),
-                                keyer::swap_pool_hour_data_fees_usd(&event.pool_address, hour_id.to_string()),
-                                keyer::swap_token_hour_data_fees_usd(&event.token0, hour_id.to_string()),
-                                keyer::swap_token_hour_data_fees_usd(&event.token1, hour_id.to_string()),
-                            ],
-                            &fee_usd,
-                        );
-                        output.add(ord, keyer::swap_factory_total_fees_eth(), &fee_eth);
+        let token0_addr = &event.token0;
+        let token1_addr = &event.token1;
+        log::info!("type of pool event {:?}", event);
+        match event.r#type.unwrap() {
+            MintEvent(_) => output.add(
+                ord,
+                format!("pool:{pool_address}:liquidityProviderCount"),
+                &BigDecimal::one(),
+            ),
+            SwapEvent(swap) => {
+                log::info!("transaction: {}", pool.transaction_id);
+                let eth_price_in_usd: BigDecimal = match store_eth_prices.get_at(ord, "bundle") {
+                    None => {
+                        panic!("bundle eth price not found")
                     }
-                    _ => {}
-                }
+                    Some(price) => price,
+                };
+
+                let token0_derived_eth_price =
+                    match store_eth_prices.get_at(ord, format!("token:{token0_addr}:dprice:eth")) {
+                        None => continue,
+                        Some(price) => price,
+                    };
+
+                let token1_derived_eth_price =
+                    match store_eth_prices.get_at(ord, format!("token:{token1_addr}:dprice:eth")) {
+                        None => continue,
+                        Some(price) => price,
+                    };
+
+                let amount0_abs = BigDecimal::try_from(swap.amount_0).unwrap().absolute();
+                let amount1_abs = BigDecimal::try_from(swap.amount_1).unwrap().absolute();
+
+                let volume_amounts = utils::get_adjusted_amounts(
+                    token0_addr,
+                    token1_addr,
+                    &amount0_abs,
+                    &amount1_abs,
+                    &token0_derived_eth_price,
+                    &token1_derived_eth_price,
+                    &eth_price_in_usd,
+                );
+                let volume_eth = volume_amounts.stable_eth.clone().div(BigDecimal::from(2 as i32));
+                let volume_usd = volume_amounts.stable_usd.clone().div(BigDecimal::from(2 as i32));
+                let volume_usd_untracked = volume_amounts
+                    .stable_usd_untracked
+                    .clone()
+                    .div(BigDecimal::from(2 as i32));
+
+                let fee_tier = BigDecimal::try_from(pool.fee_tier).unwrap();
+                let fee_eth: BigDecimal = volume_eth
+                    .clone()
+                    .mul(fee_tier.clone())
+                    .div(BigDecimal::from(1000000 as u64));
+                let fee_usd: BigDecimal = volume_usd
+                    .clone()
+                    .mul(fee_tier.clone())
+                    .div(BigDecimal::from(1000000 as u64));
+
+                output.add_many(
+                    ord,
+                    &vec![
+                        format!("pool:{pool_address}:volumeToken0"),
+                        // FIXME: why compute volumes only for one size of the tokens?!  We should compute them for both sides no?
+                        //  Does it really matter which side the volume comes from?
+                        format!("token:{token0_addr}:token0"),
+                        // FIXME: here again, `day_id` and stuff needs to be next after the first segment
+                        //  otherwise the `delete prefix` calls above won't do anything. Fix reading code in tandem.
+                        format!("PoolDayData:{pool_address}:{day_id}:{token0_addr}:volumeToken0"),
+                        format!("TokenDayData:{token0_addr}:{day_id}:volume"),
+                        format!("PoolHourData:{pool_address}:{hour_id}:{token0_addr}:volumeToken0"),
+                        format!("TokenHourData:{token0_addr}:{hour_id}:volume"),
+                    ],
+                    &amount0_abs,
+                );
+                output.add_many(
+                    ord,
+                    &vec![
+                        format!("pool:{pool_address}:volumeToken1"),
+                        format!("token:{token1_addr}:token1"),
+                        format!("PoolDayData:{pool_address}:{day_id}:{token1_addr}:volumeToken1"),
+                        format!("TokenDayData:{token1_addr}:{day_id}:volume"),
+                        format!("PoolHourData:{pool_address}:{hour_id}:{token1_addr}:volumeToken1"),
+                        format!("TokenHourData:{token1_addr}:{hour_id}:volume"),
+                    ],
+                    &amount1_abs,
+                );
+                output.add_many(
+                    ord,
+                    &vec![
+                        format!("pool:{pool_address}:volumeUSD"),
+                        format!("token:{token0_addr}:volume:usd"),
+                        format!("token:{token1_addr}:volume:usd"),
+                        format!("factory:totalVolumeUSD"),
+                        format!("UniswapDayData:{day_id}:volumeUSD"),
+                        format!("PoolDayData:{pool_address}:{day_id}:volumeUSD"),
+                        format!("TokenDayData:{token0_addr}:{day_id}:volumeUSD"),
+                        format!("TokenDayData:{token1_addr}:{day_id}:volumeUSD"),
+                        format!("PoolHourData:{pool_address}:{hour_id}:volumeUSD"),
+                        format!("TokenHourData:{token0_addr}:{hour_id}:volumeUSD"),
+                        format!("TokenHourData:{token1_addr}:{hour_id}:volumeUSD"),
+                    ],
+                    //TODO: CONFIRM EQUALS -> IN THE SUBGRAPH THIS IS THE VOLUME USD
+                    &volume_usd,
+                );
+                output.add_many(
+                    ord,
+                    &vec![
+                        format!("factory:untrackedVolumeUSD"),
+                        format!("pool:{pool_address}:volumeUntrackedUSD"),
+                        format!("token:{token0_addr}:volume:untrackedUSD"),
+                        format!("token:{token1_addr}:volume:untrackedUSD"),
+                    ],
+                    &volume_usd_untracked,
+                );
+                output.add_many(
+                    ord,
+                    &vec![
+                        format!("factory:totalVolumeETH"),
+                        format!("UniswapDayData:{day_id}:volumeETH"),
+                    ],
+                    &volume_eth.clone(),
+                );
+                output.add_many(
+                    ord,
+                    &vec![
+                        format!("pool:{pool_address}:feesUSD"),
+                        format!("token:{token0_addr}:feesUSD"),
+                        format!("token:{token1_addr}:feesUSD"),
+                        format!("factory:totalFeesUSD"),
+                        format!("UniswapDayData:{day_id}:feesUSD"),
+                        format!("PoolDayData:{pool_address}:{day_id}:feesUSD"),
+                        format!("TokenDayData:{token0_addr}:{day_id}:feesUSD"),
+                        format!("TokenDayData:{token1_addr}:{day_id}:feesUSD"),
+                        format!("PoolHourData:{pool_address}:{hour_id}:feesUSD"),
+                        format!("TokenHourData:{token0_addr}:{hour_id}:feesUSD"),
+                        format!("TokenHourData:{token1_addr}:{hour_id}:feesUSD"),
+                    ],
+                    &fee_usd,
+                );
+                output.add(ord, format!("factory:totalFeesETH"), &fee_eth);
             }
+            _ => {}
         }
     }
 }
@@ -875,6 +865,8 @@ pub fn store_token_tvl(clock: Clock, events: Events, output: StoreAddBigDecimal)
 
     log::info!("hour_id {}", hour_id);
 
+    // FIXME: again, fix the `day_id` and `hour_id` not being the second segment
+    //  in the keys being set down here.
     output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
@@ -920,15 +912,18 @@ pub fn store_derived_tvl(
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
 
-    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
+    // output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
+    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
     for pool_event in events.pool_events {
         let ord = pool_event.log_ordinal;
-        let eth_price_usd: BigDecimal = match &eth_prices_store.get_at(ord, "bundle") {
+        let eth_price_usd = match &eth_prices_store.get_at(ord, "bundle") {
             None => continue,
             Some(price) => price.with_prec(100),
         };
@@ -1044,43 +1039,24 @@ pub fn store_derived_factory_tvl(
     let day_id: i64 = timestamp_seconds / 86400;
     output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
 
-    for delta in derived_tvl_deltas.deltas {
-        if key::first_segment(&delta.key) == "pool" {
-            log::info!("stats with pool:");
-            if key::last_segment(&delta.key) == "eth" {
-                output.add(
-                    delta.ordinal,
-                    &format!("factory:totalValueLockedETH"),
-                    calculate_diff(&delta),
-                );
-            }
+    for delta in key::filter_first_segment_eq(&derived_tvl_deltas, "pool") {
+        let delta_diff = &calculate_diff(&delta);
+        let ord = delta.ordinal;
 
-            if utils::extract_item_from_key_last_item(&delta.key).eq("ethUntracked") {
-                output.add(
-                    delta.ordinal,
-                    &format!("factory:totalValueLockedETHUntracked"),
-                    calculate_diff(&delta),
-                );
-            }
-
-            if utils::extract_item_from_key_last_item(&delta.key).eq("usd") {
-                output.add_many(
-                    delta.ordinal,
-                    &vec![
-                        format!("factory:totalValueLockedUSD"),
-                        format!("{}:totalValueLockedUSD:{}", keyer::UNISWAP_DAY_DATA, day_id.to_string()),
-                    ],
-                    calculate_diff(&delta),
-                );
-            }
-
-            if utils::extract_item_from_key_last_item(&delta.key).eq("usdUntracked") {
-                output.add(
-                    delta.ordinal,
-                    &format!("factory:totalValueLockedUSDUntracked"),
-                    calculate_diff(&delta),
-                );
-            }
+        match key::last_segment(&delta.key) {
+            "eth" => output.add(ord, &format!("factory:totalValueLockedETH"), delta_diff),
+            "ethUntracked" => output.add(ord, &format!("factory:totalValueLockedETHUntracked"), delta_diff),
+            "usd" => output.add_many(
+                ord,
+                &vec![
+                    format!("factory:totalValueLockedUSD"),
+                    // FIXME: fix the placement of `day_id` again. Fix reader in tandem.
+                    format!("UniswapDayData:totalValueLockedUSD:{day_id}"),
+                ],
+                delta_diff,
+            ),
+            "usdUntracked" => output.add(ord, &format!("factory:totalValueLockedUSDUntracked"), delta_diff),
+            _ => {}
         }
     }
 }

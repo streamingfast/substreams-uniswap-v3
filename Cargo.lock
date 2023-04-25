@@ -894,7 +894,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "substreams"
 version = "0.5.6"
-source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#a95c9aac5d92605faee99c43819556373b19fb5d"
+source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#f41d0069af0a8428c6fd649e9e1845034fae5763"
 dependencies = [
  "anyhow",
  "bigdecimal",
@@ -914,7 +914,7 @@ dependencies = [
 [[package]]
 name = "substreams-entity-change"
 version = "1.0.0"
-source = "git+https://github.com/streamingfast/substreams-entity-change/?branch=develop#1bbb4f859f42fdba5fbdaf1429cc4af69610fa71"
+source = "git+https://github.com/streamingfast/substreams-entity-change/?branch=develop#8f8282ffa9c7fee69610302c93aedc5f156af419"
 dependencies = [
  "base64",
  "prost",
@@ -925,7 +925,7 @@ dependencies = [
 [[package]]
 name = "substreams-ethereum"
 version = "0.9.1"
-source = "git+https://github.com/streamingfast/substreams-ethereum#8e012a127003a3c020efb5f185ea417ae3f2a405"
+source = "git+https://github.com/streamingfast/substreams-ethereum#531fc345f7099aa111aebbeb3ff584be0ea0b622"
 dependencies = [
  "getrandom",
  "num-bigint",
@@ -938,7 +938,7 @@ dependencies = [
 [[package]]
 name = "substreams-ethereum-abigen"
 version = "0.9.1"
-source = "git+https://github.com/streamingfast/substreams-ethereum#8e012a127003a3c020efb5f185ea417ae3f2a405"
+source = "git+https://github.com/streamingfast/substreams-ethereum#531fc345f7099aa111aebbeb3ff584be0ea0b622"
 dependencies = [
  "anyhow",
  "ethabi",
@@ -954,7 +954,7 @@ dependencies = [
 [[package]]
 name = "substreams-ethereum-core"
 version = "0.9.1"
-source = "git+https://github.com/streamingfast/substreams-ethereum#8e012a127003a3c020efb5f185ea417ae3f2a405"
+source = "git+https://github.com/streamingfast/substreams-ethereum#531fc345f7099aa111aebbeb3ff584be0ea0b622"
 dependencies = [
  "bigdecimal",
  "ethabi",
@@ -969,7 +969,7 @@ dependencies = [
 [[package]]
 name = "substreams-ethereum-derive"
 version = "0.9.1"
-source = "git+https://github.com/streamingfast/substreams-ethereum#8e012a127003a3c020efb5f185ea417ae3f2a405"
+source = "git+https://github.com/streamingfast/substreams-ethereum#531fc345f7099aa111aebbeb3ff584be0ea0b622"
 dependencies = [
  "ethabi",
  "heck",
@@ -984,7 +984,7 @@ dependencies = [
 [[package]]
 name = "substreams-macro"
 version = "0.5.6"
-source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#a95c9aac5d92605faee99c43819556373b19fb5d"
+source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#f41d0069af0a8428c6fd649e9e1845034fae5763"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -495,31 +495,19 @@ fn extract_positions(
     }
 }
 
-pub fn extract_flashes(
-    flashes: &mut Vec<events::Flash>,
-    log: &Log,
-    pools_store: &StoreGetProto<Pool>,
-    pool_key: &String,
-) {
+pub fn extract_flashes(flashes: &mut Vec<events::Flash>, log: &Log, pool: &Pool) {
     if abi::pool::events::Flash::match_log(&log) {
         let pool_address: String = Hex(&log.address).to_string();
 
-        match pools_store.has_last(pool_key) {
-            true => {
-                log::info!("pool_address: {}", pool_address);
-                let (fee_growth_global_0x_128, fee_growth_global_1x_128) =
-                    rpc::fee_growth_global_x128_call(&pool_address);
+        // FIXME: kill those `rpc` calls here!
+        log::info!("pool_address: {}", pool_address);
+        let (fee_growth_global_0x_128, fee_growth_global_1x_128) = rpc::fee_growth_global_x128_call(&pool_address);
 
-                flashes.push(events::Flash {
-                    pool_address,
-                    fee_growth_global_0x_128: fee_growth_global_0x_128.to_string(),
-                    fee_growth_global_1x_128: fee_growth_global_1x_128.to_string(),
-                    log_ordinal: log.ordinal,
-                });
-            }
-            false => {
-                panic!("pool {} not found for flash", pool_address)
-            }
-        }
+        flashes.push(events::Flash {
+            pool_address,
+            fee_growth_global_0x_128: fee_growth_global_0x_128.to_string(),
+            fee_growth_global_1x_128: fee_growth_global_1x_128.to_string(),
+            log_ordinal: log.ordinal,
+        });
     }
 }

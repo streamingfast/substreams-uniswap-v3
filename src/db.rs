@@ -41,7 +41,6 @@ pub fn bundle_store_eth_price_usd_bundle_entity_change(tables: &mut Tables, delt
 pub fn factory_created_factory_entity_change(tables: &mut Tables) {
     let id = "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string();
 
-
     let bigint0 = BigInt::zero();
     let bigdecimal0 = BigDecimal::zero();
     tables
@@ -180,7 +179,8 @@ pub fn liquidities_pool_entity_change(tables: &mut Tables, deltas: &Deltas<Delta
 
 pub fn fee_growth_global_pool_entity_change(tables: &mut Tables, updates: Vec<events::FeeGrowthGlobal>) {
     for update in updates {
-        let row = tables.update_row("Pool", &format!("0x{}", update.pool_address.as_str()));
+        let pool_address = &update.pool_address;
+        let row = tables.update_row("Pool", &format!("0x{pool_address}"));
         if update.token_idx == 0 {
             // TODO: rather check if `update.new_value.len() != 0` ?
             row.set_bigint("feeGrowthGlobal0X128", &update.new_value);
@@ -192,8 +192,8 @@ pub fn fee_growth_global_pool_entity_change(tables: &mut Tables, updates: Vec<ev
 
 pub fn total_value_locked_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "pool") {
-        let pool_address = extract_item_from_key_at_position(&delta.key, 1);
-        let name = match extract_item_from_key_last_item(&delta.key).as_str() {
+        let pool_address = key::segment(&delta.key, 1);
+        let field_name = match key::last_segment(&delta.key) {
             "usd" => "totalValueLockedUSD",
             "eth" => "totalValueLockedETH",
             "usdUntracked" => "totalValueLockedUSDUntracked",
@@ -202,32 +202,28 @@ pub fn total_value_locked_pool_entity_change(tables: &mut Tables, deltas: &Delta
         };
 
         tables
-            .update_row("Pool", &format!("0x{}", pool_address.as_str()))
-            .set(name, &delta.new_value);
+            .update_row("Pool", &format!("0x{pool_address}"))
+            .set(field_name, &delta.new_value);
     }
 }
 
 pub fn total_value_locked_by_token_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "pool") {
-        let pool_address = extract_item_from_key_at_position(&delta.key, 1);
-        let name = match extract_item_from_key_last_item(&delta.key).as_str() {
+        let pool_address = key::segment(&delta.key, 1);
+        let field_name = match key::last_segment(&delta.key) {
             "token0" => "totalValueLockedToken0",
             "token1" => "totalValueLockedToken1",
             _ => continue,
         };
 
         tables
-            .update_row("Pool", &format!("0x{}", pool_address.as_str()))
-            .set(name, &delta.new_value);
+            .update_row("Pool", &format!("0x{pool_address}"))
+            .set(field_name, &delta.new_value);
     }
 }
 
 pub fn fee_growth_global_x128_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with("pool:") {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "pool") {
         let pool_address = key::segment(&delta.key, 1);
         let name = match key::last_segment(&delta.key) {
             "token0" => "feeGrowthGlobal0X128",
@@ -242,11 +238,7 @@ pub fn fee_growth_global_x128_pool_entity_change(tables: &mut Tables, deltas: &D
 }
 
 pub fn price_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if key::first_segment(&delta.key) != "pool" {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "pool") {
         let pool_address = key::segment(&delta.key, 1);
         let name: &str = match key::last_segment(&delta.key) {
             "token0" => "token0Price",
@@ -261,11 +253,7 @@ pub fn price_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDec
 }
 
 pub fn tx_count_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in &deltas.deltas {
-        if key::first_segment(&delta.key) != "pool" {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "pool") {
         let pool_address = key::segment(&delta.key, 1);
         tables
             .update_row("Pool", &format!("0x{pool_address}"))
@@ -274,11 +262,7 @@ pub fn tx_count_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBig
 }
 
 pub fn swap_volume_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in &deltas.deltas {
-        if key::first_segment(&delta.key) != "pool" {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "pool") {
         let pool_address = key::segment(&delta.key, 1);
         let field_name = match key::last_segment(&delta.key) {
             "volumeToken0" => "volumeToken0",
@@ -290,16 +274,16 @@ pub fn swap_volume_pool_entity_change(tables: &mut Tables, deltas: &Deltas<Delta
             _ => continue,
         };
 
-        if name.eq("liquidityProviderCount") {
+        if field_name == "liquidityProviderCount" {
             tables
-                .update_row("Pool", &format!("0x{}", pool_address.as_str()))
+                .update_row("Pool", &format!("0x{pool_address}"))
                 .set("liquidityProviderCount", &delta.new_value.to_bigint());
-            return;
+            continue;
+        } else {
+            tables
+                .update_row("Pool", &format!("0x{pool_address}"))
+                .set(field_name, &delta.new_value);
         }
-
-        tables
-            .update_row("Pool", &format!("0x{pool_address}"))
-            .set(field_name, &delta.new_value);
     }
 }
 
@@ -319,7 +303,7 @@ pub fn tokens_created_token_entity_change(tables: &mut Tables, pools: &Pools, to
                 }
             }
             None => {
-                panic!("pool contains token that doesn't exist {pool_address}")
+                panic!("pool contains token that doesn't exist {}", pool_address.as_str())
             }
         }
 
@@ -330,18 +314,14 @@ pub fn tokens_created_token_entity_change(tables: &mut Tables, pools: &Pools, to
                 }
             }
             None => {
-                panic!("pool contains token that doesn't exist {pool_address}")
+                panic!("pool contains token that doesn't exist {}", pool_address.as_str())
             }
         }
     }
 }
 
 pub fn swap_volume_token_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if key::first_segment(&delta.key) != "token" {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "token") {
         let token_address = key::segment(&delta.key, 1);
         let field_name: &str = match key::last_segment(&delta.key) {
             "token0" | "token1" => "volume",
@@ -358,11 +338,7 @@ pub fn swap_volume_token_entity_change(tables: &mut Tables, deltas: &Deltas<Delt
 }
 
 pub fn tx_count_token_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if key::first_segment(&delta.key) != "token" {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "token") {
         log::info!("delta key {}", delta.key);
         let token_address = key::segment(&delta.key, 1);
 
@@ -373,11 +349,7 @@ pub fn tx_count_token_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBi
 }
 
 pub fn total_value_locked_by_token_token_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in &deltas.deltas {
-        if key::first_segment(&delta.key) != "token" {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "token") {
         let token_address = key::last_segment(&delta.key);
 
         tables
@@ -387,11 +359,7 @@ pub fn total_value_locked_by_token_token_entity_change(tables: &mut Tables, delt
 }
 
 pub fn total_value_locked_usd_token_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if key::first_segment(&delta.key) != "token" {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "token") {
         let token_address = key::segment(&delta.key, 1);
         let name = match key::last_segment(&delta.key) {
             "usd" => "totalValueLockedUSD",
@@ -405,14 +373,7 @@ pub fn total_value_locked_usd_token_entity_change(tables: &mut Tables, deltas: &
 }
 
 pub fn derived_eth_prices_token_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in &deltas.deltas {
-        log::info!("delta.key {:?}", delta.key);
-        log::info!("delta.old_value {:?}", delta.old_value);
-        log::info!("delta.new_value {:?}", delta.new_value);
-        if key::first_segment(&delta.key) != "token" {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "token") {
         let token_address = key::segment(&delta.key, 1);
         let field_name: &str = match key::last_segment(&delta.key) {
             "eth" => "derivedETH",
@@ -569,22 +530,22 @@ pub fn increase_liquidity_position_entity_change(
     positions: &Vec<events::IncreaseLiquidityPosition>,
 ) {
     for position in positions {
-        let token_id = position.token_id.clone();
+        let token_id = &position.token_id;
         tables
-            .update_row("Position", &token_id)
+            .update_row("Position", token_id)
             .set("liquidity", BigInt::try_from(&position.liquidity).unwrap())
             .set_bigdecimal("depositedToken0", &position.deposited_token0)
             .set_bigdecimal("depositedToken1", &position.deposited_token1);
 
         if let Some(fee_growth_inside0_last_x128) = &position.fee_growth_inside0_last_x128 {
             tables
-                .update_row("Position", &token_id)
+                .update_row("Position", token_id)
                 .set_bigint("feeGrowthInside0LastX128", fee_growth_inside0_last_x128);
         }
 
         if let Some(fee_growth_inside1_last_x128) = &position.fee_growth_inside1_last_x128 {
             tables
-                .update_row("Position", &token_id)
+                .update_row("Position", token_id)
                 .set_bigint("feeGrowthInside1LastX128", fee_growth_inside1_last_x128);
         }
     }
@@ -810,23 +771,24 @@ pub fn swaps_mints_burns_created_entity_change(
 
         if event.r#type.is_some() {
             let pool_address = &event.pool_address;
-            let transaction_count: i32 = match tx_count_store.get_at(ord, format!("pool:{pool_address}")) {
-                Some(data) => data.to_u64() as i32,
-                None => 0,
-            };
+            let transaction_count: i32 = tx_count_store
+                .get_at(ord, format!("pool:{pool_address}"))
+                .unwrap_or_default()
+                .to_u64() as i32;
 
-            let trx_id = &event.transaction_id;
-            let transaction_id: String = format!("0x{trx_id}#{transaction_count}");
+            let transaction_id = &event.transaction_id;
+            let event_primary_key: String = format!("0x{transaction_id}#{transaction_count}");
 
             // initializePool has occurred beforehand so there should always be a price
-            // maybe just ? instead of returning 1 and bubble up the error if there is one            let token0_derived_eth_price = store_eth_prices
-                .get_at(ord, format!("token:{token0_addr}:dprice:eth")) // keyer::token_eth_price(&event.token0))
+            // maybe just ? instead of returning 1 and bubble up the error if there is one
+            let token0_derived_eth_price = store_eth_prices
+                .get_at(ord, format!("token:{token0_addr}:dprice:eth"))
                 .unwrap_or_default();
             let token1_derived_eth_price = store_eth_prices
                 .get_at(ord, format!("token:{token1_addr}:dprice:eth"))
                 .unwrap_or_default();
 
-            let bundle_eth_price =  store_eth_prices.get_at(ord, "bundle").unwrap_or_default();
+            let bundle_eth_price = store_eth_prices.get_at(ord, "bundle").unwrap_or_default();
 
             return match event.r#type.unwrap() {
                 SwapEvent(swap) => {
@@ -848,8 +810,8 @@ pub fn swaps_mints_burns_created_entity_change(
                     .div(BigDecimal::from(2 as i32));
 
                     tables
-                        .create_row("Swap", &transaction_id)
-                        .set("transaction", format!("0x{}", event.transaction_id))
+                        .create_row("Swap", &event_primary_key)
+                        .set("transaction", format!("0x{transaction_id}"))
                         .set("timestamp", event.timestamp)
                         .set("pool", format!("0x{pool_address}"))
                         .set("token0", format!("0x{}", event.token0))
@@ -878,8 +840,8 @@ pub fn swaps_mints_burns_created_entity_change(
                     );
 
                     tables
-                        .create_row("Mint", transaction_id.clone().as_str())
-                        .set("transaction", format!("0x{}", event.transaction_id))
+                        .create_row("Mint", event_primary_key)
+                        .set("transaction", format!("0x{transaction_id}"))
                         .set("timestamp", event.timestamp)
                         .set("pool", format!("0x{pool_address}"))
                         .set("token0", format!("0x{}", event.token0))
@@ -907,8 +869,8 @@ pub fn swaps_mints_burns_created_entity_change(
                         &bundle_eth_price,
                     );
                     tables
-                        .update_row("Burn", &transaction_id)
-                        .set("transaction", format!("0x{}", event.transaction_id))
+                        .update_row("Burn", &event_primary_key)
+                        .set("transaction", format!("0x{transaction_id}"))
                         .set("pool", format!("0x{pool_address}"))
                         .set("token0", format!("0x{}", event.token0))
                         .set("token1", format!("0x{}", event.token1))
@@ -1453,7 +1415,7 @@ fn create_token_day_data(tables: &mut Tables, token_day_data_id: &String, day_st
     tables
         .update_row(TOKEN_DAY_DATA, token_day_data_id)
         .set("date", day_start_timestamp)
-        .set("token", format!("0x{}",token_addr.to_string()))
+        .set("token", format!("0x{}", token_addr.to_string()))
         .set("volume", BigDecimal::zero())
         .set("volumeUSD", BigDecimal::zero())
         .set("volumeUSDUntracked", BigDecimal::zero()) // TODO: NEED TO SET THIS VALUE IN THE SUBSTREAMS
@@ -1557,7 +1519,7 @@ fn create_token_hour_data(tables: &mut Tables, token_hour_data_id: &String, hour
     tables
         .update_row(TOKEN_HOUR_DATA, token_hour_data_id)
         .set("periodStartUnix", hours_start_unix)
-        .set("token", format!("0x{}",token_addr.to_string()))
+        .set("token", format!("0x{}", token_addr.to_string()))
         .set("volume", BigDecimal::zero())
         .set("volumeUSD", BigDecimal::zero())
         .set("volumeUSDUntracked", BigDecimal::zero()) // TODO: NEED TO SET THIS VALUE IN THE SUBSTREAMS
