@@ -878,7 +878,7 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("pool", format!("0x{}", event.pool_address))
                         .set("token0", format!("0x{}", event.token0))
                         .set("token1", format!("0x{}", event.token1))
-                        .set("sender", &swap.sender.into_bytes())
+                        .set("sender", format!("0x{}", swap.sender))
                         .set("recipient", &swap.recipient.into_bytes())
                         .set("origin", &swap.origin.into_bytes())
                         .set("amount0", &amount0)
