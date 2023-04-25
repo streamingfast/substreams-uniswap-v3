@@ -19,7 +19,6 @@ use crate::ethpb::v2::{Block, StorageChange};
 use crate::pb::uniswap;
 use crate::pb::uniswap::events::pool_event::Type;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
-use crate::pb::uniswap::events::PoolSqrtPrice;
 use crate::pb::uniswap::{events, Events, SnapshotPosition, SnapshotPositions};
 use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, Pools};
 use crate::price::WHITELIST_TOKENS;
@@ -99,18 +98,8 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
 #[substreams::handlers::store]
 pub fn store_pools(pools: Pools, store: StoreSetProto<Pool>) {
     for pool in pools.pools {
-        store.set_many(
-            pool.log_ordinal,
-            &vec![
-                keyer::pool_key(&pool.address),
-                keyer::pool_token_index_key(
-                    &pool.token0_ref().address(),
-                    &pool.token1_ref().address(),
-                    &pool.fee_tier,
-                ),
-            ],
-            &pool,
-        );
+        let pool_address = &pool.address;
+        store.set(pool.log_ordinal, format!("pool:{pool_address}"), &pool);
     }
 }
 
@@ -261,7 +250,7 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_sqrt_price(clock: Clock, events: Events, store: StoreSetProto<PoolSqrtPrice>) {
+pub fn store_pool_sqrt_price(clock: Clock, events: Events, store: StoreSetProto<events::PoolSqrtPrice>) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
@@ -524,7 +513,7 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
                 format!("TokenHourData:{token0_addr}:{hour_id}"),
                 format!("TokenHourData:{token1_addr}:{hour_id}"),
             ],
-            &BigInt::from(2 as i32),
+            &BigInt::from(1 as i32),
         );
     }
 }
@@ -1119,7 +1108,7 @@ pub fn graph_out(
     derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,  /* store_eth_prices */
     events: Events,                                      /* map_extract_data_types */
     pools_created: Pools,                                /* map_pools_created */
-    pool_sqrt_price_deltas: Deltas<DeltaProto<PoolSqrtPrice>>, /* store_pool_sqrt_price */
+    pool_sqrt_price_deltas: Deltas<DeltaProto<events::PoolSqrtPrice>>, /* store_pool_sqrt_price */
     pool_liquidities_store_deltas: Deltas<DeltaBigInt>,  /* store_pool_liquidities */
     token_tvl_deltas: Deltas<DeltaBigDecimal>,           /* store_token_tvl */
     pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
@@ -1214,25 +1203,22 @@ pub fn graph_out(
     db::totals_uniswap_day_data_entity_change(&mut tables, &derived_factory_tvl_deltas);
     db::volumes_uniswap_day_data_entity_change(&mut tables, &swaps_volume_deltas);
 
-    // Pool Day data:
-    db::pool_day_data_create_entity_change(&mut tables, &tx_count_deltas);
-    db::tx_count_pool_day_data_entity_change(&mut tables, &tx_count_deltas);
-    db::liquidities_pool_day_data_entity_change(&mut tables, &pool_liquidities_store_deltas);
-    db::sqrt_price_and_tick_pool_day_data_entity_change(&mut tables, &pool_sqrt_price_deltas);
+    // Pool Hour data:
+    db::pool_day_data_create(&mut tables, &tx_count_deltas);
+    db::pool_hour_data_create(&mut tables, &tx_count_deltas);
     db::swap_volume_pool_day_data_entity_change(&mut tables, &swaps_volume_deltas);
+    db::swap_volume_pool_hour_data(&mut tables, &swaps_volume_deltas);
+    db::token_prices_pool_hour_data(&mut tables, &price_deltas);
     db::token_prices_pool_day_data_entity_change(&mut tables, &price_deltas);
     db::fee_growth_global_x128_pool_day_data_entity_change(&mut tables, &pool_fee_growth_global_x128_deltas);
+    db::fee_growth_global_x128_pool_hour_data(&mut tables, &pool_fee_growth_global_x128_deltas);
     db::total_value_locked_usd_pool_day_data_entity_change(&mut tables, &derived_tvl_deltas);
+    db::total_value_locked_usd_pool_hour_data(&mut tables, &derived_tvl_deltas);
 
-    // Pool Hour data:
-    db::pool_hour_data_create_entity_change(&mut tables, &tx_count_deltas);
-    db::tx_count_pool_hour_data_entity_change(&mut tables, &tx_count_deltas);
-    db::liquidities_pool_hour_data_entity_change(&mut tables, &pool_liquidities_store_deltas);
-    db::sqrt_price_and_tick_pool_hour_data_entity_change(&mut tables, &pool_sqrt_price_deltas);
-    db::swap_volume_pool_hour_data_entity_change(&mut tables, &swaps_volume_deltas);
-    db::token_prices_pool_hour_data_entity_change(&mut tables, &price_deltas);
-    db::fee_growth_global_x128_pool_hour_data_entity_change(&mut tables, &pool_fee_growth_global_x128_deltas);
-    db::total_value_locked_usd_pool_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
+    // Pool data:
+    db::liquidities_pool_data(&mut tables, &pool_liquidities_store_deltas);
+    db::sqrt_price_and_tick_pool_data(&mut tables, &pool_sqrt_price_deltas);
+    db::tx_count_pool_data(&mut tables, &tx_count_deltas);
 
     // Token Day data:
     db::token_day_data_create_entity_change(&mut tables, &tx_count_deltas);

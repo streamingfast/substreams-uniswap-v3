@@ -13,16 +13,13 @@
 
 use substreams::store::{Deltas, GetKey};
 
-pub fn filter_first_segment_eq<'a, T: GetKey + Clone>(deltas: &'a Deltas<T>, val: &str) -> Vec<&'a T> {
+pub fn filter_first_segment_eq<'a, T: GetKey>(deltas: &'a Deltas<T>, val: &str) -> Vec<&'a T> {
     let mut out: Vec<&T> = vec![];
     deltas
         .deltas
         .iter()
         .filter(|delta| first_segment(delta.get_key()) == val)
-        .for_each(|delta| {
-            //let value = delta.clone();
-            out.push(delta)
-        });
+        .for_each(|delta| out.push(delta));
     out
 }
 

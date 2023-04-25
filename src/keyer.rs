@@ -37,13 +37,6 @@ pub fn token_hour_data_token_key(token_address: &String, hour_id: String) -> Str
     format!("{}:{}:{}", TOKEN_HOUR_DATA, token_address, hour_id)
 }
 
-pub fn generate_tokens_key(token0: &str, token1: &str) -> String {
-    if token0 > token1 {
-        return format!("{}:{}", token1, token0);
-    }
-    return format!("{}:{}", token0, token1);
-}
-
 // ------------------------------------------------
 //      store_tokens_whitelist_pools
 // ------------------------------------------------

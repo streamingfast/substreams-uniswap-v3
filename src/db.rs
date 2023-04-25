@@ -943,7 +943,6 @@ pub fn totals_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Delta
             .set("totalValueLockedUSD", &delta.new_value);
     }
 }
-
 pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "UniswapDayData") {
         let day_id = key::segment(&delta.key, 1);
@@ -981,78 +980,110 @@ fn create_uniswap_day_data(tables: &mut Tables, day_id: i64, day_start_timestamp
         .set("txCount", &delta.new_value);
 }
 
-// --------------------
-//  Map Pool Day Data Entities
-// --------------------
-pub fn pool_day_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if key::first_segment(&delta.key) != "PoolDayData" || delta.new_value.ne(&BigInt::one()) {
+pub fn pool_day_data_create(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        if delta.new_value.ne(&BigInt::one()) {
             continue;
         }
-        let day_id = utils::extract_last_item_time_id_as_i64(&delta.key);
+        let day_id = key::last_segment(&delta.key).parse::<i64>().unwrap();
         let day_start_timestamp = (day_id * 86400) as i32;
-        let pool_address = utils::extract_at_position_pool_address_as_str(&delta.key, 1);
-
-        let pool_day_data_id = utils::pool_time_data_id(pool_address, day_id.to_string().as_str()).to_string();
+        let pool_address = key::segment(&delta.key, 1);
+        let pool_day_data_id = format!("0x{pool_address}-{day_id}");
 
         create_pool_day_data(tables, &pool_day_data_id, day_start_timestamp, pool_address, &delta);
     }
 }
-
-pub fn tx_count_pool_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
-        utils::update_tx_count_pool_entity_change(tables, POOL_DAY_DATA, delta);
-    }
-    for delta in deltas
-        .deltas
-        .iter()
-        .filter(|d| key::first_segment(&d.key) == "PoolDayData")
-    {}
+fn create_pool_day_data(
+    tables: &mut Tables,
+    pool_day_data_id: &String,
+    day_start_timestamp: i32,
+    pool_addr: &str,
+    delta: &DeltaBigInt,
+) {
+    tables
+        .update_row("PoolDayData", pool_day_data_id)
+        .set("date", day_start_timestamp)
+        .set("pool", format!("0x{}", pool_addr))
+        .set("liquidity", BigInt::zero())
+        .set("sqrtPrice", BigInt::zero())
+        .set("token0Price", BigDecimal::zero())
+        .set("token1Price", BigDecimal::zero())
+        .set("tick", BigInt::zero())
+        .set("feeGrowthGlobal0X128", BigInt::zero())
+        .set("feeGrowthGlobal1X128", BigInt::zero())
+        .set("totalValueLockedUSD", BigDecimal::zero())
+        .set("volumeToken0", BigDecimal::zero())
+        .set("volumeToken1", BigDecimal::zero())
+        .set("volumeUSD", BigDecimal::zero())
+        .set("feesUSD", BigDecimal::zero())
+        .set("txCount", &delta.new_value)
+        .set("open", BigDecimal::zero())
+        .set("high", BigDecimal::zero())
+        .set("low", BigDecimal::zero())
+        .set("close", BigDecimal::zero());
 }
 
-pub fn swap_volume_pool_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_DAY_DATA) {
+pub fn pool_hour_data_create(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
+    for delta in key::filter_first_segment_eq(deltas, "PoolHourData") {
+        if !delta.new_value.eq(&BigInt::one()) {
             continue;
         }
 
-        let day_id = utils::extract_at_position_time_id_as_i64(&delta.key, 2).to_string();
+        let hour_id: i64 = utils::extract_last_item_time_id_as_i64(&delta.key);
+        let hours_start_unix = (hour_id * 3600) as i32;
         let pool_address = utils::extract_at_position_pool_address_as_str(&delta.key, 1);
+
+        let pool_hour_data_id = utils::pool_time_data_id(pool_address, hour_id.to_string().as_str()).to_string();
+
+        create_pool_hour_data(tables, &pool_hour_data_id, hours_start_unix, pool_address, &delta);
+    }
+}
+fn create_pool_hour_data(
+    tables: &mut Tables,
+    pool_day_data_id: &String,
+    hours_start_unix: i32,
+    pool_addr: &str,
+    delta: &DeltaBigInt,
+) {
+    tables
+        .update_row(POOL_HOUR_DATA, pool_day_data_id)
+        .set("periodStartUnix", hours_start_unix)
+        .set("pool", format!("0x{}", pool_addr))
+        .set("liquidity", BigInt::zero())
+        .set("sqrtPrice", BigInt::zero())
+        .set("token0Price", BigDecimal::zero())
+        .set("token1Price", BigDecimal::zero())
+        .set("tick", BigInt::zero())
+        .set("feeGrowthGlobal0X128", BigInt::zero())
+        .set("feeGrowthGlobal1X128", BigInt::zero())
+        .set("totalValueLockedUSD", BigDecimal::zero())
+        .set("volumeToken0", BigDecimal::zero())
+        .set("volumeToken1", BigDecimal::zero())
+        .set("volumeUSD", BigDecimal::zero())
+        .set("feesUSD", BigDecimal::zero())
+        .set("txCount", &delta.new_value)
+        .set("open", BigDecimal::zero())
+        .set("high", BigDecimal::zero())
+        .set("low", BigDecimal::zero())
+        .set("close", BigDecimal::zero());
+}
+
+pub fn swap_volume_pool_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        let day_id = key::segment(&delta.key, 2);
+        let pool_address = key::segment(&delta.key, 1);
 
         if let Some(name) = utils::extract_swap_volume_pool_entity_change_name(&delta.key) {
             // TODO: should this be done on all the updates?
             if delta.operation == store_delta::Operation::Delete {
-                tables.delete_row(POOL_DAY_DATA, &day_id).mark_final();
+                tables.delete_row("PoolDayData", &day_id).mark_final();
                 continue;
             }
 
             tables
-                .update_row(POOL_DAY_DATA, utils::pool_time_data_id(pool_address, &day_id).as_str())
+                .update_row("PoolDayData", utils::pool_time_data_id(pool_address, &day_id).as_str())
                 .set(name, &delta.new_value);
         }
-    }
-}
-
-pub fn liquidities_pool_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_DAY_DATA) {
-            continue;
-        }
-
-        utils::update_liquidities_pool_entity_change(tables, POOL_DAY_DATA, delta);
-    }
-}
-
-pub fn sqrt_price_and_tick_pool_day_data_entity_change(
-    tables: &mut Tables,
-    deltas: &Deltas<DeltaProto<events::PoolSqrtPrice>>,
-) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_DAY_DATA) {
-            continue;
-        }
-
-        utils::update_sqrt_price_and_tick_pool_entity_change(tables, POOL_DAY_DATA, delta);
     }
 }
 
@@ -1105,112 +1136,77 @@ pub fn token_prices_pool_day_data_entity_change(tables: &mut Tables, deltas: &De
 }
 
 pub fn fee_growth_global_x128_pool_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_DAY_DATA) {
-            continue;
-        }
-
-        utils::update_fee_growth_global_x128_pool_entity_change(tables, POOL_DAY_DATA, delta);
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        utils::update_fee_growth_global_x128_pool(tables, "PoolDayData", delta);
     }
 }
 
 pub fn total_value_locked_usd_pool_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_DAY_DATA) {
-            continue;
-        }
-
-        utils::update_total_value_locked_usd_pool_entity_change(tables, POOL_DAY_DATA, delta);
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        utils::update_total_value_locked_usd_pool(tables, "PoolDayData", delta);
     }
-}
-
-fn create_pool_day_data(
-    tables: &mut Tables,
-    pool_day_data_id: &String,
-    day_start_timestamp: i32,
-    pool_addr: &str,
-    delta: &DeltaBigInt,
-) {
-    tables
-        .update_row(POOL_DAY_DATA, pool_day_data_id)
-        .set("date", day_start_timestamp)
-        .set("pool", format!("0x{}", pool_addr))
-        .set("liquidity", BigInt::zero())
-        .set("sqrtPrice", BigInt::zero())
-        .set("token0Price", BigDecimal::zero())
-        .set("token1Price", BigDecimal::zero())
-        .set("tick", BigInt::zero())
-        .set("feeGrowthGlobal0X128", BigInt::zero())
-        .set("feeGrowthGlobal1X128", BigInt::zero())
-        .set("totalValueLockedUSD", BigDecimal::zero())
-        .set("volumeToken0", BigDecimal::zero())
-        .set("volumeToken1", BigDecimal::zero())
-        .set("volumeUSD", BigDecimal::zero())
-        .set("feesUSD", BigDecimal::zero())
-        .set("txCount", &delta.new_value)
-        .set("open", BigDecimal::zero())
-        .set("high", BigDecimal::zero())
-        .set("low", BigDecimal::zero())
-        .set("close", BigDecimal::zero());
 }
 
 // --------------------
 //  Map Pool Hour Data Entities
 // --------------------
-pub fn pool_hour_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_HOUR_DATA) {
-            continue;
-        }
 
-        if !delta.new_value.eq(&BigInt::one()) {
-            continue;
-        }
-
-        let hour_id: i64 = utils::extract_last_item_time_id_as_i64(&delta.key);
-        let hours_start_unix = (hour_id * 3600) as i32;
-        let pool_address = utils::extract_at_position_pool_address_as_str(&delta.key, 1);
-
-        let pool_hour_data_id = utils::pool_time_data_id(pool_address, hour_id.to_string().as_str()).to_string();
-
-        create_pool_hour_data(tables, &pool_hour_data_id, hours_start_unix, pool_address, &delta);
+pub fn tx_count_pool_data(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        update_tx_count_pool(tables, "PoolDayData", delta);
+    }
+    for delta in key::filter_first_segment_eq(deltas, "PoolHourData") {
+        update_tx_count_pool(tables, "PoolHourData", delta);
     }
 }
+fn update_tx_count_pool(tables: &mut Tables, table_name: &str, delta: &DeltaBigInt) {
+    let time_id = key::last_segment(&delta.key);
+    let pool_address = key::segment(&delta.key, 1);
 
-pub fn tx_count_pool_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_HOUR_DATA) {
-            continue;
-        }
-
-        utils::update_tx_count_pool_entity_change(tables, POOL_HOUR_DATA, delta);
-    }
+    tables
+        .update_row(table_name, format!("0x{pool_address}-{time_id}"))
+        .set("txCount", &delta.new_value);
 }
 
-pub fn liquidities_pool_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_HOUR_DATA) {
-            continue;
-        }
-
-        utils::update_liquidities_pool_entity_change(tables, POOL_HOUR_DATA, delta);
+pub fn liquidities_pool_data(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        update_liquidities_pool(tables, "PoolDayData", delta);
+    }
+    for delta in key::filter_first_segment_eq(deltas, "PoolHourData") {
+        update_liquidities_pool(tables, "PoolHourData", delta);
     }
 }
+fn update_liquidities_pool(tables: &mut Tables, table_name: &str, delta: &DeltaBigInt) {
+    let time_id = key::last_segment(&delta.key);
+    let pool_address = key::segment(&delta.key, 1);
 
-pub fn sqrt_price_and_tick_pool_hour_data_entity_change(
-    tables: &mut Tables,
-    deltas: &Deltas<DeltaProto<events::PoolSqrtPrice>>,
-) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_HOUR_DATA) {
-            continue;
-        }
-
-        utils::update_sqrt_price_and_tick_pool_entity_change(tables, keyer::POOL_HOUR_DATA, delta);
-    }
+    tables
+        .update_row(table_name, format!("0x{pool_address}-{time_id}"))
+        .set("liquidity", &delta.new_value);
 }
 
-pub fn swap_volume_pool_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
+pub fn sqrt_price_and_tick_pool_data(tables: &mut Tables, deltas: &Deltas<DeltaProto<events::PoolSqrtPrice>>) {
+    for delta in key::filter_first_segment_eq(deltas, "PoolHourData") {
+        update_sqrt_price_and_tick_pool(tables, "PoolHourData", delta);
+    }
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        update_sqrt_price_and_tick_pool(tables, "PoolDayData", delta);
+    }
+}
+fn update_sqrt_price_and_tick_pool(tables: &mut Tables, table_name: &str, delta: &DeltaProto<events::PoolSqrtPrice>) {
+    let time_id = key::last_segment(&delta.key);
+    let pool_address = key::segment(&delta.key, 1);
+
+    let sqrt_price = BigInt::try_from(&delta.new_value.sqrt_price).unwrap();
+    let tick = BigInt::try_from(&delta.new_value.tick).unwrap();
+
+    tables
+        .update_row(table_name, format!("0x{pool_address}-{time_id}"))
+        .set("sqrtPrice", sqrt_price)
+        .set("tick", tick);
+}
+
+pub fn swap_volume_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in deltas.deltas.iter() {
         if !delta.key.starts_with(POOL_HOUR_DATA) {
             continue;
@@ -1236,7 +1232,7 @@ pub fn swap_volume_pool_hour_data_entity_change(tables: &mut Tables, deltas: &De
     }
 }
 
-pub fn token_prices_pool_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
+pub fn token_prices_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in deltas.deltas.iter() {
         if !delta.key.starts_with(keyer::POOL_HOUR_DATA) {
             continue;
@@ -1282,54 +1278,24 @@ pub fn token_prices_pool_hour_data_entity_change(tables: &mut Tables, deltas: &D
     }
 }
 
-pub fn fee_growth_global_x128_pool_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
+pub fn fee_growth_global_x128_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in deltas.deltas.iter() {
         if !delta.key.starts_with(POOL_HOUR_DATA) {
             continue;
         }
 
-        utils::update_fee_growth_global_x128_pool_entity_change(tables, POOL_HOUR_DATA, delta);
+        utils::update_fee_growth_global_x128_pool(tables, POOL_HOUR_DATA, delta);
     }
 }
 
-pub fn total_value_locked_usd_pool_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
+pub fn total_value_locked_usd_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in deltas.deltas.iter() {
         if !delta.key.starts_with(POOL_HOUR_DATA) {
             continue;
         }
 
-        utils::update_total_value_locked_usd_pool_entity_change(tables, POOL_HOUR_DATA, delta);
+        utils::update_total_value_locked_usd_pool(tables, POOL_HOUR_DATA, delta);
     }
-}
-
-fn create_pool_hour_data(
-    tables: &mut Tables,
-    pool_day_data_id: &String,
-    hours_start_unix: i32,
-    pool_addr: &str,
-    delta: &DeltaBigInt,
-) {
-    tables
-        .update_row(POOL_HOUR_DATA, pool_day_data_id)
-        .set("periodStartUnix", hours_start_unix)
-        .set("pool", format!("0x{}", pool_addr))
-        .set("liquidity", BigInt::zero())
-        .set("sqrtPrice", BigInt::zero())
-        .set("token0Price", BigDecimal::zero())
-        .set("token1Price", BigDecimal::zero())
-        .set("tick", BigInt::zero())
-        .set("feeGrowthGlobal0X128", BigInt::zero())
-        .set("feeGrowthGlobal1X128", BigInt::zero())
-        .set("totalValueLockedUSD", BigDecimal::zero())
-        .set("volumeToken0", BigDecimal::zero())
-        .set("volumeToken1", BigDecimal::zero())
-        .set("volumeUSD", BigDecimal::zero())
-        .set("feesUSD", BigDecimal::zero())
-        .set("txCount", &delta.new_value)
-        .set("open", BigDecimal::zero())
-        .set("high", BigDecimal::zero())
-        .set("low", BigDecimal::zero())
-        .set("close", BigDecimal::zero());
 }
 
 // --------------------
@@ -1387,7 +1353,7 @@ pub fn total_value_locked_usd_token_day_data_entity_change(tables: &mut Tables, 
             continue;
         }
 
-        utils::update_total_value_locked_usd_token_entity_change(tables, TOKEN_DAY_DATA, delta);
+        utils::update_total_value_locked_usd_token(tables, TOKEN_DAY_DATA, delta);
     }
 }
 
@@ -1397,7 +1363,7 @@ pub fn total_value_locked_token_day_data_entity_change(tables: &mut Tables, delt
             continue;
         }
 
-        utils::update_total_value_locked_token_entity_change(tables, TOKEN_DAY_DATA, delta);
+        utils::update_total_value_locked_token(tables, TOKEN_DAY_DATA, delta);
     }
 }
 
@@ -1407,7 +1373,7 @@ pub fn token_prices_token_day_data_entity_change(tables: &mut Tables, deltas: &D
             continue;
         }
 
-        utils::update_token_prices_token_entity_change(tables, TOKEN_DAY_DATA, delta);
+        utils::update_token_prices_token(tables, TOKEN_DAY_DATA, delta);
     }
 }
 
@@ -1478,27 +1444,19 @@ pub fn swap_volume_token_hour_data_entity_change(tables: &mut Tables, deltas: &D
 }
 
 pub fn total_value_locked_usd_token_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(TOKEN_HOUR_DATA) {
-            continue;
-        }
-
-        utils::update_total_value_locked_usd_token_entity_change(tables, TOKEN_HOUR_DATA, delta);
+    for delta in key::filter_first_segment_eq(deltas, "TokenHourData") {
+        utils::update_total_value_locked_usd_token(tables, "TokenHourData", delta);
     }
 }
 
 pub fn total_value_locked_token_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(TOKEN_HOUR_DATA) {
-            continue;
-        }
-
-        let hour_id = utils::extract_last_item_time_id_as_i64(&delta.key).to_string();
-        let token_address = utils::extract_at_position_token_address_as_str(&delta.key, 1);
+    for delta in key::filter_first_segment_eq(deltas, "TokenHourData") {
+        let hour_id = key::last_segment(&delta.key);
+        let token_address = key::segment(&delta.key, 1);
 
         tables
             .update_row(
-                TOKEN_HOUR_DATA,
+                "TokenHourData",
                 utils::token_time_data_id(token_address, &hour_id).as_str(),
             )
             .set("totalValueLocked", &delta.new_value);
@@ -1511,7 +1469,7 @@ pub fn token_prices_token_hour_data_entity_change(tables: &mut Tables, deltas: &
             continue;
         }
 
-        utils::update_token_prices_token_entity_change(tables, TOKEN_HOUR_DATA, delta);
+        utils::update_token_prices_token(tables, TOKEN_HOUR_DATA, delta);
     }
 }
 
