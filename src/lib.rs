@@ -23,7 +23,7 @@ use crate::pb::uniswap::events::position_event::Type::{
     CollectPosition, CreatedPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, TransferPosition,
 };
 use crate::pb::uniswap::events::PositionEvent;
-use crate::pb::uniswap::{events, Events, SnapshotPosition, SnapshotPositions};
+use crate::pb::uniswap::{events, Events};
 use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, Pools};
 use crate::price::WHITELIST_TOKENS;
 use crate::tables::Tables;
@@ -232,7 +232,7 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
             );
 
             filtering::extract_transactions(&mut transactions, log, &trx, timestamp, block.number);
-            filtering::extract_flashes(&mut flashes, &log, &pool);
+            filtering::extract_flashes(&mut flashes, &log);
         }
     }
 

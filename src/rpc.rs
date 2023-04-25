@@ -40,28 +40,6 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
     return (fee_0, fee_1);
 }
 
-pub fn positions_call(
-    pool_address: &String,
-    token_id: BigInt,
-) -> Option<(Vec<u8>, Vec<u8>, BigInt, BigInt, BigInt, BigInt, BigInt)> {
-    let positions = abi::positionmanager::functions::Positions {
-        token_id: token_id.clone(),
-    };
-    if let Some(positions_result) = positions.call(hex::decode(pool_address).unwrap()) {
-        return Some((
-            positions_result.2,
-            positions_result.3,
-            positions_result.4,
-            positions_result.5,
-            positions_result.6,
-            positions_result.8,
-            positions_result.9,
-        ));
-    };
-
-    return None;
-}
-
 pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     let batch = RpcBatch::new();
     let responses = batch

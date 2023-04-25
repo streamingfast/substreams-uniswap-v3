@@ -1,11 +1,10 @@
-use std::ops::{Div, Mul};
-
+use std::ops::Div;
 use substreams::pb::substreams::store_delta;
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
-    StoreGetBigInt, StoreGetProto,
+    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal, StoreGetBigInt,
+    StoreGetProto,
 };
 use substreams::{log, Hex};
 
@@ -873,8 +872,8 @@ pub fn swaps_mints_burns_created_entity_change(
                     let amount0 = BigDecimal::try_from(swap.amount_0).unwrap();
                     let amount1 = BigDecimal::try_from(swap.amount_1).unwrap();
 
-                    let mut amount0_abs = amount0.absolute();
-                    let mut amount1_abs = amount1.absolute();
+                    let amount0_abs = amount0.absolute();
+                    let amount1_abs = amount1.absolute();
 
                     let amount_total_usd_tracked = utils::get_tracked_amount_usd(
                         &event.token0,
@@ -1169,11 +1168,7 @@ pub fn swap_volume_pool_day_data_entity_change(tables: &mut Tables, deltas: &Del
 }
 
 pub fn token_prices_pool_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_DAY_DATA) {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
         let day_id = key::last_segment(&delta.key);
         let pool_address = key::segment(&delta.key, 1);
         let name = match key::segment(&delta.key, 2) {

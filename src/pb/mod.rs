@@ -2,8 +2,10 @@ use crate::pb::uniswap::events::pool_event::Type;
 use crate::pb::uniswap::events::position_event::Type::{
     CollectPosition, CreatedPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, TransferPosition,
 };
-use crate::pb::uniswap::events::{PoolEvent, PositionEvent};
-use crate::{Erc20Token, Pool};
+use crate::pb::uniswap::events::PoolEvent;
+use crate::pb::uniswap::events::PositionEvent;
+use crate::uniswap::events::position::PositionType;
+use crate::{Collect, DecreaseLiquidity, Erc20Token, IncreaseLiquidity, Pool, Transfer};
 use substreams::log;
 use substreams::scalar::BigDecimal;
 

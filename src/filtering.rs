@@ -498,7 +498,7 @@ fn extract_positions(
     }
 }
 
-pub fn extract_flashes(flashes: &mut Vec<events::Flash>, log: &Log, pool: &Pool) {
+pub fn extract_flashes(flashes: &mut Vec<events::Flash>, log: &Log) {
     if abi::pool::events::Flash::match_log(&log) {
         let pool_address: String = Hex(&log.address).to_string();
 

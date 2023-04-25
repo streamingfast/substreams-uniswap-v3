@@ -27,21 +27,6 @@ pub fn first_segment(key: &String) -> &str {
     key.split(":").next().unwrap()
 }
 
-pub fn segment_eq(key: &String, index: usize, value: &str) -> bool {
-    match try_segment_eq(key, index, value) {
-        Some(val) => val,
-        None => false,
-    }
-}
-
-pub fn try_segment_eq(key: &String, index: usize, value: &str) -> Option<bool> {
-    let val = try_segment(key, index);
-    match val {
-        Some(val) => Some(val == value),
-        None => None,
-    }
-}
-
 /// 0-based index segment of key split using ":" as delimiter
 pub fn segment(key: &String, index: usize) -> &str {
     return try_segment(key, index).unwrap();
