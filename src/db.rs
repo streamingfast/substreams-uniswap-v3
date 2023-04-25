@@ -1089,11 +1089,7 @@ pub fn swap_volume_pool_day_data_entity_change(tables: &mut Tables, deltas: &Del
 }
 
 pub fn token_prices_pool_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_DAY_DATA) {
-            continue;
-        }
-
+    for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
         let day_id = key::last_segment(&delta.key);
         let pool_address = key::segment(&delta.key, 1);
         let name = match key::segment(&delta.key, 2) {
