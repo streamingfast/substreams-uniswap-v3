@@ -183,8 +183,8 @@ pub fn get_tracked_amount_usd(
 }
 
 pub fn get_adjusted_amounts(
-    token0_id: &String,
-    token1_id: &String,
+    token0_addr: &String,
+    token1_addr: &String,
     token0_amount: &BigDecimal,
     token1_amount: &BigDecimal,
     token0_derived_eth_price: &BigDecimal,
@@ -209,18 +209,18 @@ pub fn get_adjusted_amounts(
         .mul(token0_derived_eth_price.clone())
         .add(token1_amount.clone().mul(token1_derived_eth_price.clone()));
 
-    if WHITELIST_TOKENS.contains(&token0_id.as_str()) && WHITELIST_TOKENS.contains(&token1_id.as_str()) {
+    if WHITELIST_TOKENS.contains(&token0_addr.as_str()) && WHITELIST_TOKENS.contains(&token1_addr.as_str()) {
         eth = eth_untracked.clone()
     }
 
-    if WHITELIST_TOKENS.contains(&token0_id.as_str()) && !WHITELIST_TOKENS.contains(&token1_id.as_str()) {
+    if WHITELIST_TOKENS.contains(&token0_addr.as_str()) && !WHITELIST_TOKENS.contains(&token1_addr.as_str()) {
         eth = token0_amount
             .clone()
             .mul(token0_derived_eth_price.clone())
             .mul(BigDecimal::from(2 as i32));
     }
 
-    if !WHITELIST_TOKENS.contains(&token0_id.as_str()) && WHITELIST_TOKENS.contains(&token1_id.as_str()) {
+    if !WHITELIST_TOKENS.contains(&token0_addr.as_str()) && WHITELIST_TOKENS.contains(&token1_addr.as_str()) {
         eth = token1_amount
             .clone()
             .mul(token1_derived_eth_price.clone())

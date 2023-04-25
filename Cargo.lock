@@ -894,7 +894,6 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "substreams"
 version = "0.5.6"
-source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#b7ef867b533fdfdd4532aada67608918f6e8f5b2"
 dependencies = [
  "anyhow",
  "bigdecimal",
@@ -984,7 +983,6 @@ dependencies = [
 [[package]]
 name = "substreams-macro"
 version = "0.5.6"
-source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#b7ef867b533fdfdd4532aada67608918f6e8f5b2"
 dependencies = [
  "proc-macro2",
  "quote",

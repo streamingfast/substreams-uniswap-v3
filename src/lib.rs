@@ -517,22 +517,29 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
+    let factory_addr = Hex(utils::UNISWAP_V3_FACTORY);
 
-    output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
+    output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
 
     for event in events.pool_events {
+        let pool_address = &event.pool_address;
+        let token0_addr = &event.token0;
+        let token1_addr = &event.token1;
+
         let keys: Vec<String> = vec![
-            keyer::pool_total_tx_count(&event.pool_address),
-            keyer::token_total_tx_count(&event.token0),
-            keyer::token_total_tx_count(&event.token1),
-            keyer::factory_total_tx_count(),
-            keyer::uniswap_day_data_tx_count(day_id.to_string()),
-            keyer::pool_day_data_tx_count(&event.pool_address, day_id.to_string()),
-            keyer::pool_hour_data_tx_count(&event.pool_address, hour_id.to_string()),
+            format!("pool:{pool_address}"),
+            format!("token:{token0_addr}"),
+            format!("token:{token1_addr}"),
+            format!("factory:{factory_addr}"),
+            format!("UniswapDayData:{day_id}"),
+            format!("PoolDayData:{pool_address}:{day_id}"),
+            format!("PoolHourData:{pool_address}:{hour_id}"),
         ];
-        output.add_many(event.log_ordinal, &keys, &BigInt::from(1 as i32));
+        output.add_many(event.log_ordinal, &keys, &BigInt::from(2 as i32));
     }
 }
 
@@ -541,9 +548,11 @@ pub fn store_pool_fee_growth_global_x128(clock: Clock, events: Events, output: S
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
 
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
-    output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
+    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
 
     for event in events.pool_events {
         let pool_address = event.pool_address;
@@ -553,18 +562,18 @@ pub fn store_pool_fee_growth_global_x128(clock: Clock, events: Events, output: S
         output.set_many(
             event.log_ordinal,
             &vec![
-                keyer::pool_fee_growth_global_x128(&pool_address, "token0".to_string()),
-                keyer::pool_day_data_fee_growth_global_x128(&pool_address, "token0".to_string(), day_id.to_string()),
-                keyer::pool_hour_data_fee_growth_global_x128(&pool_address, "token0".to_string(), hour_id.to_string()),
+                format!("fee:{pool_address}:token0"),
+                format!("PoolDayData:{pool_address}:token0:{day_id}"),
+                format!("PoolHourData:{pool_address}:token0:{hour_id}"),
             ],
             &big_int_0,
         );
         output.set_many(
             event.log_ordinal,
             &vec![
-                keyer::pool_fee_growth_global_x128(&pool_address, "token1".to_string()),
-                keyer::pool_day_data_fee_growth_global_x128(&pool_address, "token1".to_string(), day_id.to_string()),
-                keyer::pool_hour_data_fee_growth_global_x128(&pool_address, "token1".to_string(), hour_id.to_string()),
+                format!("fee:{pool_address}:token1"),
+                format!("PoolDayData:{pool_address}:token1:{day_id}"),
+                format!("PoolHourData:{pool_address}:token1:{hour_id}"),
             ],
             &big_int_1,
         );
@@ -586,25 +595,24 @@ pub fn store_native_amounts(events: Events, store: StoreSetBigDecimal) {
             let amount0: BigDecimal = token_amounts.amount0;
             let amount1: BigDecimal = token_amounts.amount1;
             log::info!("amount 0: {} amount 1: {}", amount0, amount1);
+
+            let pool_address = &pool_event.pool_address;
+            let token0_addr = token_amounts.token0_addr;
+            let token1_addr = token_amounts.token1_addr;
+
             store.set_many(
                 pool_event.log_ordinal,
                 &vec![
-                    keyer::token_native_total_value_locked(&token_amounts.token0_addr),
-                    keyer::pool_native_total_value_locked_token(
-                        &pool_event.pool_address.clone(),
-                        &token_amounts.token0_addr,
-                    ),
+                    format!("token:{token0_addr}:native"),
+                    format!("pool:{pool_address}:{token0_addr}:native"),
                 ],
                 &amount0,
             );
             store.set_many(
                 pool_event.log_ordinal,
                 &vec![
-                    keyer::token_native_total_value_locked(&token_amounts.token1_addr),
-                    keyer::pool_native_total_value_locked_token(
-                        &pool_event.pool_address.clone(),
-                        &token_amounts.token1_addr,
-                    ),
+                    format!("token:{token1_addr}:native"),
+                    format!("pool:{pool_address}:{token1_addr}:native"),
                 ],
                 &amount1,
             );
@@ -937,30 +945,17 @@ pub fn store_derived_tvl(
         };
 
         let pool = pools_store.must_get_last(keyer::pool_key(&pool_event.pool_address));
+        let pool_address = &pool_event.pool_address;
+        let token0_addr = &pool.token0.as_ref().unwrap().address();
+        let token1_addr = &pool.token1.as_ref().unwrap().address();
 
-        let token0_derive_eth = utils::get_derived_eth_price(
-            pool_event.log_ordinal,
-            &pool.token0.as_ref().unwrap().address(),
-            &eth_prices_store,
-        );
+        let token0_derive_eth = utils::get_derived_eth_price(ord, token0_addr, &eth_prices_store);
+        let token1_derive_eth = utils::get_derived_eth_price(ord, token1_addr, &eth_prices_store);
 
-        let token1_derive_eth = utils::get_derived_eth_price(
-            pool_event.log_ordinal,
-            &pool.token1.as_ref().unwrap().address(),
-            &eth_prices_store,
-        );
-
-        let total_value_locked_token0 = utils::get_total_value_locked_token(
-            pool_event.log_ordinal,
-            &pool.token0.as_ref().unwrap().address(),
-            &token_total_value_locked,
-        );
-
-        let total_value_locked_token1 = utils::get_total_value_locked_token(
-            pool_event.log_ordinal,
-            &pool.token1.as_ref().unwrap().address(),
-            &token_total_value_locked,
-        );
+        let total_value_locked_token0 =
+            utils::get_total_value_locked_token(ord, token0_addr, &token_total_value_locked);
+        let total_value_locked_token1 =
+            utils::get_total_value_locked_token(ord, token1_addr, &token_total_value_locked);
 
         log::info!("total_value_locked_token0: {}", total_value_locked_token0);
         log::info!("total_value_locked_token1: {}", total_value_locked_token1);
@@ -972,8 +967,8 @@ pub fn store_derived_tvl(
         log::info!("derived_token1_eth: {}", derived_token1_eth);
 
         let amounts = utils::get_adjusted_amounts(
-            pool.token0.as_ref().unwrap().address(),
-            pool.token1.as_ref().unwrap().address(),
+            token0_addr,
+            token1_addr,
             &total_value_locked_token0,
             &total_value_locked_token1,
             &token0_derive_eth,
@@ -988,151 +983,65 @@ pub fn store_derived_tvl(
             .clone()
             .mul(token1_derive_eth.clone().mul(eth_price_usd.clone()));
 
-        // token0.totalValueLockedUSD
         output.set_many(
-            pool_event.log_ordinal,
+            ord,
             &vec![
-                &keyer::token_derived_total_value_locked_usd(pool.token0.as_ref().unwrap().address(), &"0".to_string()),
-                &keyer::token_day_data_derived_total_value_locked_usd(
-                    pool.token0.as_ref().unwrap().address(),
-                    &"0".to_string(),
-                    &day_id.to_string(),
-                ),
-                &keyer::token_hour_data_derived_total_value_locked_usd(
-                    pool.token0.as_ref().unwrap().address(),
-                    &"0".to_string(),
-                    &hour_id.to_string(),
-                ),
+                format!("token:{token0_addr}:0:usd"),
+                format!("TokenDayData:{token0_addr}:0:{day_id}"),
+                format!("TokenHourData:{token0_addr}:0:{hour_id}"),
             ],
-            &derived_token0_usd,
+            &derived_token0_usd, // token0.totalValueLockedUSD
+        );
+        output.set_many(
+            ord,
+            &vec![
+                format!("token:{token1_addr}:1:usd"),
+                format!("TokenDayData:{token1_addr}:1:{day_id}"),
+                format!("TokenHourData:{token1_addr}:1:{hour_id}"),
+            ],
+            &derived_token1_usd, // token1.totalValueLockedUSD
+        );
+        output.set_many(
+            ord,
+            &vec![
+                format!("pool:{pool_address}:{token0_addr}:0:eth"),
+                format!("pool:{pool_address}:{token1_addr}:1:eth"),
+            ],
+            &amounts.stable_eth, // pool.totalValueLockedETH
         );
 
-        // token1.totalValueLockedUSD
         output.set_many(
-            pool_event.log_ordinal,
+            ord,
             &vec![
-                &keyer::token_derived_total_value_locked_usd(pool.token1.as_ref().unwrap().address(), &"1".to_string()),
-                &keyer::token_day_data_derived_total_value_locked_usd(
-                    pool.token1.as_ref().unwrap().address(),
-                    &"1".to_string(),
-                    &day_id.to_string(),
-                ),
-                &keyer::token_hour_data_derived_total_value_locked_usd(
-                    pool.token1.as_ref().unwrap().address(),
-                    &"1".to_string(),
-                    &hour_id.to_string(),
-                ),
+                format!("pool:{pool_address}:{token0_addr}:0:usd"),
+                format!("pool:{pool_address}:{token1_addr}:1:usd"),
+                format!("PoolDayData:{pool_address}:{token0_addr}:0:{day_id}"), // no :usd here? even if only for clarity
+                format!("PoolDayData:{pool_address}:{token1_addr}:1:{day_id}"),
+                format!("PoolHourData:{pool_address}:{token0_addr}:0:{hour_id}"),
+                format!("PoolHourData:{pool_address}:{token1_addr}:1:{hour_id}"),
             ],
-            &derived_token1_usd,
-        );
-
-        // pool.totalValueLockedETH
-        output.set(
-            pool_event.log_ordinal,
-            &keyer::pool_derived_total_value_locked_eth(
-                &pool.address,
-                pool.token0.as_ref().unwrap().address(),
-                &"0".to_string(),
-            ),
-            &amounts.stable_eth,
-        );
-        output.set(
-            pool_event.log_ordinal,
-            &keyer::pool_derived_total_value_locked_eth(
-                &pool.address,
-                pool.token1.as_ref().unwrap().address(),
-                &"1".to_string(),
-            ),
-            &amounts.stable_eth,
-        );
-
-        // pool.totalValueLockedUSD
-        output.set_many(
-            pool_event.log_ordinal,
-            &vec![
-                keyer::pool_derived_total_value_locked_usd(
-                    &pool.address,
-                    pool.token0.as_ref().unwrap().address(),
-                    &"0".to_string(),
-                ),
-                keyer::pool_day_derived_total_value_locked_usd(
-                    &pool.address,
-                    pool.token0.as_ref().unwrap().address(),
-                    &"0".to_string(),
-                    &day_id.to_string(),
-                ),
-                keyer::pool_hour_derived_total_value_locked_usd(
-                    &pool.address,
-                    pool.token0.as_ref().unwrap().address(),
-                    &"0".to_string(),
-                    &hour_id.to_string(),
-                ),
-            ],
-            &amounts.stable_usd,
-        );
-        output.set_many(
-            pool_event.log_ordinal,
-            &vec![
-                keyer::pool_derived_total_value_locked_usd(
-                    &pool.address,
-                    pool.token1.as_ref().unwrap().address(),
-                    &"1".to_string(),
-                ),
-                keyer::pool_day_derived_total_value_locked_usd(
-                    &pool.address,
-                    pool.token1.as_ref().unwrap().address(),
-                    &"1".to_string(),
-                    &day_id.to_string(),
-                ),
-                keyer::pool_hour_derived_total_value_locked_usd(
-                    &pool.address,
-                    pool.token1.as_ref().unwrap().address(),
-                    &"1".to_string(),
-                    &hour_id.to_string(),
-                ),
-            ],
-            &amounts.stable_usd,
+            &amounts.stable_usd, // pool.totalValueLockedUSD
         );
 
         // pool.totalValueLockedETHUntracked
-        output.set(
+        output.set_many(
             pool_event.log_ordinal,
-            &keyer::pool_derived_total_value_locked_eth_untracked(
-                &pool.address,
-                pool.token0.as_ref().unwrap().address(),
-                &"0".to_string(),
-            ),
-            &amounts.stable_eth_untracked,
-        );
-        output.set(
-            pool_event.log_ordinal,
-            &keyer::pool_derived_total_value_locked_eth_untracked(
-                &pool.address,
-                pool.token1.as_ref().unwrap().address(),
-                &"1".to_string(),
-            ),
+            &vec![
+                format!("pool:{pool_address}:{token0_addr}:0:ethUntracked"),
+                format!("pool:{pool_address}:{token1_addr}:1:ethUntracked"),
+            ],
             &amounts.stable_eth_untracked,
         );
 
         // pool.totalValueLockedUSDUntracked
-        output.set(
-            pool_event.log_ordinal,
-            &keyer::pool_derived_total_value_locked_usd_untracked(
-                &pool.address,
-                pool.token1.as_ref().unwrap().address(),
-                &"1".to_string(),
-            ),
+        output.set_many(
+            ord,
+            &vec![
+                format!("pool:{pool_address}:{token0_addr}:0:usdUntracked"),
+                format!("pool:{pool_address}:{token1_addr}:1:usdUntracked"),
+            ],
             &amounts.stable_usd_untracked,
         );
-        output.set(
-            pool_event.log_ordinal,
-            &keyer::pool_derived_total_value_locked_usd_untracked(
-                &pool.address,
-                pool.token1.as_ref().unwrap().address(),
-                &"1".to_string(),
-            ),
-            &amounts.stable_usd_untracked,
-        )
     }
 }
 
@@ -1147,9 +1056,9 @@ pub fn store_derived_factory_tvl(
     output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
 
     for delta in derived_tvl_deltas.deltas {
-        if utils::extract_item_from_key_at_position(&delta.key, 0).eq("pool") {
+        if key::first_segment(&delta.key) == "pool" {
             log::info!("stats with pool:");
-            if utils::extract_item_from_key_last_item(&delta.key).eq("eth") {
+            if key::last_segment(&delta.key) == "eth" {
                 output.add(
                     delta.ordinal,
                     &format!("factory:totalValueLockedETH"),
