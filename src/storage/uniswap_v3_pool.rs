@@ -320,9 +320,10 @@ impl<'a> TickStruct<'a> {
 
 
     fn get_storage_changes(&self, slot_key: [u8; 32], offset: usize, number_of_bytes: usize) -> Option<(&[u8], &[u8])> {
-        let storage_change_opt = self.storage_changes.iter().find(|storage_change| {
-            storage_change.key.eq(slot_key.as_slice())
-        });
+        let storage_change_opt = self.storage_changes
+            .iter()
+            .filter(|storage_change| { storage_change.key.eq(slot_key.as_slice())})
+            .max_by(|x, y| x.ordinal.cmp(&y.ordinal));
 
         if storage_change_opt.is_none() {
             return None;
@@ -542,10 +543,15 @@ mod tests {
             address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
             key: hex!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29616").to_vec(),
             old_value: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
+            new_value: hex!("006091bfa60000000000000000314c3c8ef0a2c4b9b2ce9d0900000041d2241f").to_vec(),
+            ordinal: 0,
+        },StorageChange {
+            address: hex!("7858e59e0c01ea06df3af3d20ac7b0003275d4bf").to_vec(),
+            key: hex!("59d3454e6bb14d1f2ae9ab5d64a71e9d2d3eec41710c33f701d47eb206f29616").to_vec(),
+            old_value: hex!("006091bfa60000000000000000314c3c8ef0a2c4b9b2ce9d0900000041d2241f").to_vec(),
             new_value: hex!("016091bfa60000000000000000314c3c8ef0a2c4b9b2ce9d0900000041d2241f").to_vec(),
             ordinal: 0,
         }];
-
 
         let storage = UniswapPoolStorage::new(
             &storage_changes,
