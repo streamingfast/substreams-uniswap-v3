@@ -501,6 +501,8 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
     output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
     output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
     output.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
 
     for event in events.pool_events {
         let keys: Vec<String> = vec![
@@ -511,6 +513,10 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
             keyer::uniswap_day_data_tx_count(day_id.to_string()),
             keyer::pool_day_data_tx_count(&event.pool_address, day_id.to_string()),
             keyer::pool_hour_data_tx_count(&event.pool_address, hour_id.to_string()),
+            keyer::token_day_data_tx_count(&event.token0, day_id.to_string()),
+            keyer::token_day_data_tx_count(&event.token1, day_id.to_string()),
+            keyer::token_hour_data_tx_count(&event.token0, hour_id.to_string()),
+            keyer::token_hour_data_tx_count(&event.token1, hour_id.to_string()),
         ];
         output.add_many(event.log_ordinal, &keys, &BigInt::from(1 as i32));
     }
@@ -857,6 +863,8 @@ pub fn store_token_tvl(clock: Clock, events: Events, output: StoreAddBigDecimal)
     let hour_id: i64 = timestamp_seconds / 3600;
     let prev_day_id = day_id - 1;
     let prev_hour_id = hour_id - 1;
+
+    log::info!("hour_id {}", hour_id);
 
     output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
@@ -1231,7 +1239,6 @@ pub fn graph_out(
     pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
     price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
     tokens_store: StoreGetInt64,                         /* store_tokens */
-    token_store_deltas: Deltas<DeltaInt64>,              /* store_tokens */
     tokens_whitelist_pools: Deltas<DeltaArray<String>>,  /* store_tokens_whitelist_pools */
     derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
@@ -1342,14 +1349,14 @@ pub fn graph_out(
     db::total_value_locked_usd_pool_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
 
     // Token Day data:
-    db::token_day_data_create_entity_change(&mut tables, &token_store_deltas);
+    db::token_day_data_create_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_token_day_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_day_data_entity_change(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_day_data_entity_change(&mut tables, &token_tvl_deltas);
     db::token_prices_token_day_data_entity_change(&mut tables, &price_deltas);
 
     // Token Hour data:
-    db::token_hour_data_create_entity_change(&mut tables, &token_store_deltas);
+    db::token_hour_data_create_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_token_hour_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_hour_data_entity_change(&mut tables, &token_tvl_deltas);

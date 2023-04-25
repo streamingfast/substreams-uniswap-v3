@@ -1074,7 +1074,7 @@ pub fn pool_day_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<D
         }
 
         if !delta.new_value.eq(&BigInt::one()) {
-            return;
+            continue;
         }
 
         let day_id = utils::extract_last_item_time_id_as_i64(&delta.key);
@@ -1252,7 +1252,7 @@ pub fn pool_hour_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<
         }
 
         if !delta.new_value.eq(&BigInt::one()) {
-            return;
+            continue;
         }
 
         let hour_id: i64 = utils::extract_last_item_time_id_as_i64(&delta.key);
@@ -1424,14 +1424,14 @@ fn create_pool_hour_data(
 // --------------------
 //  Map Token Day Data Entities
 // --------------------
-pub fn token_day_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaInt64>) {
+pub fn token_day_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in deltas.deltas.iter() {
         if !delta.key.starts_with(TOKEN_DAY_DATA) {
             continue;
         }
 
-        if !delta.new_value.eq(&(1 as i64)) {
-            return;
+        if !delta.new_value.eq(&BigInt::one()) {
+            continue;
         }
 
         let day_id = utils::extract_last_item_time_id_as_i64(&delta.key);
@@ -1522,14 +1522,14 @@ fn create_token_day_data(tables: &mut Tables, token_day_data_id: &String, day_st
 // --------------------
 //  Map Token Hour Data Entities
 // --------------------
-pub fn token_hour_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaInt64>) {
+pub fn token_hour_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in deltas.deltas.iter() {
         if !delta.key.starts_with(TOKEN_HOUR_DATA) {
             continue;
         }
 
-        if !delta.new_value.eq(&(1 as i64)) {
-            return;
+        if !delta.new_value.eq(&BigInt::one()) {
+            continue;
         }
 
         let hour_id = utils::extract_last_item_time_id_as_i64(&delta.key);
@@ -1583,7 +1583,15 @@ pub fn total_value_locked_token_hour_data_entity_change(tables: &mut Tables, del
             continue;
         }
 
-        utils::update_total_value_locked_token_entity_change(tables, TOKEN_HOUR_DATA, delta);
+        let hour_id = utils::extract_last_item_time_id_as_i64(&delta.key).to_string();
+        let token_address = utils::extract_at_position_token_address_as_str(&delta.key, 1);
+
+        tables
+            .update_row(
+                TOKEN_HOUR_DATA,
+                utils::token_time_data_id(token_address, &hour_id).as_str(),
+            )
+            .set("totalValueLocked", &delta.new_value);
     }
 }
 

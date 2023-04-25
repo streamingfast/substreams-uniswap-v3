@@ -312,6 +312,14 @@ pub fn pool_hour_data_tx_count(pool_addr: &String, hour_id: String) -> String {
     format!("{}:{}:{}", POOL_HOUR_DATA, pool_addr, hour_id)
 }
 
+pub fn token_day_data_tx_count(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_DAY_DATA, token_addr, hour_id)
+}
+
+pub fn token_hour_data_tx_count(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_HOUR_DATA, token_addr, hour_id)
+}
+
 // ------------------------------------------------
 //      store_swaps_volume
 // ------------------------------------------------

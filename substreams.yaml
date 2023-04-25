@@ -241,8 +241,6 @@ modules:
       - store: store_prices
         mode: deltas
       - store: store_tokens
-      - store: store_tokens
-        mode: deltas
       - store: store_tokens_whitelist_pools
         mode: deltas
       - store: store_derived_tvl
