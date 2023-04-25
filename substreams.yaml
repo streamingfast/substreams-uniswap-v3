@@ -213,36 +213,10 @@ modules:
       substreams gui blah blah
       ```
 
-  - name: store_positions
-    kind: store
-    updatePolicy: add
-    valueType: int64
-    inputs:
-      - map: map_extract_data_types
-
-  - name: store_position_changes
-    kind: store
-    initialBlock: 12369621
-    updatePolicy: add
-    valueType: bigdecimal
-    inputs:
-      - map: map_extract_data_types
-
-  - name: map_position_snapshots
-    kind: map
-    initialBlock: 12369621
-    inputs:
-      - map: map_extract_data_types
-      - store: store_position_changes
-    output:
-      type: proto:uniswap.types.v1.SnapshotPositions
-
-
   - name: graph_out
     kind: map
     initialBlock: 12369621
     inputs:
-      ###- map: map_factory_entities
       - source: sf.substreams.v1.Clock
       - store: store_pool_count
         mode: deltas
@@ -252,16 +226,9 @@ modules:
         mode: deltas
       - store: store_derived_factory_tvl
         mode: deltas
-
-      ###- map: map_bundle_entities
-      #- source: sf.substreams.v1.Clock
       - store: store_eth_prices
         mode: deltas
-
-      ###- map: map_transaction_entities
       - map: map_extract_data_types
-
-      ###- map: map_pool_entities
       - map: map_pools_created
       - store: store_pool_sqrt_price
         mode: deltas
@@ -273,48 +240,13 @@ modules:
         mode: deltas
       - store: store_prices
         mode: deltas
-
-      #- store: store_total_tx_counts
-      #  mode: deltas
-      #- store: store_swaps_volume
-      #  mode: deltas
-
-      ###- map: map_tokens_entities
-      #- map: map_pools_created
       - store: store_tokens
-      - store: store_tokens
-        mode: deltas
-      #- store: store_swaps_volume
-      #  mode: deltas
-      #- store: store_total_tx_counts
-      #  mode: deltas
-      #- store: store_total_value_locked_by_tokens
-      #  mode: deltas
-      #- store: store_eth_prices
-      #  mode: deltas
       - store: store_tokens_whitelist_pools
         mode: deltas
       - store: store_derived_tvl
         mode: deltas
-
-      ###- map: map_tick_entities
       - store: store_ticks_liquidities
         mode: deltas
-
-      ###- map: map_position_entities
-      #- map: map_extract_data_types
-      - store: store_positions
-      - store: store_position_changes
-        mode: deltas
-
-      ###- map: map_position_snapshot_entities
-      - map: map_position_snapshots
-
-      ###- map: map_flash_entities
-      #- map: map_extract_data_types
-
-      ###- map: map_swaps_mints_burns_entities
-      #- map: map_extract_data_types
       - store: store_total_tx_counts
       - store: store_eth_prices
 

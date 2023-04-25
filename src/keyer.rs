@@ -247,6 +247,14 @@ pub fn pool_total_tx_count(pool_address: &String) -> String {
     format!("pool:{}", pool_address)
 }
 
+pub fn token_day_data_tx_count(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_DAY_DATA, token_addr, hour_id)
+}
+
+pub fn token_hour_data_tx_count(token_addr: &String, hour_id: String) -> String {
+    format!("{}:{}:{}", TOKEN_HOUR_DATA, token_addr, hour_id)
+}
+
 // ------------------------------------------------
 //      store_swaps_volume
 // ------------------------------------------------
@@ -410,6 +418,7 @@ pub fn all_position(id: &String, event_type: &String) -> String {
 pub fn position(id: &String, position_type: &String) -> String {
     format!("position:{}:{}", id, position_type)
 }
+
 pub fn position_liquidity(id: &String) -> String {
     format!("position:{}:liquidity", id)
 }

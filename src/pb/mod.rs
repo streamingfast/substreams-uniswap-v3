@@ -203,13 +203,13 @@ impl PositionType {
 
     pub fn get_position_type(i: i32) -> PositionType {
         return if i == 1 {
-            PositionType::IncreaseLiquidity
+            IncreaseLiquidity
         } else if i == 2 {
-            PositionType::Collect
+            Collect
         } else if i == 3 {
-            PositionType::DecreaseLiquidity
+            DecreaseLiquidity
         } else if i == 4 {
-            PositionType::Transfer
+            Transfer
         } else {
             panic!("Unset should never have occurred");
         };

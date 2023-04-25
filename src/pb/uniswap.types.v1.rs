@@ -79,14 +79,22 @@ pub struct Events {
     pub pool_events: ::prost::alloc::vec::Vec<events::PoolEvent>,
     #[prost(message, repeated, tag="4")]
     pub transactions: ::prost::alloc::vec::Vec<events::Transaction>,
-    #[prost(message, repeated, tag="5")]
-    pub positions: ::prost::alloc::vec::Vec<events::Position>,
     #[prost(message, repeated, tag="6")]
     pub flashes: ::prost::alloc::vec::Vec<events::Flash>,
     #[prost(message, repeated, tag="8")]
     pub ticks_created: ::prost::alloc::vec::Vec<events::TickCreated>,
     #[prost(message, repeated, tag="9")]
     pub ticks_updated: ::prost::alloc::vec::Vec<events::TickUpdated>,
+    #[prost(message, repeated, tag="20")]
+    pub created_positions: ::prost::alloc::vec::Vec<events::CreatedPosition>,
+    #[prost(message, repeated, tag="21")]
+    pub increase_liquidity_positions: ::prost::alloc::vec::Vec<events::IncreaseLiquidityPosition>,
+    #[prost(message, repeated, tag="22")]
+    pub decrease_liquidity_positions: ::prost::alloc::vec::Vec<events::DecreaseLiquidityPosition>,
+    #[prost(message, repeated, tag="23")]
+    pub collect_positions: ::prost::alloc::vec::Vec<events::CollectPosition>,
+    #[prost(message, repeated, tag="24")]
+    pub transfer_positions: ::prost::alloc::vec::Vec<events::TransferPosition>,
 }
 /// Nested message and enum types in `Events`.
 pub mod events {
@@ -338,6 +346,110 @@ pub mod events {
         pub gas_price: ::prost::alloc::string::String,
         #[prost(uint64, tag="6")]
         pub log_ordinal: u64,
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct Positions {
+        #[prost(message, repeated, tag="1")]
+        pub positions: ::prost::alloc::vec::Vec<Position>,
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct CreatedPosition {
+        #[prost(string, tag="1")]
+        pub token_id: ::prost::alloc::string::String,
+        #[prost(string, tag="2")]
+        pub pool: ::prost::alloc::string::String,
+        #[prost(string, tag="3")]
+        pub token0: ::prost::alloc::string::String,
+        #[prost(string, tag="4")]
+        pub token1: ::prost::alloc::string::String,
+        #[prost(string, tag="5")]
+        pub tick_lower: ::prost::alloc::string::String,
+        #[prost(string, tag="6")]
+        pub tick_upper: ::prost::alloc::string::String,
+        #[prost(string, tag="7")]
+        pub transaction: ::prost::alloc::string::String,
+        #[prost(uint64, tag="8")]
+        pub log_ordinal: u64,
+        #[prost(uint64, tag="9")]
+        pub timestamp: u64,
+        #[prost(uint64, tag="10")]
+        pub block_number: u64,
+        /// BigInt
+        #[prost(string, optional, tag="11")]
+        pub fee_growth_inside0_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        /// BigInt
+        #[prost(string, optional, tag="12")]
+        pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct IncreaseLiquidityPosition {
+        #[prost(string, tag="1")]
+        pub token_id: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, tag="2")]
+        pub liquidity: ::prost::alloc::string::String,
+        /// BigDecimal
+        #[prost(string, tag="3")]
+        pub deposited_token0: ::prost::alloc::string::String,
+        /// BigDecimal
+        #[prost(string, tag="4")]
+        pub deposited_token1: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, optional, tag="5")]
+        pub fee_growth_inside0_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        /// BigInt
+        #[prost(string, optional, tag="6")]
+        pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct DecreaseLiquidityPosition {
+        #[prost(string, tag="1")]
+        pub token_id: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, tag="2")]
+        pub liquidity: ::prost::alloc::string::String,
+        /// BigDecimal
+        #[prost(string, tag="3")]
+        pub withdrawn_token0: ::prost::alloc::string::String,
+        /// BigDecimal
+        #[prost(string, tag="4")]
+        pub withdrawn_token1: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, optional, tag="5")]
+        pub fee_growth_inside0_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        /// BigInt
+        #[prost(string, optional, tag="6")]
+        pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct CollectPosition {
+        #[prost(string, tag="1")]
+        pub token_id: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, tag="2")]
+        pub collected_fees_token0: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, tag="3")]
+        pub collected_fees_token1: ::prost::alloc::string::String,
+        /// BigInt
+        #[prost(string, optional, tag="5")]
+        pub fee_growth_inside0_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+        /// BigInt
+        #[prost(string, optional, tag="6")]
+        pub fee_growth_inside1_last_x128: ::core::option::Option<::prost::alloc::string::String>,
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct TransferPosition {
+        #[prost(string, tag="1")]
+        pub token_id: ::prost::alloc::string::String,
+        #[prost(string, tag="2")]
+        pub owner: ::prost::alloc::string::String,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -1,27 +1,31 @@
-use crate::pb::position_event::PositionEventType;
 use crate::pb::uniswap::events;
-use crate::pb::uniswap::events::position::PositionType::{
-    Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer,
-};
-use crate::pb::PositionEvent;
-use crate::storage::UniswapPoolStorage;
+use crate::pb::uniswap::events::position::PositionType::{Collect, DecreaseLiquidity, IncreaseLiquidity, Transfer};
+use crate::pb::uniswap::events::{CreatedPosition, Position};
+use crate::storage::position_manager::{PositionManagerStorage, PositionStruct};
+use crate::storage::uniswap_v3_pool::UniswapPoolStorage;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
 use crate::{abi, math, rpc, utils, BurnEvent, EventTrait, MintEvent, Pool, SwapEvent};
 use substreams::prelude::{BigDecimal, BigInt, StoreGet, StoreGetProto};
 use substreams::{log, Hex};
-use substreams_ethereum::pb::eth::v2::{Log, StorageChange, TransactionTrace};
+use substreams_ethereum::block_view::CallView;
+use substreams_ethereum::pb::eth::v2::{Call, Log, StorageChange, TransactionTrace};
 
-pub fn extract_pool_events(
+pub fn extract_pool_events_and_positions(
     pool_events: &mut Vec<events::PoolEvent>,
     ticks_created: &mut Vec<events::TickCreated>,
     ticks_updated: &mut Vec<events::TickUpdated>,
+    created_positions: &mut Vec<events::CreatedPosition>,
+    increase_liquidity_positions: &mut Vec<events::IncreaseLiquidityPosition>,
+    decrease_liquidity_positions: &mut Vec<events::DecreaseLiquidityPosition>,
+    collect_positions: &mut Vec<events::CollectPosition>,
+    transfer_positions: &mut Vec<events::TransferPosition>,
     transaction_id: &String,
     origin: &String,
     log: &Log,
+    call_view: &CallView,
     pool: &Pool,
     timestamp_seconds: u64,
     block_number: u64,
-    storage_changes: &Vec<StorageChange>,
 ) {
     let common_tick_updated = events::TickUpdated {
         log_ordinal: log.ordinal,
@@ -30,6 +34,7 @@ pub fn extract_pool_events(
     };
 
     if let Some(swap) = abi::pool::events::Swap::match_and_decode(log) {
+        log::info!("SWAP: transaction: {}", transaction_id.to_string());
         if !pool.should_handle_swap() {
             return;
         }
@@ -62,9 +67,20 @@ pub fn extract_pool_events(
                 liquidity: swap.liquidity.into(),
                 tick: swap.tick.into(),
             })),
-        })
+        });
+
+        //TODO: verify if a swap changes the fee growth inside 0x128 and 1x128
+        let position_manager_contract_call = call_view.parent().unwrap();
+        extract_positions(
+            pool,
+            increase_liquidity_positions,
+            decrease_liquidity_positions,
+            collect_positions,
+            transfer_positions,
+            &position_manager_contract_call,
+        );
     } else if let Some(mint) = abi::pool::events::Mint::match_and_decode(log) {
-        log::info!("transaction: {}", transaction_id.to_string());
+        log::info!("MINT: transaction: {}", transaction_id.to_string());
         if !pool.should_handle_mint_and_burn() {
             return;
         }
@@ -96,12 +112,10 @@ pub fn extract_pool_events(
             })),
         });
 
-        let storage = UniswapPoolStorage::new(storage_changes, &log.address);
+        let storage = UniswapPoolStorage::new(&call_view.call.storage_changes, &log.address);
+        let create_lower_tick = initialized_changed(storage.ticks(&mint.tick_lower).initialized());
+        let create_upper_tick = initialized_changed(storage.ticks(&mint.tick_upper).initialized());
 
-        let create_lower_tick =
-            initialized_changed(storage.get_ticks_initialized(&mint.tick_lower));
-        let create_upper_tick =
-            initialized_changed(storage.get_ticks_initialized(&mint.tick_upper));
         if create_lower_tick || create_upper_tick {
             let common_tick = events::TickCreated {
                 pool_address: pool.address.to_string(),
@@ -111,45 +125,87 @@ pub fn extract_pool_events(
                 amount: mint.amount.into(),
                 ..Default::default()
             };
-            if create_lower_tick {
-                let mut lower_tick = common_tick.clone();
-                let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
-                lower_tick.idx = mint.tick_upper.as_ref().into();
-                lower_tick.price0 = price0.into();
-                lower_tick.price1 = price1.into();
-                ticks_created.push(lower_tick);
-            }
-            if create_upper_tick {
-                let mut upper_tick = common_tick.clone();
-                let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
-                upper_tick.idx = mint.tick_upper.as_ref().into();
-                upper_tick.price0 = price0.into();
-                upper_tick.price1 = price1.into();
-                ticks_created.push(upper_tick);
-            }
+
+            let mut lower_tick = common_tick.clone();
+            let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
+            lower_tick.idx = mint.tick_lower.as_ref().into();
+            lower_tick.price0 = price0.into();
+            lower_tick.price1 = price1.into();
+            ticks_created.push(lower_tick);
+
+            let mut upper_tick = common_tick.clone();
+            let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
+            upper_tick.idx = mint.tick_upper.as_ref().into();
+            upper_tick.price0 = price0.into();
+            upper_tick.price1 = price1.into();
+            ticks_created.push(upper_tick);
         }
 
         ticks_updated.push(events::TickUpdated {
             idx: mint.tick_upper.as_ref().into(),
-            fee_growth_outside_0x_128: bigint_if_some(
-                storage.get_ticks_fee_growth_outside_0_x128(&mint.tick_upper),
-            ),
-            fee_growth_outside_1x_128: bigint_if_some(
-                storage.get_ticks_fee_growth_outside_1_x128(&mint.tick_upper),
-            ),
+            fee_growth_outside_0x_128: bigint_if_some(storage.ticks(&mint.tick_upper).fee_growth_outside_0_x128()),
+            fee_growth_outside_1x_128: bigint_if_some(storage.ticks(&mint.tick_upper).fee_growth_outside_1_x128()),
             ..common_tick_updated.clone()
         });
         ticks_updated.push(events::TickUpdated {
             idx: mint.tick_lower.as_ref().into(),
-            fee_growth_outside_0x_128: bigint_if_some(
-                storage.get_ticks_fee_growth_outside_0_x128(&mint.tick_lower),
-            ),
-            fee_growth_outside_1x_128: bigint_if_some(
-                storage.get_ticks_fee_growth_outside_1_x128(&mint.tick_lower),
-            ),
+            fee_growth_outside_0x_128: bigint_if_some(storage.ticks(&mint.tick_lower).fee_growth_outside_0_x128()),
+            fee_growth_outside_1x_128: bigint_if_some(storage.ticks(&mint.tick_lower).fee_growth_outside_1_x128()),
             ..common_tick_updated.clone()
         });
+
+        let position_manager_contract_call = call_view.parent().unwrap();
+        let uniswap_pool_manager_storage = PositionManagerStorage::new(
+            &position_manager_contract_call.storage_changes,
+            &position_manager_contract_call.address,
+        );
+
+        if let Some((old_value, _new_value)) = uniswap_pool_manager_storage.next_id() {
+            let token_id = old_value;
+
+            let mut fee_growth_inside0_last_x128 = None;
+            let mut fee_growth_inside1_last_x128 = None;
+
+            if let Some((_old_value, new_value)) = uniswap_pool_manager_storage
+                .positions(&token_id)
+                .fee_growth_inside0last_x128()
+            {
+                fee_growth_inside0_last_x128 = Some(new_value.to_string());
+            }
+
+            if let Some((_old_value, new_value)) = uniswap_pool_manager_storage
+                .positions(&token_id)
+                .fee_growth_inside1last_x128()
+            {
+                fee_growth_inside1_last_x128 = Some(new_value.to_string());
+            }
+
+            created_positions.push(CreatedPosition {
+                token_id: token_id.to_string(),
+                pool: pool.address.clone(),
+                token0: token0.address.clone(),
+                token1: token1.address.clone(),
+                tick_lower: mint.tick_lower.to_string(),
+                tick_upper: mint.tick_upper.to_string(),
+                transaction: transaction_id.to_string(),
+                log_ordinal: log.ordinal,
+                timestamp: timestamp_seconds,
+                block_number,
+                fee_growth_inside0_last_x128,
+                fee_growth_inside1_last_x128,
+            });
+        }
+
+        extract_positions(
+            pool,
+            increase_liquidity_positions,
+            decrease_liquidity_positions,
+            collect_positions,
+            transfer_positions,
+            &position_manager_contract_call,
+        );
     } else if let Some(burn) = abi::pool::events::Burn::match_and_decode(log) {
+        log::info!("BURN: transaction: {}", transaction_id.to_string());
         if !pool.should_handle_mint_and_burn() {
             return;
         }
@@ -183,28 +239,40 @@ pub fn extract_pool_events(
             })),
         });
 
-        let storage = UniswapPoolStorage::new(storage_changes, &log.address);
+        let storage = UniswapPoolStorage::new(&call_view.call.storage_changes, &log.address);
 
         ticks_updated.push(events::TickUpdated {
             idx: burn.tick_upper.as_ref().into(),
-            fee_growth_outside_0x_128: bigint_if_some(
-                storage.get_ticks_fee_growth_outside_0_x128(&burn.tick_upper),
-            ),
-            fee_growth_outside_1x_128: bigint_if_some(
-                storage.get_ticks_fee_growth_outside_1_x128(&burn.tick_upper),
-            ),
+            fee_growth_outside_0x_128: bigint_if_some(storage.ticks(&burn.tick_upper).fee_growth_outside_0_x128()),
+            fee_growth_outside_1x_128: bigint_if_some(storage.ticks(&burn.tick_upper).fee_growth_outside_1_x128()),
             ..common_tick_updated.clone()
         });
         ticks_updated.push(events::TickUpdated {
             idx: burn.tick_lower.as_ref().into(),
-            fee_growth_outside_0x_128: bigint_if_some(
-                storage.get_ticks_fee_growth_outside_0_x128(&burn.tick_lower),
-            ),
-            fee_growth_outside_1x_128: bigint_if_some(
-                storage.get_ticks_fee_growth_outside_1_x128(&burn.tick_lower),
-            ),
+            fee_growth_outside_0x_128: bigint_if_some(storage.ticks(&burn.tick_lower).fee_growth_outside_0_x128()),
+            fee_growth_outside_1x_128: bigint_if_some(storage.ticks(&burn.tick_lower).fee_growth_outside_1_x128()),
             ..common_tick_updated.clone()
         });
+
+        let position_manager_contract_call = call_view.parent().unwrap();
+        extract_positions(
+            pool,
+            increase_liquidity_positions,
+            decrease_liquidity_positions,
+            collect_positions,
+            transfer_positions,
+            &position_manager_contract_call,
+        );
+    } else if let Some(_collect) = abi::pool::events::Collect::match_and_decode(log) {
+        let position_manager_contract_call = call_view.parent().unwrap();
+        extract_positions(
+            pool,
+            increase_liquidity_positions,
+            decrease_liquidity_positions,
+            collect_positions,
+            transfer_positions,
+            &position_manager_contract_call,
+        );
     }
 }
 
@@ -224,10 +292,7 @@ fn initialized_changed(input: Option<(bool, bool)>) -> bool {
 }
 
 fn prices_from_tick_index(tick_idx: &BigInt) -> (BigDecimal, BigDecimal) {
-    let price0 = math::big_decimal_exponated(
-        BigDecimal::try_from(1.0001).unwrap().with_prec(100),
-        tick_idx.clone(),
-    );
+    let price0 = math::big_decimal_exponated(BigDecimal::try_from(1.0001).unwrap().with_prec(100), tick_idx.clone());
     let price1 = math::safe_div(&BigDecimal::from(1 as i32), &price0);
     (price0, price1)
 }
@@ -242,24 +307,21 @@ pub fn extract_pool_liquidities(
         if !pool.should_handle_swap() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
-        {
+        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes) {
             pool_liquidities.push(pl)
         }
     } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
-        {
+        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes) {
             pool_liquidities.push(pl)
         }
     } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes)
-        {
+        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes) {
             pool_liquidities.push(pl)
         }
     }
@@ -299,11 +361,7 @@ pub fn extract_fee_growth_update(
     }
 }
 
-pub fn extract_pool_sqrt_prices(
-    pool_sqrt_prices: &mut Vec<events::PoolSqrtPrice>,
-    log: &Log,
-    pool_address: &String,
-) {
+pub fn extract_pool_sqrt_prices(pool_sqrt_prices: &mut Vec<events::PoolSqrtPrice>, log: &Log, pool_address: &String) {
     if let Some(event) = abi::pool::events::Initialize::match_and_decode(log) {
         pool_sqrt_prices.push(events::PoolSqrtPrice {
             pool_address: pool_address.to_string(),
@@ -350,80 +408,89 @@ pub fn extract_transactions(
     }
 }
 
-pub fn extract_positions(
-    positions: &mut Vec<events::Position>,
-    log: &Log,
-    transaction_id: &String,
-    pools_store: &StoreGetProto<Pool>,
-    timestamp: u64,
-    block_number: u64,
+fn extract_positions(
+    pool: &Pool,
+    increase_liquidity_positions: &mut Vec<events::IncreaseLiquidityPosition>,
+    decrease_liquidity_positions: &mut Vec<events::DecreaseLiquidityPosition>,
+    collect_positions: &mut Vec<events::CollectPosition>,
+    transfer_positions: &mut Vec<events::TransferPosition>,
+    call: &Call,
 ) {
-    let log_address = log.clone().address;
-    if log.address != NON_FUNGIBLE_POSITION_MANAGER {
-        return;
-    }
+    for log in call.logs.iter() {
+        if log.address != NON_FUNGIBLE_POSITION_MANAGER {
+            return;
+        }
 
-    if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log) {
-        if let Some(position) = utils::get_position(
-            &pools_store,
-            &Hex(log_address).to_string(),
-            transaction_id,
-            IncreaseLiquidity,
-            log.ordinal,
-            timestamp,
-            block_number,
-            PositionEvent {
-                event: PositionEventType::IncreaseLiquidity(event),
-            },
-        ) {
-            positions.push(position);
-        }
-    } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
-        if let Some(position) = utils::get_position(
-            &pools_store,
-            &Hex(log_address).to_string(),
-            transaction_id,
-            Collect,
-            log.ordinal,
-            timestamp,
-            block_number,
-            PositionEvent {
-                event: PositionEventType::Collect(event),
-            },
-        ) {
-            positions.push(position);
-        }
-    } else if let Some(event) =
-        abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log)
-    {
-        if let Some(position) = utils::get_position(
-            &pools_store,
-            &Hex(log_address).to_string(),
-            transaction_id,
-            DecreaseLiquidity,
-            log.ordinal,
-            timestamp,
-            block_number,
-            PositionEvent {
-                event: PositionEventType::DecreaseLiquidity(event),
-            },
-        ) {
-            positions.push(position);
-        }
-    } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-        if let Some(position) = utils::get_position(
-            &pools_store,
-            &Hex(log_address).to_string(),
-            transaction_id,
-            Transfer,
-            log.ordinal,
-            timestamp,
-            block_number,
-            PositionEvent {
-                event: PositionEventType::Transfer(event.clone()),
-            },
-        ) {
-            positions.push(position);
+        let mut fee_growth_inside0_last_x128 = None;
+        let mut fee_growth_inside1_last_x128 = None;
+
+        let manager_storage = PositionManagerStorage::new(&call.storage_changes, &call.address);
+
+        if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log) {
+            if let Some((_old_value, new_value)) =
+                manager_storage.positions(&event.token_id).fee_growth_inside0last_x128()
+            {
+                fee_growth_inside0_last_x128 = Some(new_value.to_string());
+            }
+
+            if let Some((_old_value, new_value)) =
+                manager_storage.positions(&event.token_id).fee_growth_inside1last_x128()
+            {
+                fee_growth_inside1_last_x128 = Some(new_value.to_string());
+            }
+
+            increase_liquidity_positions.push(events::IncreaseLiquidityPosition {
+                token_id: event.token_id.to_string(),
+                liquidity: event.liquidity.to_string(),
+                deposited_token0: event.amount0.to_decimal(pool.token0().decimals).to_string(),
+                deposited_token1: event.amount1.to_decimal(pool.token1().decimals).to_string(),
+                fee_growth_inside0_last_x128,
+                fee_growth_inside1_last_x128,
+            });
+        } else if let Some(event) = abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log) {
+            if let Some((_old_value, new_value)) =
+                manager_storage.positions(&event.token_id).fee_growth_inside0last_x128()
+            {
+                fee_growth_inside0_last_x128 = Some(new_value.to_string());
+            }
+
+            if let Some((_old_value, new_value)) =
+                manager_storage.positions(&event.token_id).fee_growth_inside1last_x128()
+            {
+                fee_growth_inside1_last_x128 = Some(new_value.to_string());
+            }
+            decrease_liquidity_positions.push(events::DecreaseLiquidityPosition {
+                token_id: event.token_id.to_string(),
+                liquidity: event.liquidity.to_string(),
+                withdrawn_token0: event.amount0.to_decimal(pool.token0().decimals).to_string(),
+                withdrawn_token1: event.amount1.to_decimal(pool.token1().decimals).to_string(),
+                fee_growth_inside0_last_x128,
+                fee_growth_inside1_last_x128,
+            });
+        } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
+            if let Some((_old_value, new_value)) =
+                manager_storage.positions(&event.token_id).fee_growth_inside0last_x128()
+            {
+                fee_growth_inside0_last_x128 = Some(new_value.to_string());
+            }
+
+            if let Some((_old_value, new_value)) =
+                manager_storage.positions(&event.token_id).fee_growth_inside1last_x128()
+            {
+                fee_growth_inside1_last_x128 = Some(new_value.to_string());
+            }
+            collect_positions.push(events::CollectPosition {
+                token_id: event.token_id.to_string(),
+                collected_fees_token0: event.amount0.to_decimal(pool.token0().decimals).to_string(),
+                collected_fees_token1: event.amount1.to_decimal(pool.token1().decimals).to_string(),
+                fee_growth_inside0_last_x128,
+                fee_growth_inside1_last_x128,
+            });
+        } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
+            transfer_positions.push(events::TransferPosition {
+                token_id: event.token_id.to_string(),
+                owner: Hex(&event.to).to_string(),
+            });
         }
     }
 }

@@ -38,8 +38,6 @@ use substreams::store::{
 };
 use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::EntityChanges;
-use substreams_ethereum::pb::eth::v2;
-use substreams_ethereum::pb::eth::v2::TransactionTrace;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]
@@ -191,15 +189,20 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
     let mut fee_growth_global_updates: Vec<events::FeeGrowthGlobal> = vec![];
     let mut pool_events: Vec<events::PoolEvent> = vec![];
     let mut transactions: Vec<events::Transaction> = vec![];
-    let mut positions: Vec<events::Position> = vec![];
     let mut flashes: Vec<events::Flash> = vec![];
     let mut ticks_created: Vec<events::TickCreated> = vec![];
     let mut ticks_updated: Vec<events::TickUpdated> = vec![];
 
+    let mut positions_created: Vec<events::CreatedPosition> = vec![];
+    let mut positions_increase_liquidity: Vec<events::IncreaseLiquidityPosition> = vec![];
+    let mut positions_decrease_liquidity: Vec<events::DecreaseLiquidityPosition> = vec![];
+    let mut positions_collect: Vec<events::CollectPosition> = vec![];
+    let mut positions_transfer: Vec<events::TransferPosition> = vec![];
+
     let timestamp = block.timestamp_seconds();
 
     for trx in block.transactions() {
-        for (log, call) in logs_with_calls(trx) {
+        for (log, call_view) in trx.logs_with_calls() {
             let pool_address = &Hex(log.clone().address).to_string();
             let pool_key = &keyer::pool_key(&pool_address);
             let transactions_id = Hex(&trx.hash).to_string();
@@ -207,52 +210,42 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
             match pools_store.get_last(pool_key) {
                 Some(pool) => {
                     filtering::extract_pool_sqrt_prices(&mut pool_sqrt_prices, log, pool_address);
-
-                    filtering::extract_pool_liquidities(&mut pool_liquidities, log, &call.storage_changes, &pool);
-
-                    // FeeGrowthUpdate
+                    filtering::extract_pool_liquidities(
+                        &mut pool_liquidities,
+                        log,
+                        &call_view.call.storage_changes,
+                        &pool,
+                    );
                     filtering::extract_fee_growth_update(
                         &mut fee_growth_global_updates,
                         log,
-                        &call.storage_changes,
+                        &call_view.call.storage_changes,
                         &pool,
                     );
 
-                    // PoolEvents
-                    filtering::extract_pool_events(
+                    filtering::extract_pool_events_and_positions(
                         &mut pool_events,
                         &mut ticks_created,
                         &mut ticks_updated,
+                        &mut positions_created,
+                        &mut positions_increase_liquidity,
+                        &mut positions_decrease_liquidity,
+                        &mut positions_collect,
+                        &mut positions_transfer,
                         &transactions_id,
                         &Hex(&trx.from).to_string(),
                         log,
+                        &call_view,
                         &pool,
                         timestamp,
                         block.number,
-                        &call.storage_changes,
                     );
 
                     filtering::extract_transactions(&mut transactions, log, &trx, timestamp, block.number);
-
                     filtering::extract_flashes(&mut flashes, &log, &pools_store, pool_key);
                 }
-                _ => (), // do nothing
+                _ => (),
             }
-
-            //todo: pools_store needed to check if the pool exists in the store
-            // by checking the index:token1:token2 instead of the address...
-            // could this be done smarter and checked with the log_address ?
-
-            // Positions
-            filtering::extract_positions(
-                &mut positions,
-                log,
-                &transactions_id,
-                &pools_store,
-                timestamp,
-                block.number,
-            );
-            // Positions
         }
     }
 
@@ -261,28 +254,16 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
     events.fee_growth_global_updates = fee_growth_global_updates;
     events.pool_events = pool_events;
     events.transactions = transactions;
-    events.positions = positions;
+    events.created_positions = positions_created;
+    events.increase_liquidity_positions = positions_increase_liquidity;
+    events.decrease_liquidity_positions = positions_decrease_liquidity;
+    events.collect_positions = positions_collect;
+    events.transfer_positions = positions_transfer;
     events.flashes = flashes;
     events.ticks_created = ticks_created;
     events.ticks_updated = ticks_updated;
 
     Ok(events)
-}
-
-fn logs_with_calls(trx: &TransactionTrace) -> Vec<(&v2::Log, &v2::Call)> {
-    let mut res: Vec<(&v2::Log, &v2::Call)> = vec![];
-
-    for call in trx.calls.iter() {
-        if call.state_reverted {
-            continue;
-        }
-        for log in call.logs.iter() {
-            res.push((&log, &call));
-        }
-    }
-
-    res.sort_by(|x, y| x.0.ordinal.cmp(&y.0.ordinal));
-    res
 }
 
 #[substreams::handlers::store]
@@ -524,6 +505,8 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
     output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
 
     for event in events.pool_events {
         let pool_address = &event.pool_address;
@@ -538,6 +521,10 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
             format!("UniswapDayData:{day_id}"),
             format!("PoolDayData:{pool_address}:{day_id}"),
             format!("PoolHourData:{pool_address}:{hour_id}"),
+            keyer::token_day_data_tx_count(&event.token0, day_id.to_string()),
+            keyer::token_day_data_tx_count(&event.token1, day_id.to_string()),
+            keyer::token_hour_data_tx_count(&event.token0, hour_id.to_string()),
+            keyer::token_hour_data_tx_count(&event.token1, hour_id.to_string()),
         ];
         output.add_many(event.log_ordinal, &keys, &BigInt::from(2 as i32));
     }
@@ -886,6 +873,8 @@ pub fn store_token_tvl(clock: Clock, events: Events, output: StoreAddBigDecimal)
     let prev_day_id = day_id - 1;
     let prev_hour_id = hour_id - 1;
 
+    log::info!("hour_id {}", hour_id);
+
     output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
@@ -1144,305 +1133,6 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
     }
 }
 
-// #[substreams::handlers::map]
-// pub fn map_positions(
-//     block: Block,
-//     all_positions_store: StoreGetProto<events::Position>,
-// ) -> Result<Vec<events::Position>, Error> {
-//     let mut positions: Vec<events::Position> = vec![];
-//     let mut ordered_positions: Vec<String> = vec![];
-//     let mut enriched_positions: HashMap<String, events::Position> = HashMap::new();
-//
-//     for log in block.logs() {
-//         if log.address() != utils::NON_FUNGIBLE_POSITION_MANAGER {
-//             continue;
-//         }
-//
-//         if let Some(event) = abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log) {
-//             let token_id: String = event.token_id.to_string();
-//             if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(
-//                     log.ordinal(),
-//                     keyer::all_position(&token_id, &IncreaseLiquidity.to_string()),
-//                 ) {
-//                     None => {
-//                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
-//                         continue;
-//                     }
-//                     Some(pos) => {
-//                         enriched_positions.insert(token_id.clone(), pos);
-//                         if !ordered_positions.contains(&String::from(token_id.clone())) {
-//                             ordered_positions.push(String::from(token_id))
-//                         }
-//                     }
-//                 }
-//             }
-//         } else if let Some(event) = abi::positionmanager::events::Collect::match_and_decode(log) {
-//             let token_id: String = event.token_id.to_string();
-//             let mut position = if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(log.ordinal(), keyer::all_position(&token_id, &Collect.to_string())) {
-//                     None => {
-//                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
-//                         continue;
-//                     }
-//                     Some(pos) => pos,
-//                 }
-//             } else {
-//                 enriched_positions.remove(&event.token_id.to_string()).unwrap()
-//             };
-//
-//             if let Some(position_call_result) = rpc::positions_call(&Hex(log.address()).to_string(), event.token_id) {
-//                 position.fee_growth_inside_0_last_x_128 = Some(position_call_result.5.into());
-//                 position.fee_growth_inside_1_last_x_128 = Some(position_call_result.6.into());
-//                 enriched_positions.insert(token_id.clone(), position);
-//                 if !ordered_positions.contains(&String::from(token_id.clone())) {
-//                     ordered_positions.push(String::from(token_id))
-//                 }
-//             }
-//         } else if let Some(event) = abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log) {
-//             let token_id: String = event.token_id.to_string();
-//             if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(
-//                     log.ordinal(),
-//                     keyer::all_position(&event.token_id.to_string(), &DecreaseLiquidity.to_string()),
-//                 ) {
-//                     None => {
-//                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
-//                         continue;
-//                     }
-//                     Some(pos) => {
-//                         enriched_positions.insert(token_id.clone(), pos);
-//                         if !ordered_positions.contains(&String::from(token_id.clone())) {
-//                             ordered_positions.push(String::from(token_id))
-//                         }
-//                     }
-//                 }
-//             }
-//         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
-//             let token_id: String = event.token_id.to_string();
-//             let mut position = if !enriched_positions.contains_key(&token_id) {
-//                 match all_positions_store.get_at(log.ordinal(), keyer::all_position(&token_id, &Transfer.to_string())) {
-//                     None => {
-//                         log::debug!("increase liquidity for id {} doesn't exist", token_id);
-//                         continue;
-//                     }
-//                     Some(pos) => pos,
-//                 }
-//             } else {
-//                 enriched_positions.remove(&token_id).unwrap()
-//             };
-//
-//             position.owner = Hex(event.to.as_slice()).to_string();
-//             enriched_positions.insert(token_id.clone(), position);
-//             if !ordered_positions.contains(&String::from(token_id.clone())) {
-//                 ordered_positions.push(String::from(token_id))
-//             }
-//         }
-//     }
-//
-//     log::debug!("len of map: {}", enriched_positions.len());
-//     for element in ordered_positions.iter() {
-//         let pos = enriched_positions.remove(element);
-//         if pos.is_some() {
-//             positions.push(pos.unwrap());
-//         }
-//     }
-//
-//     Ok(positions)
-// }
-
-#[substreams::handlers::store]
-pub fn store_positions(events: Events, store: StoreAddInt64) {
-    for position in events.positions {
-        match position.convert_position_type() {
-            IncreaseLiquidity => {
-                store.add(
-                    position.log_ordinal,
-                    keyer::position(&position.token_id, &IncreaseLiquidity.to_string()),
-                    1,
-                );
-            }
-            DecreaseLiquidity => {
-                store.add(
-                    position.log_ordinal,
-                    keyer::position(&position.token_id, &DecreaseLiquidity.to_string()),
-                    1,
-                );
-            }
-            Collect => {
-                store.add(
-                    position.log_ordinal,
-                    keyer::position(&position.token_id, &Collect.to_string()),
-                    1,
-                );
-            }
-            Transfer => {
-                store.add(
-                    position.log_ordinal,
-                    keyer::position(&position.token_id, &Transfer.to_string()),
-                    1,
-                );
-            }
-            _ => {}
-        }
-    }
-}
-
-#[substreams::handlers::store]
-pub fn store_position_changes(events: Events, store: StoreAddBigDecimal) {
-    for position in events.positions {
-        match position.convert_position_type() {
-            IncreaseLiquidity => {
-                // FIXME: that `position.liquidity` is an Integer, but we're in a BigDecimal store.
-                //  I'm not even sure where that `liquidity` is set! Is it ever non-zero?
-                //  Also, wouldn't it be a BigDecimal with the decimals from the token?
-                store.add(
-                    position.log_ordinal,
-                    keyer::position_liquidity(&position.token_id),
-                    BigDecimal::try_from(position.liquidity).unwrap(),
-                );
-                store.add(
-                    position.log_ordinal,
-                    keyer::position_deposited_token(&position.token_id, "Token0"),
-                    BigDecimal::try_from(position.amount0).unwrap(),
-                    //TryInto<BigDecimal>::try_into(position.amount0).unwrap(),
-                );
-                store.add(
-                    position.log_ordinal,
-                    keyer::position_deposited_token(&position.token_id, "Token1"),
-                    BigDecimal::try_from(position.amount1).unwrap(),
-                );
-            }
-            DecreaseLiquidity => {
-                store.add(
-                    position.log_ordinal,
-                    keyer::position_liquidity(&position.token_id),
-                    &BigDecimal::try_from(position.liquidity).unwrap().neg(),
-                );
-                store.add(
-                    position.log_ordinal,
-                    keyer::position_withdrawn_token(&position.token_id, "Token0"),
-                    &BigDecimal::try_from(position.amount0).unwrap(),
-                );
-                store.add(
-                    position.log_ordinal,
-                    keyer::position_withdrawn_token(&position.token_id, "Token1"),
-                    &BigDecimal::try_from(position.amount1).unwrap(),
-                );
-            }
-            Collect => {
-                store.add(
-                    position.log_ordinal,
-                    keyer::position_collected_fees_token(&position.token_id, "Token0"),
-                    &BigDecimal::try_from(position.amount0).unwrap(),
-                );
-                store.add(
-                    position.log_ordinal,
-                    keyer::position_collected_fees_token(&position.token_id, "Token1"),
-                    &BigDecimal::try_from(position.amount1).unwrap(),
-                );
-            }
-            _ => {}
-        }
-    }
-}
-
-#[substreams::handlers::map]
-pub fn map_position_snapshots(
-    events: Events,
-    position_changes_store: StoreGetBigDecimal,
-) -> Result<SnapshotPositions, Error> {
-    let mut snapshot_positions: SnapshotPositions = SnapshotPositions {
-        snapshot_positions: vec![],
-    };
-
-    for position in events.positions {
-        let mut snapshot_position: SnapshotPosition = SnapshotPosition {
-            owner: position.owner,
-            pool: position.pool,
-            position: position.token_id.clone(),
-            block_number: position.block_number,
-            timestamp: position.timestamp,
-            transaction: position.transaction,
-            fee_growth_inside_0_last_x_128: position.fee_growth_inside_0_last_x_128,
-            fee_growth_inside_1_last_x_128: position.fee_growth_inside_1_last_x_128,
-            log_ordinal: position.log_ordinal,
-            ..Default::default()
-        };
-
-        //TODO: when the value is not found, do we really want to set the liquidity, deposited_token0, etc.
-        // to 0? We could simply not touch the data point...
-        match position_changes_store.get_at(position.log_ordinal, keyer::position_liquidity(&position.token_id)) {
-            Some(liquidity) => snapshot_position.liquidity = liquidity.into(),
-            _ => snapshot_position.liquidity = "0.0".to_string(),
-        }
-
-        match position_changes_store.get_at(
-            position.log_ordinal,
-            keyer::position_deposited_token(&position.token_id, "Token0"),
-        ) {
-            Some(deposited_token0) => {
-                snapshot_position.deposited_token0 = deposited_token0.into();
-            }
-            _ => snapshot_position.deposited_token0 = "0.0".to_string(),
-        }
-
-        match position_changes_store.get_at(
-            position.log_ordinal,
-            keyer::position_deposited_token(&position.token_id, "Token1"),
-        ) {
-            Some(deposited_token1) => {
-                snapshot_position.deposited_token1 = deposited_token1.into();
-            }
-            _ => snapshot_position.deposited_token1 = "0.0".to_string(),
-        }
-
-        match position_changes_store.get_at(
-            position.log_ordinal,
-            keyer::position_withdrawn_token(&position.token_id, "Token0"),
-        ) {
-            Some(withdrawn_token0) => {
-                snapshot_position.withdrawn_token0 = withdrawn_token0.into();
-            }
-            _ => snapshot_position.withdrawn_token0 = "0.0".to_string(),
-        }
-
-        match position_changes_store.get_at(
-            position.log_ordinal,
-            keyer::position_withdrawn_token(&position.token_id, "Token1"),
-        ) {
-            Some(withdrawn_token1) => {
-                snapshot_position.withdrawn_token1 = withdrawn_token1.into();
-            }
-            _ => snapshot_position.withdrawn_token1 = "0.0".to_string(),
-        }
-
-        match position_changes_store.get_at(
-            position.log_ordinal,
-            keyer::position_collected_fees_token(&position.token_id, "Token0"),
-        ) {
-            Some(collected_fees_token0) => {
-                snapshot_position.collected_fees_token0 = collected_fees_token0.into();
-            }
-            _ => snapshot_position.collected_fees_token0 = "0.0".to_string(),
-        }
-
-        match position_changes_store.get_at(
-            position.log_ordinal,
-            keyer::position_collected_fees_token(&position.token_id, "Token1"),
-        ) {
-            Some(collected_fees_token1) => {
-                snapshot_position.collected_fees_token1 = collected_fees_token1.into();
-            }
-            _ => snapshot_position.collected_fees_token1 = "0.0".to_string(),
-        }
-
-        snapshot_positions.snapshot_positions.push(snapshot_position);
-    }
-
-    Ok(snapshot_positions)
-}
-
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
@@ -1459,13 +1149,9 @@ pub fn graph_out(
     pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
     price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
     tokens_store: StoreGetInt64,                         /* store_tokens */
-    token_store_deltas: Deltas<DeltaInt64>,              /* store_tokens */
     tokens_whitelist_pools: Deltas<DeltaArray<String>>,  /* store_tokens_whitelist_pools */
     derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
-    positions_store: StoreGetInt64,                      /* store_positions */
-    positions_changes_deltas: Deltas<DeltaBigDecimal>,   /* store_position_changes */
-    snapshot_positions: SnapshotPositions,               /* map_position_snapshots */
     tx_count_store: StoreGetBigInt,                      /* store_total_tx_counts */
     store_eth_prices: StoreGetBigDecimal,                /* store_eth_prices */
 ) -> Result<EntityChanges, Error> {
@@ -1513,11 +1199,28 @@ pub fn graph_out(
     db::liquidities_tick_entity_change(&mut tables, ticks_liquidities_deltas);
 
     // Position:
-    db::position_create_entity_change(&mut tables, events.positions, positions_store);
-    db::positions_changes_entity_change(&mut tables, positions_changes_deltas);
+    // TODO: validate all the positions here
+    db::position_create_entity_change(&mut tables, &events.created_positions);
+    db::increase_liquidity_position_entity_change(&mut tables, &events.increase_liquidity_positions);
+    db::decrease_liquidity_position_entity_change(&mut tables, &events.decrease_liquidity_positions);
+    db::collect_position_entity_change(&mut tables, &events.collect_positions);
+    db::transfer_position_entity_change(&mut tables, &events.transfer_positions);
 
     // PositionSnapshot:
-    db::snapshot_position_entity_change(&mut tables, snapshot_positions);
+    // TODO: validate all the snapshot positions here
+    db::snapshot_positions_create_entity_change(&mut tables, &events.created_positions);
+    db::increase_liquidity_snapshot_position_entity_change(
+        &mut tables,
+        clock.number,
+        &events.increase_liquidity_positions,
+    );
+    db::decrease_liquidity_snapshot_position_entity_change(
+        &mut tables,
+        clock.number,
+        &events.decrease_liquidity_positions,
+    );
+    db::collect_snapshot_position_entity_change(&mut tables, clock.number, &events.collect_positions);
+    db::transfer_snapshot_position_entity_change(&mut tables, clock.number, &events.transfer_positions);
 
     // Transaction:
     db::transaction_entity_change(&mut tables, events.transactions);
@@ -1556,14 +1259,14 @@ pub fn graph_out(
     db::total_value_locked_usd_pool_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
 
     // Token Day data:
-    db::token_day_data_create_entity_change(&mut tables, &token_store_deltas);
+    db::token_day_data_create_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_token_day_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_day_data_entity_change(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_day_data_entity_change(&mut tables, &token_tvl_deltas);
     db::token_prices_token_day_data_entity_change(&mut tables, &price_deltas);
 
     // Token Hour data:
-    db::token_hour_data_create_entity_change(&mut tables, &token_store_deltas);
+    db::token_hour_data_create_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_token_hour_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_hour_data_entity_change(&mut tables, &token_tvl_deltas);

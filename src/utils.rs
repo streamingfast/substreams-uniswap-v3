@@ -5,15 +5,17 @@ use crate::pb::{AdjustedAmounts, PositionEvent};
 use crate::tables::Tables;
 use crate::uniswap::events::position::PositionType;
 use crate::uniswap::events::Transaction;
-use crate::{keyer, rpc, storage, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS};
+use crate::{keyer, rpc, Erc20Token, Pool, StorageChange, WHITELIST_TOKENS, storage};
 use std::fmt::Display;
 use std::ops::{Add, Mul};
+use std::string::ToString;
 use substreams::prelude::{DeltaBigDecimal, DeltaProto, StoreGetBigDecimal};
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{DeltaBigInt, StoreGet, StoreGetProto};
 use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
+
 pub const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
 pub const NON_FUNGIBLE_POSITION_MANAGER: [u8; 20] = hex!("c36442b4a4522e871399cd717abdd847ab11fe88");
 
@@ -90,9 +92,9 @@ pub fn extract_pool_fee_growth_global_updates(
     let fee_growth_global_0 = hex!("0000000000000000000000000000000000000000000000000000000000000001");
     let _fee_growth_global_1 = hex!("0000000000000000000000000000000000000000000000000000000000000002");
 
-    let storage = storage::UniswapPoolStorage::new(storage_changes, pool_address);
+    let storage = storage::uniswap_v3_pool::UniswapPoolStorage::new(storage_changes, pool_address);
 
-    if let Some((_old_value, new_value)) = storage.get_fee_growth_global0x128() {
+    if let Some((old_value, new_value)) = storage.fee_growth_global0x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
@@ -101,7 +103,7 @@ pub fn extract_pool_fee_growth_global_updates(
         })
     }
 
-    if let Some((_old_value, new_value)) = storage.get_fee_growth_global1x128() {
+    if let Some((old_value, new_value)) = storage.fee_growth_global1x128() {
         fee_growth_global.push(events::FeeGrowthGlobal {
             pool_address: Hex(&pool_address).to_string(),
             ordinal: log_ordinal,
@@ -270,14 +272,15 @@ pub fn get_position(
     block_number: u64,
     event: PositionEvent,
 ) -> Option<events::Position> {
+    // todo here we can get the data from the storage_changes
     if let Some(positions_call_result) = rpc::positions_call(log_address, event.get_token_id()) {
-        let token_id_0_bytes = positions_call_result.0;
-        let token_id_1_bytes = positions_call_result.1;
-        let fee = positions_call_result.2;
-        let tick_lower: BigInt = positions_call_result.3.into();
-        let tick_upper: BigInt = positions_call_result.4.into();
-        let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into();
-        let fee_growth_inside_1_last_x128: BigInt = positions_call_result.6.into();
+        let token_id_0_bytes = positions_call_result.0; // get from PoolKey.token0
+        let token_id_1_bytes = positions_call_result.1; // get from PoolKey.token1
+        let fee = positions_call_result.2; // get from PoolKey.fee
+        let tick_lower: BigInt = positions_call_result.3.into(); // get from Position.tickLower
+        let tick_upper: BigInt = positions_call_result.4.into(); // get from Position.tickLower
+        let fee_growth_inside_0_last_x128: BigInt = positions_call_result.5.into(); // get from Position.fee_growth_inside0last_x128
+        let fee_growth_inside_1_last_x128: BigInt = positions_call_result.6.into(); // get from Position.feeGrowthInside1LastX128
 
         let token0: String = Hex(&token_id_0_bytes.as_slice()).to_string();
         let token1: String = Hex(&token_id_1_bytes.as_slice()).to_string();
@@ -313,6 +316,7 @@ pub fn get_position(
             block_number,
         });
     }
+
     return None;
 }
 
