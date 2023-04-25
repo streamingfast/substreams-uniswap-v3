@@ -40,7 +40,9 @@ pub fn bundle_store_eth_price_usd_bundle_entity_change(tables: &mut Tables, delt
 //  Map Factory Entities
 // -------------------
 pub fn factory_created_factory_entity_change(tables: &mut Tables) {
-    let id = format!("0x{}", Hex(utils::UNISWAP_V3_FACTORY).to_string());
+    let id = "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string();
+
+
     let bigint0 = BigInt::zero();
     let bigdecimal0 = BigDecimal::zero();
     tables
@@ -62,7 +64,7 @@ pub fn factory_created_factory_entity_change(tables: &mut Tables) {
 
 pub fn pool_created_factory_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in deltas.deltas.iter() {
-        let id = format!("0x{}", Hex(utils::UNISWAP_V3_FACTORY).to_string());
+        let id = "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string();
         tables.update_row("Factory", &id).set("poolCount", &delta.new_value);
     }
 }
@@ -73,7 +75,7 @@ pub fn tx_count_factory_entity_change(tables: &mut Tables, deltas: &Deltas<Delta
             continue;
         }
         tables
-            .update_row("Factory", &format!("0x{}", Hex(utils::UNISWAP_V3_FACTORY).to_string()))
+            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string())
             .set("txCount", &delta.new_value);
     }
 }
@@ -93,7 +95,7 @@ pub fn swap_volume_factory_entity_change(tables: &mut Tables, deltas: &Deltas<De
         };
 
         tables
-            .update_row("Factory", &format!("0x{}", Hex(utils::UNISWAP_V3_FACTORY).to_string()))
+            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string())
             .set(name, &delta.new_value);
     }
 }
@@ -112,7 +114,7 @@ pub fn tvl_factory_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDe
         };
 
         tables
-            .update_row("Factory", &format!("0x{}", Hex(utils::UNISWAP_V3_FACTORY).to_string()))
+            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string())
             .set(name, &delta.new_value);
     }
 }
