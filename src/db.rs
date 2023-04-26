@@ -438,7 +438,7 @@ pub fn create_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickCre
         let tick_idx = &tick.idx;
         tables
             .create_row("Tick", format!("0x{pool_address}#{tick_idx}"))
-            .set("poolAddress", &tick.pool_address)
+            .set("poolAddress", &hex::decode(&tick.pool_address).unwrap())
             .set_bigint("tickIdx", &tick.idx)
             .set("pool", &format!("0x{pool_address}"))
             .set("liquidityGross", &bigint0)
@@ -606,7 +606,7 @@ pub fn transfer_position_entity_change(tables: &mut Tables, positions: &Vec<even
     for position in positions {
         tables
             .update_row("Position", position.token_id.clone())
-            .set("owner", &position.owner.clone().into_bytes());
+            .set("owner", &hex::decode(&position.owner).unwrap());
     }
 }
 
@@ -624,7 +624,7 @@ fn create_snapshot_position(tables: &mut Tables, id: &String, position: &events:
     tables
         .create_row("PositionSnapshot", &id)
         .set("id", id)
-        .set("owner", &Hex(utils::ZERO_ADDRESS).to_string().into_bytes())
+        .set("owner", &utils::ZERO_ADDRESS.to_vec())
         .set("pool", format!("0x{}", &position.pool))
         .set("position", &position.token_id)
         .set("blockNumber", position.block_number)
@@ -765,7 +765,7 @@ pub fn transfer_snapshot_position_entity_change(
 fn transfer_snapshot_position(tables: &mut Tables, id: &String, position: &events::TransferPosition) {
     tables
         .update_row("PositionSnapshot", id)
-        .set("owner", &position.owner.clone().into_bytes());
+        .set("owner", &hex::decode(&position.owner).unwrap());
 }
 
 fn fetch_and_update_snapshot_position(
@@ -894,9 +894,9 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("pool", format!("0x{pool_address}"))
                         .set("token0", format!("0x{}", event.token0))
                         .set("token1", format!("0x{}", event.token1))
-                        .set("sender", &swap.sender.into_bytes())
-                        .set("recipient", &swap.recipient.into_bytes())
-                        .set("origin", &swap.origin.into_bytes())
+                        .set("sender", &hex::decode(&swap.sender).unwrap())
+                        .set("recipient", &hex::decode(&swap.recipient).unwrap())
+                        .set("origin", &hex::decode(&swap.origin).unwrap())
                         .set("amount0", &amount0)
                         .set("amount1", &amount1)
                         .set("amountUSD", &amount_total_usd_tracked)
@@ -924,9 +924,9 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("pool", format!("0x{pool_address}"))
                         .set("token0", format!("0x{}", event.token0))
                         .set("token1", format!("0x{}", event.token1))
-                        .set("owner", &mint.owner.into_bytes())
-                        .set("sender", &mint.sender.into_bytes())
-                        .set("origin", &mint.origin.into_bytes())
+                        .set("owner", &hex::decode(&mint.owner).unwrap())
+                        .set("sender", &hex::decode(&mint.sender).unwrap())
+                        .set("origin", &hex::decode(&mint.origin).unwrap())
                         .set_bigint("amount", &mint.amount)
                         .set("amount0", amount0)
                         .set("amount1", amount1)
@@ -953,8 +953,8 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("token0", format!("0x{}", event.token0))
                         .set("token1", format!("0x{}", event.token1))
                         .set("timestamp", event.timestamp)
-                        .set("owner", &burn.owner.into_bytes())
-                        .set("origin", &burn.origin.into_bytes())
+                        .set("owner", &hex::decode(&burn.owner).unwrap())
+                        .set("origin", &hex::decode(&burn.origin).unwrap())
                         .set_bigint("amount", &burn.amount)
                         .set("amount0", amount0)
                         .set("amount1", amount1)
