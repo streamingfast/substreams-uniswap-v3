@@ -267,7 +267,7 @@ pub fn store_pool_sqrt_price(clock: Clock, events: Events, store: StoreSetProto<
         store.set_many(
             sqrt_price.ordinal,
             &vec![
-                format!("sqrt_price:{pool_address}"),
+                format!("pool:{pool_address}"),
                 format!("PoolDayData:{day_id}:{pool_address}"),
                 format!("PoolHourData:{hour_id}:{pool_address}"),
             ],
@@ -352,7 +352,7 @@ pub fn store_pool_liquidities(clock: Clock, events: Events, store: StoreSetBigIn
         store.set_many(
             0,
             &vec![
-                format!("liquidity:{pool_address}"),
+                format!("pool:{pool_address}"),
                 format!("PoolDayData:{day_id}:{pool_address}"),
                 format!("PoolHourData:{hour_id}:{pool_address}"),
             ],
@@ -1311,16 +1311,17 @@ pub fn graph_out(
     db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
     db::tx_count_pool_data(&mut tables, &tx_count_deltas);
 
+    // Token Day/Hour data:
+    db::create_entity_change_token_windows(&mut tables, &tx_count_deltas);
+    db::swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
     // TODO: merge all the today day and token hour data changes into 1 call
     // Token Day data:
-    db::token_day_data_create_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_token_day_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_day_data_entity_change(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_day_data_entity_change(&mut tables, &token_tvl_deltas);
     db::token_prices_token_day_data_entity_change(&mut tables, &derived_eth_prices_deltas);
 
     // Token Hour data:
-    db::token_hour_data_create_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_token_hour_data_entity_change(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_hour_data_entity_change(&mut tables, &token_tvl_deltas);
