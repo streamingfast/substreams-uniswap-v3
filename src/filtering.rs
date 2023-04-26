@@ -125,19 +125,23 @@ pub fn extract_pool_events_and_positions(
                 ..Default::default()
             };
 
-            let mut lower_tick = common_tick.clone();
-            let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
-            lower_tick.idx = mint.tick_lower.as_ref().into();
-            lower_tick.price0 = price0.into();
-            lower_tick.price1 = price1.into();
-            ticks_created.push(lower_tick);
+            if create_lower_tick {
+                let mut lower_tick = common_tick.clone();
+                let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
+                lower_tick.idx = mint.tick_lower.as_ref().into();
+                lower_tick.price0 = price0.into();
+                lower_tick.price1 = price1.into();
+                ticks_created.push(lower_tick);
+            }
 
-            let mut upper_tick = common_tick.clone();
-            let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
-            upper_tick.idx = mint.tick_upper.as_ref().into();
-            upper_tick.price0 = price0.into();
-            upper_tick.price1 = price1.into();
-            ticks_created.push(upper_tick);
+            if create_upper_tick {
+                let mut upper_tick = common_tick.clone();
+                let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
+                upper_tick.idx = mint.tick_upper.as_ref().into();
+                upper_tick.price0 = price0.into();
+                upper_tick.price1 = price1.into();
+                ticks_created.push(upper_tick);
+            }
         }
 
         ticks_updated.push(events::TickUpdated {
