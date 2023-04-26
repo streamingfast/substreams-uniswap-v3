@@ -438,7 +438,7 @@ pub fn create_tick_entity_change(tables: &mut Tables, ticks: Vec<events::TickCre
         let tick_idx = &tick.idx;
         tables
             .create_row("Tick", format!("0x{pool_address}#{tick_idx}"))
-            .set("poolAddress", &hex::decode(&tick.pool_address).unwrap())
+            .set("poolAddress", format!("0x{}",&tick.pool_address))
             .set_bigint("tickIdx", &tick.idx)
             .set("pool", &format!("0x{pool_address}"))
             .set("liquidityGross", &bigint0)
