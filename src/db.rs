@@ -1,10 +1,9 @@
+use std::ops::Div;
 use substreams::pb::substreams::store_delta;
-use std::ops::{Div};
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
-    StoreGetBigInt,
+    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal, StoreGetBigInt,
 };
 use substreams::{log, Hex};
 
@@ -941,6 +940,34 @@ pub fn totals_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Delta
             .set("totalValueLockedUSD", &delta.new_value);
     }
 }
+
+/**
+
+store1 -> (pk=1)  UPDATE ord=5, val=1   DELETE   CREATE
+store2 -> (pk=1)  UPDATE ord=2, val=2   DELETE
+
+process_creations()
+
+store1 -> (pk=1)  UPDATE field1=1   DELETE
+store2 -> (pk=1)  UPDATE field2=2   DELETE
+
+process_deletions_store1()
+process_mark_final_store1()
+
+ */
+
+pub fn uniswap_day_entity_changes(
+    tables: &mut Tables,
+    tx_count_deltas: &Deltas<DeltaBigInt>,
+    derived_factory_tvl_deltas: &Deltas<DeltaBigDecimal>,
+    swaps_volume_deltas: &Deltas<DeltaBigDecimal>,
+) {
+    uniswap_day_data_create_entity_change(tables, &tx_count_deltas);
+    tx_count_uniswap_day_data_entity_change(tables, &tx_count_deltas);
+    totals_uniswap_day_data_entity_change(tables, &derived_factory_tvl_deltas);
+    volumes_uniswap_day_data_entity_change(tables, &swaps_volume_deltas);
+}
+
 pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "UniswapDayData") {
         let day_id = key::segment(&delta.key, 1);
@@ -955,7 +982,7 @@ pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Delt
         // TODO: should this be done on all the updates?
         if delta.operation == store_delta::Operation::Delete {
             // TODO: need to fix the delete operation
-            // tables.delete_row(keyer::UNISWAP_DAY_DATA, &day_id).mark_final();
+            tables.update_row(keyer::UNISWAP_DAY_DATA, &day_id).mark_final();
             continue;
         }
 

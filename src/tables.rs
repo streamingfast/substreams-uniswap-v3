@@ -48,12 +48,14 @@ impl Tables {
             Operation::Update => {}
             Operation::Delete => {
                 panic!(
-                    "cannot create a row after a scheduled delete operation - table: {} key: {}",
+                    "cannot update a row after a scheduled delete operation - table: {} key: {}",
                     table,
                     key.as_ref().to_string()
                 )
             }
-            Operation::Final => {}
+            Operation::Final => {
+                panic!("impossible state");
+            }
         }
         row
     }
@@ -66,22 +68,18 @@ impl Tables {
                 row.operation = Operation::Delete;
             }
             Operation::Create => {
-                // simply clear the thing
                 row.operation = Operation::Unset;
                 row.columns = HashMap::new();
             }
-            Operation::Update => {}
-            Operation::Delete => {
-                panic!(
-                    "cannot create a row after a scheduled delete operation - table: {} key: {}",
-                    table,
-                    key.as_ref().to_string()
-                )
+            Operation::Update => {
+                row.columns = HashMap::new();
             }
-            Operation::Final => {}
+            Operation::Delete => {}
+            Operation::Final => {
+                panic!("impossible state");
+            }
         }
         row.operation = Operation::Delete;
-        row.columns = HashMap::new();
         row
     }
 

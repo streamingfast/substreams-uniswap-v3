@@ -422,6 +422,15 @@ pub fn store_totals(
                 log::info!("total value locked eth new: {}", pool_total_value_locked_eth_new_value);
                 log::info!("diff: {}", pool_total_value_locked_eth_diff);
 
+                // output.add_many_bigdecimal(ord, "my_key", value);
+                // output.set_bytes(ord, "other_key", mama);
+                // output.set_proto<MyProto>(ord, "lastkey", thing);
+                // output.append_bytes(ord, "this_key", vals);
+                // output.append_string(ord, "this_key", vals);
+                //
+                // store.get_at_set_bytes();
+                // store.append_bytes_get_at();
+
                 output.add(
                     ord,
                     format!("factory:totalValueLockedETH"),
@@ -460,7 +469,7 @@ pub fn store_totals(
                     ord,
                     &vec![
                         format!("factory:totalValueLockedUSD"),
-                        format!("PoolDayData:{pool_address}:{day_id}"),
+                        format!("PoolDayData:{day_id}:{pool_address}:"),
                         format!("PoolHourData:{pool_address}:{hour_id}"),
                         format!("TokenDayData:{token_address}:{day_id}"),
                         format!("TokenHourData:{token_address}:{hour_id}"),
@@ -1098,11 +1107,13 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
     }
 }
 
+struct StoreTxCountDeltas = Deltas<DeltaBigInt>{};
+
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
     pool_count_deltas: Deltas<DeltaBigInt>,              /* store_pool_count */
-    tx_count_deltas: Deltas<DeltaBigInt>,                /* store_total_tx_counts deltas */
+    tx_count_deltas: StoreTxCountDeltas,                /* store_total_tx_counts deltas */
     swaps_volume_deltas: Deltas<DeltaBigDecimal>,        /* store_swaps_volume */
     derived_factory_tvl_deltas: Deltas<DeltaBigDecimal>, /* store_derived_factory_tvl */
     derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,  /* store_eth_prices */
@@ -1198,10 +1209,12 @@ pub fn graph_out(
     db::flashes_update_pool_fee_entity_change(&mut tables, events.flashes);
 
     // Uniswap day data:
-    db::uniswap_day_data_create_entity_change(&mut tables, &tx_count_deltas);
-    db::tx_count_uniswap_day_data_entity_change(&mut tables, &tx_count_deltas);
-    db::totals_uniswap_day_data_entity_change(&mut tables, &derived_factory_tvl_deltas);
-    db::volumes_uniswap_day_data_entity_change(&mut tables, &swaps_volume_deltas);
+    db::uniswap_day_entity_changes(
+        &mut tables,
+        &tx_count_deltas,
+        &derived_factory_tvl_deltas,
+        &swaps_volume_deltas,
+    );
 
     // Pool Hour data:
     db::pool_day_data_create(&mut tables, &tx_count_deltas);
