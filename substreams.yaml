@@ -163,6 +163,7 @@ modules:
     initialBlock: 12369621
     valueType: bigdecimal
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
       - store: store_pools
       - store: store_prices

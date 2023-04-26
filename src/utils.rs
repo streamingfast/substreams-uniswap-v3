@@ -318,12 +318,24 @@ pub fn extract_at_position_time_id_as_i64(delta_key: &String, position: usize) -
         .unwrap();
 }
 
+pub fn extract_at_position_time_id_as_str(delta_key: &String, position: usize) -> &str {
+    return delta_key.as_str().split(":").nth(position).unwrap();
+}
+
 pub fn extract_at_position_pool_address_as_str(delta_key: &String, position: usize) -> &str {
     return delta_key.as_str().split(":").nth(position).unwrap();
 }
 
 pub fn extract_at_position_token_address_as_str(delta_key: &String, position: usize) -> &str {
     return delta_key.as_str().split(":").nth(position).unwrap();
+}
+
+pub fn extract_at_position_address_as_str(delta_key: &String, position: usize) -> &str {
+    return delta_key.as_str().split(":").nth(position).unwrap();
+}
+
+pub fn extract_last_item_address_as_str(delta_key: &String) -> &str {
+    return delta_key.as_str().split(":").last().unwrap();
 }
 
 pub fn extract_swap_volume_pool_entity_change_name(delta_key: &String) -> Option<&str> {
@@ -367,8 +379,8 @@ pub fn update_fee_growth_global_x128_pool(tables: &mut Tables, table_name: &str,
 }
 
 pub fn update_total_value_locked_usd_pool(tables: &mut Tables, table_name: &str, delta: &DeltaBigDecimal) {
-    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
-    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+    let time_id = key::segment(&delta.key, 1);
+    let pool_address = key::segment(&delta.key, 2);
 
     tables
         .update_row(table_name, pool_time_data_id(pool_address, &time_id).as_str())
@@ -379,8 +391,8 @@ pub fn update_total_value_locked_usd_pool(tables: &mut Tables, table_name: &str,
 // Token Day/Hour Data Entity Change
 // ---------------------------------
 pub fn update_total_value_locked_usd_token(tables: &mut Tables, table_name: &str, delta: &DeltaBigDecimal) {
-    let time_id = key::last_segment(&delta.key);
-    let token_address = key::segment(&delta.key, 1);
+    let time_id = key::segment(&delta.key, 1);
+    let token_address = key::segment(&delta.key, 2);
 
     tables
         .update_row(table_name, format!("0x{token_address}-{time_id}"))
