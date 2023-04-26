@@ -56,7 +56,7 @@ pub fn factory_created_factory_entity_change(tables: &mut Tables) {
         .set("totalValueLockedETH", &bigdecimal0)
         .set("totalValueLockedUSDUntracked", &bigdecimal0)
         .set("totalValueLockedETHUntracked", &bigdecimal0)
-        .set("owner", &utils::ZERO_ADDRESS.to_vec());
+        .set("owner", &format!("0x{}", Hex(utils::ZERO_ADDRESS).to_string()));
 }
 
 pub fn pool_created_factory_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
