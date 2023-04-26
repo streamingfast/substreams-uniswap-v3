@@ -497,9 +497,6 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
                 format!("token:{token1_addr}"),
                 format!("factory:{factory_addr}"),
                 format!("UniswapDayData:{day_id}"),
-                // FIXME: these won't work properly with the `delete_prefix` above..
-                // the day_id and hour_id must be in the second position,
-                // so we need to fix the readers of this store, otherwise, we'll bust memory.
                 format!("PoolDayData:{day_id}:{pool_address}"),
                 format!("PoolHourData:{hour_id}:{pool_address}"),
                 format!("TokenDayData:{day_id}:{token0_addr}"),
@@ -537,8 +534,8 @@ pub fn store_pool_fee_growth_global_x128(clock: Clock, events: Events, output: S
                 format!("fee:{pool_address}:token0"),
                 // FIXME: here again, the keys must _start_ with `day_id` to support
                 //  delete prefix.  Fix the reader in tandem.
-                format!("PoolDayData:{pool_address}:token0:{day_id}"),
-                format!("PoolHourData:{pool_address}:token0:{hour_id}"),
+                format!("PoolDayData:{day_id}:{pool_address}:token0"),
+                format!("PoolHourData:{hour_id}:{pool_address}:token0"),
             ],
             &big_int_0,
         );
@@ -546,8 +543,8 @@ pub fn store_pool_fee_growth_global_x128(clock: Clock, events: Events, output: S
             event.log_ordinal,
             &vec![
                 format!("fee:{pool_address}:token1"),
-                format!("PoolDayData:{pool_address}:token1:{day_id}"),
-                format!("PoolHourData:{pool_address}:token1:{hour_id}"),
+                format!("PoolDayData:{day_id}:{pool_address}:token1"),
+                format!("PoolHourData:{hour_id}:{pool_address}:token1"),
             ],
             &big_int_1,
         );
@@ -1062,8 +1059,7 @@ pub fn store_derived_factory_tvl(
                 ord,
                 &vec![
                     format!("factory:totalValueLockedUSD"),
-                    // FIXME: fix the placement of `day_id` again. Fix reader in tandem.
-                    format!("UniswapDayData:totalValueLockedUSD:{day_id}"),
+                    format!("UniswapDayData:{day_id}:totalValueLockedUSD"),
                 ],
                 delta_diff,
             ),

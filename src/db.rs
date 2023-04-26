@@ -996,6 +996,12 @@ pub fn uniswap_day_data_create_entity_change(tables: &mut Tables, deltas: &Delta
             continue;
         }
 
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let day_id = key::segment(&delta.key, 1).parse::<i64>().unwrap();
         let day_start_timestamp = (day_id * 86400) as i32;
         create_uniswap_day_data(tables, day_id, day_start_timestamp, &delta);
@@ -1004,6 +1010,12 @@ pub fn uniswap_day_data_create_entity_change(tables: &mut Tables, deltas: &Delta
 
 pub fn tx_count_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in key::filter_first_segment_eq(deltas, "UniswapDayData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let day_id = key::segment(&delta.key, 1);
 
         tables
@@ -1014,7 +1026,13 @@ pub fn tx_count_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Del
 
 pub fn totals_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "UniswapDayData") {
-        let day_id = key::last_segment(&delta.key);
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let day_id = key::segment(&delta.key, 1);
 
         tables
             .update_row("UniswapDayData", day_id)
@@ -1023,6 +1041,12 @@ pub fn totals_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Delta
 }
 pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "UniswapDayData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let day_id = key::segment(&delta.key, 1);
 
         let name = match key::last_segment(&delta.key) {
@@ -1064,9 +1088,16 @@ pub fn pool_day_data_create(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
         if delta.new_value.ne(&BigInt::one()) {
             continue;
         }
+
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let day_id = key::segment(&delta.key, 1).parse::<i64>().unwrap();
         let day_start_timestamp = (day_id * 86400) as i32;
-        let pool_address = key::last_segment(&delta.key);
+        let pool_address = key::segment(&delta.key, 2);
         let pool_day_data_id = format!("0x{pool_address}-{day_id}");
 
         create_pool_day_data(tables, &pool_day_data_id, day_start_timestamp, pool_address, &delta);
@@ -1108,9 +1139,15 @@ pub fn pool_hour_data_create(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) 
             continue;
         }
 
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let hour_id: i64 = key::segment(&delta.key, 1).parse::<i64>().unwrap();
         let hours_start_unix = (hour_id * 3600) as i32;
-        let pool_address = key::last_segment(&delta.key);
+        let pool_address = key::segment(&delta.key, 1);
 
         let pool_hour_data_id = utils::pool_time_data_id(pool_address, hour_id.to_string().as_str()).to_string();
 
@@ -1170,9 +1207,15 @@ pub fn swap_volume_pool_day_data(tables: &mut Tables, deltas: &Deltas<DeltaBigDe
 
 pub fn token_prices_pool_day_data(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
-        let day_id = key::last_segment(&delta.key);
-        let pool_address = key::segment(&delta.key, 1);
-        let name = match key::segment(&delta.key, 2) {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let day_id = key::segment(&delta.key, 1);
+        let pool_address = key::segment(&delta.key, 2);
+        let name = match key::last_segment(&delta.key) {
             "token0" => "token0Price",
             "token1" => "token1Price",
             _ => continue,
@@ -1214,12 +1257,23 @@ pub fn token_prices_pool_day_data(tables: &mut Tables, deltas: &Deltas<DeltaBigD
 
 pub fn fee_growth_global_x128_pool_day_data(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
         utils::update_fee_growth_global_x128_pool(tables, "PoolDayData", delta);
     }
 }
 
 pub fn total_value_locked_usd_pool_day_data(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "PoolDayData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         utils::update_total_value_locked_usd_pool(tables, "PoolDayData", delta);
     }
 }
@@ -1234,6 +1288,13 @@ pub fn tx_count_pool_data(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
             "PoolHourData" => "PoolHourData",
             _ => continue,
         };
+
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let time_id = key::segment(&delta.key, 1);
         let pool_address = key::last_segment(&delta.key);
 
@@ -1243,13 +1304,19 @@ pub fn tx_count_pool_data(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     }
 }
 
-pub fn liquidities_pool_windows(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
+pub fn liquidities_pool_windows(tables: &mut Tables, pool_liquidities_store_deltas: &Deltas<DeltaBigInt>) {
+    for delta in pool_liquidities_store_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {
             "PoolDayData" => "PoolDayData",
             "PoolHourData" => "PoolHourData",
             _ => continue,
         };
+
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
 
         let time_id = key::segment(&delta.key, 1);
         let pool_address = key::segment(&delta.key, 2);
@@ -1325,9 +1392,15 @@ pub fn swap_volume_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigD
 
 pub fn token_prices_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "PoolHourData") {
-        let hour_id = key::last_segment(&delta.key);
-        let pool_address = key::segment(&delta.key, 1);
-        let name = match key::segment(&delta.key, 2) {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let hour_id = key::segment(&delta.key, 1);
+        let pool_address = key::segment(&delta.key, 2);
+        let name = match key::last_segment(&delta.key) {
             "token0" => "token0Price",
             "token1" => "token1Price",
             _ => continue,
@@ -1366,17 +1439,24 @@ pub fn token_prices_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBig
 }
 
 pub fn fee_growth_global_x128_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in deltas.deltas.iter() {
-        if !delta.key.starts_with(POOL_HOUR_DATA) {
+    for delta in key::filter_first_segment_eq(&deltas, "PoolHourData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
             continue;
         }
-
-        utils::update_fee_growth_global_x128_pool(tables, POOL_HOUR_DATA, delta);
+        utils::update_fee_growth_global_x128_pool(tables, "PoolHourData", delta);
     }
 }
 
 pub fn total_value_locked_usd_pool_hour_data(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(&deltas, "PoolHourData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         utils::update_total_value_locked_usd_pool(tables, "PoolHourData", delta);
     }
 }
@@ -1387,6 +1467,12 @@ pub fn total_value_locked_usd_pool_hour_data(tables: &mut Tables, deltas: &Delta
 pub fn token_day_data_create_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
     for delta in key::filter_first_segment_eq(&deltas, "TokenDayData") {
         if !delta.new_value.eq(&BigInt::one()) {
+            continue;
+        }
+
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
             continue;
         }
 
@@ -1425,12 +1511,29 @@ pub fn swap_volume_token_day_data_entity_change(tables: &mut Tables, deltas: &De
 
 pub fn total_value_locked_usd_token_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(&deltas, "TokenDayData") {
-        utils::update_total_value_locked_usd_token(tables, "TokenDayData", delta);
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let day_id = key::segment(&delta.key, 1);
+        let token_address = key::segment(&delta.key, 2);
+
+        tables
+            .update_row("TokenDayData", format!("0x{token_address}-{day_id}"))
+            .set("totalValueLockedUSD", &delta.new_value);
     }
 }
 
 pub fn total_value_locked_token_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(&deltas, "TokenDayData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let day_id = key::segment(&delta.key, 1);
         let token_address = key::segment(&delta.key, 2);
 
@@ -1442,6 +1545,12 @@ pub fn total_value_locked_token_day_data_entity_change(tables: &mut Tables, delt
 
 pub fn token_prices_token_day_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(&deltas, "TokenDayData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let time_id = key::segment(&delta.key, 1);
         let token_address = key::segment(&delta.key, 2);
 
@@ -1481,6 +1590,12 @@ pub fn token_hour_data_create_entity_change(tables: &mut Tables, deltas: &Deltas
             continue;
         }
 
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let hour_id = key::segment(&delta.key, 1).parse::<i64>().unwrap();
         let hour_start_timestamp = (hour_id * 3600) as i32;
         let token_address = key::last_segment(&delta.key);
@@ -1515,12 +1630,29 @@ pub fn swap_volume_token_hour_data_entity_change(tables: &mut Tables, deltas: &D
 
 pub fn total_value_locked_usd_token_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "TokenHourData") {
-        utils::update_total_value_locked_usd_token(tables, "TokenHourData", delta);
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let hour_id = key::segment(&delta.key, 1);
+        let token_address = key::segment(&delta.key, 2);
+
+        tables
+            .update_row("TokenHourData", format!("0x{token_address}-{hour_id}"))
+            .set("totalValueLockedUSD", &delta.new_value);
     }
 }
 
 pub fn total_value_locked_token_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(deltas, "TokenHourData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let hour_id = key::segment(&delta.key, 1);
         let token_address = key::segment(&delta.key, 2);
 
@@ -1532,6 +1664,12 @@ pub fn total_value_locked_token_hour_data_entity_change(tables: &mut Tables, del
 
 pub fn token_prices_token_hour_data_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(&deltas, "TokenHourData") {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
         let hour_id = key::segment(&delta.key, 1);
         let token_address = key::segment(&delta.key, 2);
 

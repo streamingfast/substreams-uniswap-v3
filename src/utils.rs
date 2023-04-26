@@ -362,10 +362,9 @@ pub fn extract_swap_volume_token_entity_change_name(delta_key: &String) -> Optio
 // ---------------------------------
 // Pool Day/Hour Data Entity Change
 // ---------------------------------
-
 pub fn update_fee_growth_global_x128_pool(tables: &mut Tables, table_name: &str, delta: &DeltaBigInt) {
-    let time_id = extract_last_item_time_id_as_i64(&delta.key).to_string();
-    let pool_address = extract_at_position_pool_address_as_str(&delta.key, 1);
+    let time_id = key::segment(&delta.key, 1);
+    let pool_address = key::segment(&delta.key, 2);
 
     if let Some(name) = match delta.key.as_str().split(":").nth(2).unwrap() {
         "token0" => Some("feeGrowthGlobal0X128"),
