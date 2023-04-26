@@ -486,7 +486,7 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
     let hour_id = timestamp_seconds / 3600;
     let prev_day_id = day_id - 1;
     let prev_hour_id = hour_id - 1;
-    let factory_addr = Hex(utils::UNISWAP_V3_FACTORY);
+    let factory_addr = Hex(UNISWAP_V3_FACTORY);
 
     output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
@@ -1280,13 +1280,13 @@ pub fn graph_out(
     // Pool Hour data:
     db::pool_day_data_create(&mut tables, &tx_count_deltas);
     db::pool_hour_data_create(&mut tables, &tx_count_deltas);
-    db::swap_volume_pool_day_data_entity_change(&mut tables, &swaps_volume_deltas);
+    db::swap_volume_pool_day_data(&mut tables, &swaps_volume_deltas);
     db::swap_volume_pool_hour_data(&mut tables, &swaps_volume_deltas);
+    db::token_prices_pool_day_data(&mut tables, &price_deltas);
     db::token_prices_pool_hour_data(&mut tables, &price_deltas);
-    db::token_prices_pool_day_data_entity_change(&mut tables, &price_deltas);
-    db::fee_growth_global_x128_pool_day_data_entity_change(&mut tables, &pool_fee_growth_global_x128_deltas);
+    db::fee_growth_global_x128_pool_day_data(&mut tables, &pool_fee_growth_global_x128_deltas);
     db::fee_growth_global_x128_pool_hour_data(&mut tables, &pool_fee_growth_global_x128_deltas);
-    db::total_value_locked_usd_pool_day_data_entity_change(&mut tables, &derived_tvl_deltas);
+    db::total_value_locked_usd_pool_day_data(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_usd_pool_hour_data(&mut tables, &derived_tvl_deltas);
 
     // Pool data:

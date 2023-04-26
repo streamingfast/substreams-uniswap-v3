@@ -47,7 +47,9 @@ impl Pool {
         if self.ignore_pool {
             return false;
         }
-        return &self.address != "9663f2ca0454accad3e094448ea6f77443880454";
+        // In the minimal, they are not ignoring this pool anymore
+        // return &self.address != "9663f2ca0454accad3e094448ea6f77443880454";
+        return true;
     }
 
     pub fn should_handle_mint_and_burn(&self) -> bool {
