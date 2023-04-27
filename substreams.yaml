@@ -247,8 +247,8 @@ modules:
         mode: deltas
       - store: store_token_tvl
         mode: deltas
-#      - store: store_pool_fee_growth_global_x128
-#        mode: deltas
+      - store: store_pool_fee_growth_global_x128
+        mode: deltas
       - store: store_prices
         mode: deltas
       - store: store_tokens
