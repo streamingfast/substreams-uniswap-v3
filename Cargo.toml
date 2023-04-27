@@ -37,5 +37,5 @@ anyhow = "1"
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum" }
 
 [patch.crates-io]
-substreams = { git = "https://github.com/streamingfast/substreams-rs", branch = "develop" }
-#substreams = { path = "/Users/abourget/sf/substreams-rs/substreams" }
+#substreams = { git = "https://github.com/streamingfast/substreams-rs", branch = "develop" }
+substreams = { path = "/Users/abourget/sf/substreams-rs/substreams" }

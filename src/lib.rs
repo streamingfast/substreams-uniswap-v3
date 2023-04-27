@@ -99,25 +99,27 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
     })
 }
 
+type StorePoolsWriter = StoreSetProto<Pool>;
 #[substreams::handlers::store]
-pub fn store_pools(pools: Pools, store: StoreSetProto<Pool>) {
+pub fn store_pools(pools: Pools, output: StorePools) {
     for pool in pools.pools {
         let pool_address = &pool.address;
-        store.set(pool.log_ordinal, format!("pool:{pool_address}"), &pool);
+        output.set(pool.log_ordinal, format!("pool:{pool_address}"), &pool);
     }
 }
 
+type StoreTokens = StoreAddInt64;
 #[substreams::handlers::store]
-pub fn store_tokens(clock: Clock, pools: Pools, store: StoreAddInt64) {
+pub fn store_tokens(clock: Clock, pools: Pools, output: StoreTokens) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
 
-    store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
-    store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
+    output.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
 
     for pool in pools.pools {
-        store.add_many(
+        output.add_many(
             pool.log_ordinal,
             &vec![
                 keyer::token_key(&pool.token0_ref().address()),
@@ -132,10 +134,11 @@ pub fn store_tokens(clock: Clock, pools: Pools, store: StoreAddInt64) {
     }
 }
 
+type StorePoolCount = StoreAddBigInt;
 #[substreams::handlers::store]
-pub fn store_pool_count(pools: Pools, store: StoreAddBigInt) {
+pub fn store_pool_count(pools: Pools, output: StorePoolCount) {
     for pool in pools.pools {
-        store.add(pool.log_ordinal, format!("factory:poolCount"), &BigInt::one())
+        output.add(pool.log_ordinal, format!("factory:poolCount"), &BigInt::one())
     }
 }
 
@@ -166,15 +169,16 @@ pub fn map_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Error> {
     Ok(Erc20Tokens { tokens })
 }
 
+type StoreTokensWhitelistPools = StoreAppend<String>;
 #[substreams::handlers::store]
-pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreAppend<String>) {
+pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output: StoreTokensWhitelistPools) {
     for token in tokens.tokens {
-        output_append.append_all(1, keyer::token_pool_whitelist(&token.address), token.whitelist_pools);
+        output.append_all(1, keyer::token_pool_whitelist(&token.address), token.whitelist_pools);
     }
 }
 
 #[substreams::handlers::map]
-pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) -> Result<Events, Error> {
+pub fn map_extract_data_types(block: Block, pools_store: StorePools) -> Result<Events, Error> {
     let mut events = Events::default();
 
     let mut pool_sqrt_prices: Vec<events::PoolSqrtPrice> = vec![];
