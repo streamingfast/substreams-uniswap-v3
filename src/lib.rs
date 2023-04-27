@@ -316,7 +316,7 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                     sqrt_price_update.ordinal,
                     &vec![
                         format!("pool:{pool_address}:{token0_addr}:token0"),
-                        format!("pair:{}:{}", token0_addr, token1_addr), // TODO: is pair still valid???
+                        format!("pair:{}:{}", token0_addr, token1_addr), // used for find_eth_per_token
                         format!("PoolDayData:{day_id}:{pool_address}:token0"),
                         format!("PoolHourData:{hour_id}:{pool_address}:token0"),
                     ],
@@ -327,7 +327,7 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                     sqrt_price_update.ordinal,
                     &vec![
                         format!("pool:{pool_address}:{token1_addr}:token1"),
-                        format!("pair:{}:{}", token1_addr, token0_addr), // TODO: is pair still valid???
+                        format!("pair:{}:{}", token1_addr, token0_addr), // used for find_eth_per_token
                         format!("PoolDayData:{day_id}:{pool_address}:token1"),
                         format!("PoolHourData:{hour_id}:{pool_address}:token1"),
                     ],
@@ -520,33 +520,17 @@ pub fn store_pool_fee_growth_global_x128(clock: Clock, events: Events, output: S
     output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
 
-    for event in events.pool_events {
+    for event in events.fee_growth_global_updates {
         let pool_address = event.pool_address;
-        // FIXME: still doing an RPC call here? What's that!
-        //   Should we pick up the FeeGrowth events?
-        log::info!("pool address: {} trx_id:{}", pool_address, event.transaction_id);
-        let (big_int_0, big_int_1) = rpc::fee_growth_global_x128_call(&pool_address);
-        // FIXME: shouldn't it be the _delta_ between the old and new that we
+        let token_idx = event.token_idx;
 
         output.set_many(
-            event.log_ordinal,
+            event.ordinal,
             &vec![
-                format!("fee:{pool_address}:token0"),
-                // FIXME: here again, the keys must _start_ with `day_id` to support
-                //  delete prefix.  Fix the reader in tandem.
-                format!("PoolDayData:{day_id}:{pool_address}:token0"),
-                format!("PoolHourData:{hour_id}:{pool_address}:token0"),
+                format!("PoolDayData:{day_id}:{pool_address}:token{token_idx}"),
+                format!("PoolHourData:{hour_id}:{pool_address}:token{token_idx}"),
             ],
-            &big_int_0,
-        );
-        output.set_many(
-            event.log_ordinal,
-            &vec![
-                format!("fee:{pool_address}:token1"),
-                format!("PoolDayData:{day_id}:{pool_address}:token1"),
-                format!("PoolHourData:{hour_id}:{pool_address}:token1"),
-            ],
-            &big_int_1,
+            &BigInt::try_from(event.new_value).unwrap(),
         );
     }
 }
@@ -726,7 +710,6 @@ pub fn store_swaps_volume(
 
         let token0_addr = &event.token0;
         let token1_addr = &event.token1;
-        log::info!("type of pool event {:?}", event);
         match event.r#type.unwrap() {
             MintEvent(_) => output.add(
                 ord,
@@ -787,7 +770,7 @@ pub fn store_swaps_volume(
                     ord,
                     &vec![
                         format!("pool:{pool_address}:volumeToken0"),
-                        // FIXME: why compute volumes only for one size of the tokens?!  We should compute them for both sides no?
+                        // FIXME: why compute volumes only for one side of the tokens?!  We should compute them for both sides no?
                         //  Does it really matter which side the volume comes from?
                         format!("token:{token0_addr}:token0"),
                         format!("PoolDayData:{day_id}:{pool_address}:{token0_addr}:volumeToken0"),
@@ -813,8 +796,8 @@ pub fn store_swaps_volume(
                     ord,
                     &vec![
                         format!("pool:{pool_address}:volumeUSD"),
-                        format!("token:{token0_addr}:volume:usd"),
-                        format!("token:{token1_addr}:volume:usd"),
+                        format!("token:{token0_addr}:volume:usd"), // TODO: does this make sens that the volume usd is the same
+                        format!("token:{token1_addr}:volume:usd"), // TODO: does this make sens that the volume usd is the same
                         format!("factory:totalVolumeUSD"),
                         format!("UniswapDayData:{day_id}:volumeUSD"),
                         format!("PoolDayData:{day_id}:{pool_address}:volumeUSD"),
@@ -897,6 +880,7 @@ pub fn store_token_tvl(clock: Clock, events: Events, output: StoreAddBigDecimal)
             ],
             &token_amounts.amount0,
         );
+
         output.add_many(
             ord,
             &vec![
@@ -980,8 +964,8 @@ pub fn store_derived_tvl(
             ord,
             &vec![
                 format!("token:{token0_addr}:0:usd"),
-                format!("TokenDayData:{day_id}:{token0_addr}:0"),
-                format!("TokenHourData:{hour_id}:{token0_addr}:0"),
+                format!("TokenDayData:{day_id}:{token0_addr}"),
+                format!("TokenHourData:{hour_id}:{token0_addr}"),
             ],
             &derived_token0_usd, // token0.totalValueLockedUSD
         );
@@ -989,8 +973,8 @@ pub fn store_derived_tvl(
             ord,
             &vec![
                 format!("token:{token1_addr}:1:usd"),
-                format!("TokenDayData:{day_id}:{token1_addr}:1"),
-                format!("TokenHourData:{hour_id}:{token1_addr}:1"),
+                format!("TokenDayData:{day_id}:{token1_addr}"),
+                format!("TokenHourData:{hour_id}:{token1_addr}"),
             ],
             &derived_token1_usd, // token1.totalValueLockedUSD
         );
@@ -1081,34 +1065,38 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
         let pool = event.pool_address;
         match event.r#type.unwrap() {
             Type::Mint(mint) => {
+                let tick_lower = &mint.tick_lower;
+                let tick_upper = &mint.tick_upper;
                 output.add_many(
                     event.log_ordinal,
                     &vec![
-                        keyer::tick_liquidities_gross(&pool, &mint.tick_lower),
-                        keyer::tick_liquidities_net(&pool, &mint.tick_lower),
-                        keyer::tick_liquidities_gross(&pool, &mint.tick_upper),
+                        format!("tick:{pool}:{tick_lower}:liquidityGross"),
+                        format!("tick:{pool}:{tick_lower}:liquidityNet"),
+                        format!("tick:{pool}:{tick_upper}:liquidityGross"),
                     ],
                     &BigInt::try_from(mint.amount.clone()).unwrap(),
                 );
                 output.add(
                     event.log_ordinal,
-                    keyer::tick_liquidities_net(&pool, &mint.tick_upper),
+                    format!("tick:{pool}:{tick_upper}:liquidityNet"),
                     &BigInt::try_from(mint.amount.clone()).unwrap().neg(),
                 );
             }
             Type::Burn(burn) => {
+                let tick_lower = &burn.tick_lower;
+                let tick_upper = &burn.tick_upper;
                 output.add_many(
                     event.log_ordinal,
                     &vec![
-                        keyer::tick_liquidities_gross(&pool, &burn.tick_lower),
-                        keyer::tick_liquidities_net(&pool, &burn.tick_lower),
-                        keyer::tick_liquidities_gross(&pool, &burn.tick_upper),
+                        format!("tick:{pool}:{tick_lower}:liquidityGross"),
+                        format!("tick:{pool}:{tick_lower}:liquidityNet"),
+                        format!("tick:{pool}:{tick_upper}:liquidityGross"),
                     ],
                     &BigInt::try_from(&burn.amount).unwrap().neg(),
                 );
                 output.add(
                     event.log_ordinal,
-                    keyer::tick_liquidities_net(&pool, &burn.tick_upper),
+                    format!("tick:{pool}:{tick_upper}:liquidityNet"),
                     &BigInt::try_from(&burn.amount).unwrap(),
                 );
             }
@@ -1195,7 +1183,7 @@ pub fn graph_out(
     pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
     price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
     tokens_store: StoreGetInt64,                         /* store_tokens */
-    tokens_whitelist_pools: Deltas<DeltaArray<String>>,  /* store_tokens_whitelist_pools */
+    tokens_whitelist_pools_deltas: Deltas<DeltaArray<String>>, /* store_tokens_whitelist_pools */
     derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
     tx_count_store: StoreGetBigInt,                      /* store_total_tx_counts */
@@ -1210,6 +1198,7 @@ pub fn graph_out(
         db::factory_created_factory_entity_change(&mut tables);
         db::created_bundle_entity_change(&mut tables);
     }
+
     // Bundle
     db::bundle_store_eth_price_usd_bundle_entity_change(&mut tables, &derived_eth_prices_deltas);
 
@@ -1226,7 +1215,6 @@ pub fn graph_out(
     db::fee_growth_global_pool_entity_change(&mut tables, events.fee_growth_global_updates);
     db::total_value_locked_pool_entity_change(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_by_token_pool_entity_change(&mut tables, &token_tvl_deltas);
-    db::fee_growth_global_x128_pool_entity_change(&mut tables, &pool_fee_growth_global_x128_deltas);
     db::price_pool_entity_change(&mut tables, &price_deltas);
     db::tx_count_pool_entity_change(&mut tables, &tx_count_deltas);
     db::swap_volume_pool_entity_change(&mut tables, &swaps_volume_deltas);
@@ -1238,7 +1226,7 @@ pub fn graph_out(
     db::total_value_locked_by_token_token_entity_change(&mut tables, &token_tvl_deltas);
     db::total_value_locked_usd_token_entity_change(&mut tables, &derived_tvl_deltas);
     db::derived_eth_prices_token_entity_change(&mut tables, &derived_eth_prices_deltas);
-    db::whitelist_token_entity_change(&mut tables, tokens_whitelist_pools);
+    db::whitelist_token_entity_change(&mut tables, tokens_whitelist_pools_deltas);
 
     // Tick:
     db::create_tick_entity_change(&mut tables, events.ticks_created);
@@ -1292,40 +1280,22 @@ pub fn graph_out(
     db::totals_uniswap_day_data_entity_change(&mut tables, &derived_factory_tvl_deltas);
     db::volumes_uniswap_day_data_entity_change(&mut tables, &swaps_volume_deltas);
 
-    // Pool Day data
-    db::pool_day_data_create(&mut tables, &tx_count_deltas);
-    db::swap_volume_pool_day_data(&mut tables, &swaps_volume_deltas);
-    db::token_prices_pool_day_data(&mut tables, &price_deltas);
-    db::fee_growth_global_x128_pool_day_data(&mut tables, &pool_fee_growth_global_x128_deltas);
-    db::total_value_locked_usd_pool_day_data(&mut tables, &derived_tvl_deltas);
-
-    // Pool Hour data
-    db::pool_hour_data_create(&mut tables, &tx_count_deltas);
-    db::swap_volume_pool_hour_data(&mut tables, &swaps_volume_deltas);
-    db::token_prices_pool_hour_data(&mut tables, &price_deltas);
-    db::fee_growth_global_x128_pool_hour_data(&mut tables, &pool_fee_growth_global_x128_deltas);
-    db::total_value_locked_usd_pool_hour_data(&mut tables, &derived_tvl_deltas);
-
     // Pool Day/Hour data:
+    db::create_entity_change_pool_windows(&mut tables, &tx_count_deltas);
+    db::tx_count_pool_windows(&mut tables, &tx_count_deltas);
+    db::prices_pool_windows(&mut tables, &price_deltas);
     db::liquidities_pool_windows(&mut tables, &pool_liquidities_store_deltas);
     db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
-    db::tx_count_pool_data(&mut tables, &tx_count_deltas);
+    db::swap_volume_pool_windows(&mut tables, &swaps_volume_deltas);
+    db::fee_growth_global_x128_pool_windows(&mut tables, &pool_fee_growth_global_x128_deltas);
+    db::total_value_locked_usd_pool_windows(&mut tables, &derived_tvl_deltas);
 
     // Token Day/Hour data:
     db::create_entity_change_token_windows(&mut tables, &tx_count_deltas);
     db::swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
-    // TODO: merge all the today day and token hour data changes into 1 call
-    // Token Day data:
-    db::swap_volume_token_day_data_entity_change(&mut tables, &swaps_volume_deltas);
-    db::total_value_locked_usd_token_day_data_entity_change(&mut tables, &derived_tvl_deltas);
-    db::total_value_locked_token_day_data_entity_change(&mut tables, &token_tvl_deltas);
-    db::token_prices_token_day_data_entity_change(&mut tables, &derived_eth_prices_deltas);
-
-    // Token Hour data:
-    db::swap_volume_token_hour_data_entity_change(&mut tables, &swaps_volume_deltas);
-    db::total_value_locked_usd_token_hour_data_entity_change(&mut tables, &derived_tvl_deltas);
-    db::total_value_locked_token_hour_data_entity_change(&mut tables, &token_tvl_deltas);
-    db::token_prices_token_hour_data_entity_change(&mut tables, &derived_eth_prices_deltas);
+    db::total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
+    db::total_value_locked_token_windows(&mut tables, &token_tvl_deltas);
+    db::total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
 
     Ok(tables.to_entity_changes())
 }

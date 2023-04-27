@@ -1,5 +1,4 @@
 use crate::pb::uniswap::events;
-use crate::pb::uniswap::events::CreatedPosition;
 use crate::storage::position_manager::PositionManagerStorage;
 use crate::storage::uniswap_v3_pool::UniswapPoolStorage;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
@@ -183,7 +182,7 @@ pub fn extract_pool_events_and_positions(
                 fee_growth_inside1_last_x128 = Some(new_value.to_string());
             }
 
-            created_positions.push(CreatedPosition {
+            created_positions.push(events::CreatedPosition {
                 token_id: token_id.to_string(),
                 pool: pool.address.clone(),
                 token0: token0.address.clone(),

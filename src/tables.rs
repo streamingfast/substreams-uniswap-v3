@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use substreams::log;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams_entity_change::pb::entity::entity_change::Operation;
 use substreams_entity_change::pb::entity::value::Typed;
 use substreams_entity_change::pb::entity::{Array, EntityChange, EntityChanges, Field, Value};
 
+#[derive(Debug)]
 pub struct Tables {
     // Map from table name to the primary keys within that table
     pub tables: HashMap<String, Rows>,
@@ -16,7 +18,9 @@ impl Tables {
 
     pub fn create_row<K: AsRef<str>>(&mut self, table: &str, key: K) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
+        log::info!("rows {:?}", rows);
         let row = rows.pks.entry(key.as_ref().to_string()).or_insert(Row::new());
+        log::info!("row {:?}", row.operation);
         match row.operation {
             Operation::Unset => {
                 row.operation = Operation::Create;
@@ -111,6 +115,7 @@ impl Tables {
     }
 }
 
+#[derive(Debug)]
 pub struct Rows {
     // Map of primary keys within this table, to the fields within
     pub pks: HashMap<String, Row>,
@@ -122,6 +127,7 @@ impl Rows {
     }
 }
 
+#[derive(Debug)]
 pub struct Row {
     // Verify that we don't try to delete the same row as we're creating it
     pub operation: Operation,
