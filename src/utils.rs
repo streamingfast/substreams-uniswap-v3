@@ -289,7 +289,7 @@ pub fn extract_pool_liquidity(
 }
 
 pub fn get_derived_eth_price(ordinal: u64, token_addr: &String, eth_prices_store: &StoreGetBigDecimal) -> BigDecimal {
-    return match eth_prices_store.get_at(ordinal, &keyer::token_eth_price(&token_addr)) {
+    return match eth_prices_store.get_at(ordinal, format!("token:{token_addr}:dprice:eth")) {
         None => panic!("token eth price not found for token {}", token_addr),
         Some(price) => price,
     };
@@ -300,7 +300,7 @@ pub fn get_total_value_locked_token(
     token_addr: &String,
     total_value_locked_store: &StoreGetBigDecimal,
 ) -> BigDecimal {
-    return match total_value_locked_store.get_at(ordinal, &format!("token:{token_addr}")) {
+    return match total_value_locked_store.get_at(ordinal, format!("token:{token_addr}")) {
         None => {
             panic!("impossible")
         }

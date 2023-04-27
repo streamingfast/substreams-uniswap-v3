@@ -91,6 +91,9 @@ impl Tables {
         let mut entities = EntityChanges::default();
         for (table, rows) in self.tables.iter_mut() {
             for (pk, row) in rows.pks.iter_mut() {
+                if row.operation == Operation::Unset {
+                    continue;
+                }
                 // Map the row.operation into an EntityChange.Operation
                 let mut change = EntityChange::new(table, pk, 0, row.operation);
                 for (field, value) in row.columns.iter_mut() {
