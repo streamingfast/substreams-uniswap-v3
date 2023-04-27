@@ -358,7 +358,7 @@ pub fn total_value_locked_usd_token_entity_change(tables: &mut Tables, derived_t
     for delta in key::filter_first_segment_eq(derived_tvl_deltas, "token") {
         let token_address = key::segment(&delta.key, 1);
         let name = match key::last_segment(&delta.key) {
-            "usd" => "totalValueLockedUSD",
+            "totalValueLockedUSD" => "totalValueLockedUSD",
             _ => continue,
         };
 
@@ -1444,6 +1444,10 @@ pub fn total_value_locked_usd_pool_windows(tables: &mut Tables, derived_tvl_delt
             "PoolHourData" => "PoolHourData",
             _ => continue,
         };
+        // TODO: do the same for the other consumers
+        if key::last_segment(&delta.key) != "totalValueLockedUSD" {
+            continue;
+        }
 
         if delta.operation == store_delta::Operation::Delete {
             // TODO: need to fix the delete operation

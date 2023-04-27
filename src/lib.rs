@@ -820,32 +820,31 @@ pub fn store_derived_tvl(
             &eth_price_usd,
         );
 
-        let derived_token0_usd = total_value_locked_token0
+        let derived_token0_tvl_usd = total_value_locked_token0
             .clone()
             .mul(token0_derive_eth.clone().mul(eth_price_usd.clone()));
-        let derived_token1_usd = total_value_locked_token1
+        let derived_token1_tvl_usd = total_value_locked_token1
             .clone()
             .mul(token1_derive_eth.clone().mul(eth_price_usd.clone()));
 
         output.set_many(
             ord,
             &vec![
-                format!("token:{token0_addr}:0:usd"),
-                format!("TokenDayData:{day_id}:{token0_addr}"),
-                format!("TokenHourData:{hour_id}:{token0_addr}"),
+                format!("token:{token0_addr}:totalValueLockedUSD"),
+                format!("TokenDayData:{day_id}:{token0_addr}:totalValueLockedUSD"),
+                format!("TokenHourData:{hour_id}:{token0_addr}:totalValueLockedUSD"),
             ],
-            &derived_token0_usd, // token0.totalValueLockedUSD
+            &derived_token0_tvl_usd, // token0.totalValueLockedUSD
         );
         output.set_many(
             ord,
             &vec![
-                format!("token:{token1_addr}:1:usd"),
-                format!("TokenDayData:{day_id}:{token1_addr}"),
-                format!("TokenHourData:{hour_id}:{token1_addr}"),
+                format!("token:{token1_addr}:totalValueLockedUSD"),
+                format!("TokenDayData:{day_id}:{token1_addr}:totalValueLockedUSD"),
+                format!("TokenHourData:{hour_id}:{token1_addr}:totalValueLockedUSD"),
             ],
-            &derived_token1_usd, // token1.totalValueLockedUSD
+            &derived_token1_tvl_usd, // token1.totalValueLockedUSD
         );
-
 
         output.set(
             ord,
@@ -858,10 +857,8 @@ pub fn store_derived_tvl(
             ord,
             &vec![
                 format!("pool:{pool_address}:totalValueLockedUSD"),
-                format!("PoolDayData:{day_id}:{pool_address}:{token0_addr}:0:usd"),
-                format!("PoolDayData:{day_id}:{pool_address}:{token1_addr}:1:usd"),
-                format!("PoolHourData:{hour_id}:{pool_address}:{token0_addr}:0:usd"),
-                format!("PoolHourData:{hour_id}:{pool_address}:{token1_addr}:1:usd"),
+                format!("PoolDayData:{day_id}:{pool_address}:totalValueLockedUSD"),
+                format!("PoolHourData:{hour_id}:{pool_address}:totalValueLockedUSD"),
             ],
             &amounts.delta_tvl_usd, // pool.totalValueLockedUSD
         );
@@ -898,7 +895,9 @@ pub fn store_derived_factory_tvl(
 
         match key::last_segment(&delta.key) {
             "totalValueLockedETH" => output.add(ord, &format!("factory:totalValueLockedETH"), delta_diff),
-            "totalValueLockedETHUntracked" => output.add(ord, &format!("factory:totalValueLockedETHUntracked"), delta_diff),
+            "totalValueLockedETHUntracked" => {
+                output.add(ord, &format!("factory:totalValueLockedETHUntracked"), delta_diff)
+            }
             "totalValueLockedUSD" => output.add_many(
                 ord,
                 &vec![
@@ -907,7 +906,9 @@ pub fn store_derived_factory_tvl(
                 ],
                 delta_diff,
             ),
-            "totalValueLockedUSDUntracked" => output.add(ord, &format!("factory:totalValueLockedUSDUntracked"), delta_diff),
+            "totalValueLockedUSDUntracked" => {
+                output.add(ord, &format!("factory:totalValueLockedUSDUntracked"), delta_diff)
+            }
             _ => {}
         }
     }
