@@ -172,7 +172,7 @@ pub fn liquidities_pool_entity_change(tables: &mut Tables, pool_liquidities_stor
     }
 }
 
-pub fn fee_growth_global_pool_entity_change(tables: &mut Tables, updates: Vec<events::FeeGrowthGlobal>) {
+pub fn fee_growth_global_pool_entity_change(tables: &mut Tables, updates: &Vec<events::FeeGrowthGlobal>) {
     for update in updates {
         let pool_address = &update.pool_address;
         let row = tables.update_row("Pool", &format!("0x{pool_address}"));
@@ -568,13 +568,13 @@ fn create_tick_windows(tables: &mut Tables, table_name: &str, pool_address: &str
         .set("volumeToken0", &bigdecimal0)
         .set("volumeToken1", &bigdecimal0)
         .set("volumeUSD", &bigdecimal0)
-        .set("feesUSD", &bigdecimal0)
-        .set("feeGrowthOutside0X128", &bigint0)
-        .set("feeGrowthOutside1X128", &bigint0);
+        .set("feesUSD", &bigdecimal0);
 
     match table_name {
         "TickDayData" => {
             row.set("date", (time_id * 86400) as i32);
+            row.set("feeGrowthOutside0X128", &bigint0);
+            row.set("feeGrowthOutside1X128", &bigint0);
         }
         "TickHourData" => {
             row.set("periodStartUnix", (time_id * 3600) as i32);
@@ -1411,33 +1411,32 @@ pub fn swap_volume_pool_windows(tables: &mut Tables, swaps_volume_deltas: &Delta
 
 pub fn fee_growth_global_x128_pool_windows(
     tables: &mut Tables,
-    pool_fee_growth_global_x128_deltas: &Deltas<DeltaBigInt>,
+    timestamp: i64,
+    updates: &Vec<events::FeeGrowthGlobal>,
 ) {
-    for delta in pool_fee_growth_global_x128_deltas.deltas.iter() {
-        let table_name = match key::first_segment(&delta.key) {
-            "PoolDayData" => "PoolDayData",
-            "PoolHourData" => "PoolHourData",
-            _ => continue,
-        };
+    for update in updates {
+        let day_id = timestamp / 86400;
+        let hour_id = timestamp / 3600;
 
-        if delta.operation == store_delta::Operation::Delete {
-            // TODO: need to fix the delete operation
-            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
-            continue;
+        let pool_address = &update.pool_address;
+
+        if update.token_idx == 0 {
+            tables
+                .update_row("PoolDayData", format!("0x{pool_address}-{day_id}"))
+                .set("feeGrowthGlobal0X128", &BigInt::try_from(&update.new_value).unwrap());
+
+            tables
+                .update_row("PoolHourData", format!("0x{pool_address}-{hour_id}"))
+                .set("feeGrowthGlobal0X128", &BigInt::try_from(&update.new_value).unwrap());
+        } else if update.token_idx == 1 {
+            tables
+                .update_row("PoolDayData", format!("0x{pool_address}-{day_id}"))
+                .set("feeGrowthGlobal1X128", &BigInt::try_from(&update.new_value).unwrap());
+
+            tables
+                .update_row("PoolHourData", format!("0x{pool_address}-{hour_id}"))
+                .set("feeGrowthGlobal1X128", &BigInt::try_from(&update.new_value).unwrap());
         }
-
-        let time_id = key::segment(&delta.key, 1);
-        let pool_address = key::segment(&delta.key, 2);
-
-        let field_name = match key::last_segment(&delta.key) {
-            "token0" => "feeGrowthGlobal0X128",
-            "token1" => "feeGrowthGlobal1X128",
-            _ => continue,
-        };
-
-        tables
-            .update_row(table_name, format!("0x{pool_address}-{time_id}"))
-            .set(field_name, &delta.new_value);
     }
 }
 

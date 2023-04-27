@@ -141,15 +141,6 @@ modules:
       - store: store_total_tx_counts
       - store: store_eth_prices
 
-  - name: store_pool_fee_growth_global_x128
-    kind: store
-    initialBlock: 12369621
-    updatePolicy: set
-    valueType: bigint
-    inputs:
-      - source: sf.substreams.v1.Clock
-      - map: map_extract_data_types
-
   - name: store_native_amounts
     kind: store
     updatePolicy: set
@@ -248,8 +239,7 @@ modules:
         mode: deltas
       - store: store_token_tvl
         mode: deltas
-      - store: store_pool_fee_growth_global_x128
-        mode: deltas
+
       - store: store_prices
         mode: deltas
       - store: store_tokens

@@ -510,33 +510,6 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
     }
 }
 
-// TODO: can this be replaced when consumed in the graph_out and set the day_id and hour_id?
-#[substreams::handlers::store]
-pub fn store_pool_fee_growth_global_x128(clock: Clock, events: Events, output: StoreSetBigInt) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id: i64 = timestamp_seconds / 86400;
-    let hour_id: i64 = timestamp_seconds / 3600;
-    let prev_day_id = day_id - 1;
-    let prev_hour_id = hour_id - 1;
-
-    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
-    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
-
-    for event in events.fee_growth_global_updates {
-        let pool_address = event.pool_address;
-        let token_idx = event.token_idx;
-
-        output.set_many(
-            event.ordinal,
-            &vec![
-                format!("PoolDayData:{day_id}:{pool_address}:token{token_idx}"),
-                format!("PoolHourData:{hour_id}:{pool_address}:token{token_idx}"),
-            ],
-            &BigInt::try_from(event.new_value).unwrap(),
-        );
-    }
-}
-
 /**
  * STORE NATIVE AMOUNTS -> spits out any mint, swap and burn amounts
  */
@@ -1211,7 +1184,6 @@ pub fn graph_out(
     pool_sqrt_price_deltas: Deltas<DeltaProto<events::PoolSqrtPrice>>, /* store_pool_sqrt_price */
     pool_liquidities_store_deltas: Deltas<DeltaBigInt>,  /* store_pool_liquidities */
     token_tvl_deltas: Deltas<DeltaBigDecimal>,           /* store_token_tvl */
-    pool_fee_growth_global_x128_deltas: Deltas<DeltaBigInt>, /* store_pool_fee_growth_global_x128 */
     price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
     tokens_store: StoreGetInt64,                         /* store_tokens */
     tokens_whitelist_pools_deltas: Deltas<DeltaArray<String>>, /* store_tokens_whitelist_pools */
@@ -1243,7 +1215,7 @@ pub fn graph_out(
     db::pools_created_pool_entity_change(&mut tables, &pools_created);
     db::sqrt_price_and_tick_pool_entity_change(&mut tables, &pool_sqrt_price_deltas);
     db::liquidities_pool_entity_change(&mut tables, &pool_liquidities_store_deltas);
-    db::fee_growth_global_pool_entity_change(&mut tables, events.fee_growth_global_updates);
+    db::fee_growth_global_pool_entity_change(&mut tables, &events.fee_growth_global_updates);
     db::total_value_locked_pool_entity_change(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_by_token_pool_entity_change(&mut tables, &token_tvl_deltas);
     db::price_pool_entity_change(&mut tables, &price_deltas);
@@ -1265,7 +1237,6 @@ pub fn graph_out(
     db::liquidities_tick_entity_change(&mut tables, &ticks_liquidities_deltas);
 
     // Tick Day/Hour data
-    //TODO
     db::create_entity_tick_windows(&mut tables, &events.ticks_created);
     db::update_tick_windows(&mut tables, &events.ticks_updated);
     db::liquidities_tick_windows(&mut tables, &ticks_liquidities_deltas);
@@ -1324,7 +1295,11 @@ pub fn graph_out(
     db::liquidities_pool_windows(&mut tables, &pool_liquidities_store_deltas);
     db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
     db::swap_volume_pool_windows(&mut tables, &swaps_volume_deltas);
-    db::fee_growth_global_x128_pool_windows(&mut tables, &pool_fee_growth_global_x128_deltas);
+    db::fee_growth_global_x128_pool_windows(
+        &mut tables,
+        clock.timestamp.unwrap().seconds,
+        &events.fee_growth_global_updates,
+    );
     db::total_value_locked_usd_pool_windows(&mut tables, &derived_tvl_deltas);
 
     // Token Day/Hour data:
