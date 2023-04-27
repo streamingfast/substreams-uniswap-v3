@@ -111,17 +111,6 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
-  - name: store_totals
-    kind: store
-    initialBlock: 12369621
-    updatePolicy: add
-    valueType: bigdecimal
-    inputs:
-      - source: sf.substreams.v1.Clock
-      - store: store_eth_prices
-      - store: store_derived_tvl
-        mode: deltas
-
   - name: store_total_tx_counts
     kind: store
     updatePolicy: add

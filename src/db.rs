@@ -434,8 +434,11 @@ pub fn create_tick_entity_change(tables: &mut Tables, ticks_created: &Vec<events
     for tick in ticks_created {
         let pool_address = &tick.pool_address;
         let tick_idx = &tick.idx;
+
+        // We cannot determine when a new Tick is created. If a given tick idx was initialized
+        // in the past. In the future the same tick idx can be re-used for an event.
         tables
-            .create_row("Tick", format!("0x{pool_address}#{tick_idx}"))
+            .update_row("Tick", format!("0x{pool_address}#{tick_idx}"))
             .set("poolAddress", format!("0x{}", &tick.pool_address))
             .set_bigint("tickIdx", &tick.idx)
             .set("pool", &format!("0x{pool_address}"))
@@ -559,8 +562,10 @@ fn create_tick_windows(tables: &mut Tables, table_name: &str, pool_address: &str
     let bigdecimal0 = BigDecimal::from(0);
     let bigint0 = BigInt::from(0);
 
+    // We cannot determine when a new Tick is created. If a given tick idx was initialized
+    // in the past. In the future the same tick idx can be re-used for an event.
     let row = tables
-        .create_row(table_name, format!("0x{pool_address}#{tick_idx}-{time_id}"))
+        .update_row(table_name, format!("0x{pool_address}#{tick_idx}-{time_id}"))
         .set("pool", &format!("0x{pool_address}"))
         .set("tick", &format!("0x{pool_address}#{tick_idx}"))
         .set("liquidityGross", &bigint0)
@@ -1134,12 +1139,6 @@ pub fn totals_uniswap_day_data_entity_change(
 }
 pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, swaps_volume_deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(swaps_volume_deltas, "UniswapDayData") {
-        if delta.operation == store_delta::Operation::Delete {
-            // TODO: need to fix the delete operation
-            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
-            continue;
-        }
-
         let day_id = key::segment(&delta.key, 1);
 
         let name = match key::last_segment(&delta.key) {
@@ -1149,10 +1148,8 @@ pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, swaps_volume_
             _ => continue,
         };
 
-        // TODO: should this be done on all the updates?
         if delta.operation == store_delta::Operation::Delete {
-            // TODO: need to fix the delete operation
-            // tables.delete_row(keyer::UNISWAP_DAY_DATA, &day_id).mark_final();
+            // tables.update_row(keyer::UNISWAP_DAY_DATA, &day_id).mark_final();
             continue;
         }
 

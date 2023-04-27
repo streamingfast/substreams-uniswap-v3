@@ -111,38 +111,30 @@ pub fn extract_pool_events_and_positions(
             })),
         });
 
+        let common_tick = events::TickCreated {
+            pool_address: pool.address.to_string(),
+            created_at_timestamp: timestamp_seconds,
+            created_at_block_number: block_number,
+            log_ordinal: log.ordinal,
+            amount: mint.amount.into(),
+            ..Default::default()
+        };
+
+        let mut lower_tick = common_tick.clone();
+        let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
+        lower_tick.idx = mint.tick_lower.as_ref().into();
+        lower_tick.price0 = price0.into();
+        lower_tick.price1 = price1.into();
+        ticks_created.push(lower_tick);
+
+        let mut upper_tick = common_tick.clone();
+        let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
+        upper_tick.idx = mint.tick_upper.as_ref().into();
+        upper_tick.price0 = price0.into();
+        upper_tick.price1 = price1.into();
+        ticks_created.push(upper_tick);
+
         let storage = UniswapPoolStorage::new(&call_view.call.storage_changes, &log.address);
-        let create_lower_tick = initialized_changed(storage.ticks(&mint.tick_lower).initialized());
-        let create_upper_tick = initialized_changed(storage.ticks(&mint.tick_upper).initialized());
-
-        if create_lower_tick || create_upper_tick {
-            let common_tick = events::TickCreated {
-                pool_address: pool.address.to_string(),
-                created_at_timestamp: timestamp_seconds,
-                created_at_block_number: block_number,
-                log_ordinal: log.ordinal,
-                amount: mint.amount.into(),
-                ..Default::default()
-            };
-
-            if create_lower_tick {
-                let mut lower_tick = common_tick.clone();
-                let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
-                lower_tick.idx = mint.tick_lower.as_ref().into();
-                lower_tick.price0 = price0.into();
-                lower_tick.price1 = price1.into();
-                ticks_created.push(lower_tick);
-            }
-
-            if create_upper_tick {
-                let mut upper_tick = common_tick.clone();
-                let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
-                upper_tick.idx = mint.tick_upper.as_ref().into();
-                upper_tick.price0 = price0.into();
-                upper_tick.price1 = price1.into();
-                ticks_created.push(upper_tick);
-            }
-        }
 
         ticks_updated.push(events::TickUpdated {
             idx: mint.tick_upper.as_ref().into(),
