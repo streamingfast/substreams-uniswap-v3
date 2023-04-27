@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use substreams::log;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams_entity_change::pb::entity::entity_change::Operation;
 use substreams_entity_change::pb::entity::value::Typed;
@@ -18,9 +17,7 @@ impl Tables {
 
     pub fn create_row<K: AsRef<str>>(&mut self, table: &str, key: K) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
-        log::info!("rows {:?}", rows);
         let row = rows.pks.entry(key.as_ref().to_string()).or_insert(Row::new());
-        log::info!("row {:?}", row.operation);
         match row.operation {
             Operation::Unset => {
                 row.operation = Operation::Create;
