@@ -562,6 +562,7 @@ fn create_tick_windows(tables: &mut Tables, table_name: &str, pool_address: &str
     let row = tables
         .create_row(table_name, format!("0x{pool_address}#{tick_idx}-{time_id}"))
         .set("pool", &format!("0x{pool_address}"))
+        .set("tick", &format!("0x{pool_address}#{tick_idx}"))
         .set("liquidityGross", &bigint0)
         .set("liquidityNet", &bigint0)
         .set("volumeToken0", &bigdecimal0)
