@@ -805,7 +805,7 @@ pub fn store_swaps_volume(
                         format!("PoolDayData:{day_id}:{pool_address}:volumeUSD"),
                         format!("TokenDayData:{day_id}:{token0_addr}:volumeUSD"),
                         format!("TokenDayData:{day_id}:{token1_addr}:volumeUSD"),
-                        format!("PoolHourData::{hour_id}{pool_address}:volumeUSD"),
+                        format!("PoolHourData:{hour_id}:{pool_address}:volumeUSD"),
                         format!("TokenHourData:{hour_id}:{token0_addr}:volumeUSD"),
                         format!("TokenHourData:{hour_id}:{token1_addr}:volumeUSD"),
                     ],
