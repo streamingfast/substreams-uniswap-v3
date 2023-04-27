@@ -28,6 +28,7 @@ pub fn extract_pool_events_and_positions(
     let common_tick_updated = events::TickUpdated {
         log_ordinal: log.ordinal,
         pool_address: pool.address.to_string(),
+        timestamp: timestamp_seconds,
         ..Default::default()
     };
 

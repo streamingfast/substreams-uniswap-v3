@@ -15,6 +15,7 @@ mod storage;
 mod tables;
 mod utils;
 
+use crate::abi::pool::functions::Ticks;
 use crate::ethpb::v2::{Block, StorageChange};
 use crate::pb::uniswap;
 use crate::pb::uniswap::events::pool_event::Type;
@@ -509,6 +510,7 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
     }
 }
 
+// TODO: can this be replaced when consumed in the graph_out and set the day_id and hour_id?
 #[substreams::handlers::store]
 pub fn store_pool_fee_growth_global_x128(clock: Clock, events: Events, output: StoreSetBigInt) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
@@ -1060,7 +1062,16 @@ fn calculate_diff(delta: &DeltaBigDecimal) -> BigDecimal {
 }
 
 #[substreams::handlers::store]
-pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
+pub fn store_ticks_liquidities(clock: Clock, events: Events, output: StoreAddBigInt) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id = timestamp_seconds / 86400;
+    let hour_id = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
+
+    output.delete_prefix(0, &format!("TickDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TickHourData:{prev_hour_id}:"));
+
     for event in events.pool_events {
         let pool = event.pool_address;
         match event.r#type.unwrap() {
@@ -1073,12 +1084,22 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
                         format!("tick:{pool}:{tick_lower}:liquidityGross"),
                         format!("tick:{pool}:{tick_lower}:liquidityNet"),
                         format!("tick:{pool}:{tick_upper}:liquidityGross"),
+                        format!("TickDayData:{day_id}:{pool}:{tick_lower}:liquidityGross"),
+                        format!("TickDayData:{day_id}:{pool}:{tick_lower}:liquidityNet"),
+                        format!("TickDayData:{day_id}:{pool}:{tick_upper}:liquidityGross"),
+                        format!("TickHourData:{hour_id}:{pool}:{tick_lower}:liquidityGross"),
+                        format!("TickHourData:{hour_id}:{pool}:{tick_lower}:liquidityNet"),
+                        format!("TickHourData:{hour_id}:{pool}:{tick_upper}:liquidityGross"),
                     ],
                     &BigInt::try_from(mint.amount.clone()).unwrap(),
                 );
-                output.add(
+                output.add_many(
                     event.log_ordinal,
-                    format!("tick:{pool}:{tick_upper}:liquidityNet"),
+                    &vec![
+                        format!("tick:{pool}:{tick_upper}:liquidityNet"),
+                        format!("TickDayData:{day_id}:{pool}:{tick_upper}:liquidityNet"),
+                        format!("TickHourData:{hour_id}:{pool}:{tick_upper}:liquidityNet"),
+                    ],
                     &BigInt::try_from(mint.amount.clone()).unwrap().neg(),
                 );
             }
@@ -1091,12 +1112,22 @@ pub fn store_ticks_liquidities(events: Events, output: StoreAddBigInt) {
                         format!("tick:{pool}:{tick_lower}:liquidityGross"),
                         format!("tick:{pool}:{tick_lower}:liquidityNet"),
                         format!("tick:{pool}:{tick_upper}:liquidityGross"),
+                        format!("TickDayData:{day_id}:{pool}:{tick_lower}:liquidityGross"),
+                        format!("TickDayData:{day_id}:{pool}:{tick_lower}:liquidityNet"),
+                        format!("TickDayData:{day_id}:{pool}:{tick_upper}:liquidityGross"),
+                        format!("TickHourData:{hour_id}:{pool}:{tick_lower}:liquidityGross"),
+                        format!("TickHourData:{hour_id}:{pool}:{tick_lower}:liquidityNet"),
+                        format!("TickHourData:{hour_id}:{pool}:{tick_upper}:liquidityGross"),
                     ],
                     &BigInt::try_from(&burn.amount).unwrap().neg(),
                 );
-                output.add(
+                output.add_many(
                     event.log_ordinal,
-                    format!("tick:{pool}:{tick_upper}:liquidityNet"),
+                    &vec![
+                        format!("tick:{pool}:{tick_upper}:liquidityNet"),
+                        format!("TickDayData:{day_id}:{pool}:{tick_upper}:liquidityNet"),
+                        format!("TickHourData:{hour_id}:{pool}:{tick_upper}:liquidityNet"),
+                    ],
                     &BigInt::try_from(&burn.amount).unwrap(),
                 );
             }
@@ -1229,9 +1260,15 @@ pub fn graph_out(
     db::whitelist_token_entity_change(&mut tables, tokens_whitelist_pools_deltas);
 
     // Tick:
-    db::create_tick_entity_change(&mut tables, events.ticks_created);
-    db::update_tick_entity_change(&mut tables, events.ticks_updated);
-    db::liquidities_tick_entity_change(&mut tables, ticks_liquidities_deltas);
+    db::create_tick_entity_change(&mut tables, &events.ticks_created);
+    db::update_tick_entity_change(&mut tables, &events.ticks_updated);
+    db::liquidities_tick_entity_change(&mut tables, &ticks_liquidities_deltas);
+
+    // Tick Day/Hour data
+    //TODO
+    db::create_entity_tick_windows(&mut tables, &events.ticks_created);
+    db::update_tick_windows(&mut tables, &events.ticks_updated);
+    db::liquidities_tick_windows(&mut tables, &ticks_liquidities_deltas);
 
     // Position:
     // TODO: validate all the positions here

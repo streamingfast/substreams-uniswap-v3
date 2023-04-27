@@ -543,57 +543,56 @@ type PoolHourData @entity {
   close: BigDecimal!
 }
 
-# TODO: should we add this ?
-#type TickHourData @entity {
-#  # format: <pool address>-<tick index>-<timestamp>
-#  id: ID!
-#  # unix timestamp for start of hour
-#  periodStartUnix: Int!
-#  # pointer to pool
-#  pool: Pool!
-#  # pointer to tick
-#  tick: Tick!
-#  # total liquidity pool has as tick lower or upper at end of period
-#  liquidityGross: BigInt!
-#  # how much liquidity changes when tick crossed at end of period
-#  liquidityNet: BigInt!
-#  # hourly volume of token0 with this tick in range
-#  volumeToken0: BigDecimal!
-#  # hourly volume of token1 with this tick in range
-#  volumeToken1: BigDecimal!
-#  # hourly volume in derived USD with this tick in range
-#  volumeUSD: BigDecimal!
-#  # fees in USD
-#  feesUSD: BigDecimal!
-#}
-#
-## Data accumulated and condensed into day stats for each exchange
-## Note: this entity gets saved only if there is a change during the day
-#type TickDayData @entity {
-#  # format: <pool address>-<tick index>-<timestamp>
-#  id: ID!
-#  # timestamp rounded to current day by dividing by 86400
-#  date: Int!
-#  # pointer to pool
-#  pool: Pool!
-#  # pointer to tick
-#  tick: Tick!
-#  # total liquidity pool has as tick lower or upper at end of period
-#  liquidityGross: BigInt!
-#  # how much liquidity changes when tick crossed at end of period
-#  liquidityNet: BigInt!
-#  # hourly volume of token0 with this tick in range
-#  volumeToken0: BigDecimal!
-#  # hourly volume of token1 with this tick in range
-#  volumeToken1: BigDecimal!
-#  # hourly volume in derived USD with this tick in range
-#  volumeUSD: BigDecimal!
-#  # fees in USD
-#  feesUSD: BigDecimal!
-#  # vars needed for fee computation
-#  feeGrowthOutside0X128: BigInt!
-#  feeGrowthOutside1X128: BigInt!
-#}
+type TickHourData @entity {
+  # format: <pool address>-<tick index>-<timestamp>
+  id: ID!
+  # unix timestamp for start of hour
+  periodStartUnix: Int!
+  # pointer to pool
+  pool: Pool!
+  # pointer to tick
+  tick: Tick!
+  # total liquidity pool has as tick lower or upper at end of period
+  liquidityGross: BigInt!
+  # how much liquidity changes when tick crossed at end of period
+  liquidityNet: BigInt!
+  # hourly volume of token0 with this tick in range
+  volumeToken0: BigDecimal!
+  # hourly volume of token1 with this tick in range
+  volumeToken1: BigDecimal!
+  # hourly volume in derived USD with this tick in range
+  volumeUSD: BigDecimal!
+  # fees in USD
+  feesUSD: BigDecimal!
+}
+
+# Data accumulated and condensed into day stats for each exchange
+# Note: this entity gets saved only if there is a change during the day
+type TickDayData @entity {
+  # format: <pool address>-<tick index>-<timestamp>
+  id: ID!
+  # timestamp rounded to current day by dividing by 86400
+  date: Int!
+  # pointer to pool
+  pool: Pool!
+  # pointer to tick
+  tick: Tick!
+  # total liquidity pool has as tick lower or upper at end of period
+  liquidityGross: BigInt!
+  # how much liquidity changes when tick crossed at end of period
+  liquidityNet: BigInt!
+  # hourly volume of token0 with this tick in range
+  volumeToken0: BigDecimal!
+  # hourly volume of token1 with this tick in range
+  volumeToken1: BigDecimal!
+  # hourly volume in derived USD with this tick in range
+  volumeUSD: BigDecimal!
+  # fees in USD
+  feesUSD: BigDecimal!
+  # vars needed for fee computation
+  feeGrowthOutside0X128: BigInt!
+  feeGrowthOutside1X128: BigInt!
+}
 
 type TokenDayData @entity {
   # token address concatendated with date

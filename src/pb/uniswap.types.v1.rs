@@ -179,6 +179,8 @@ pub mod events {
         /// Integer
         #[prost(string, tag="5")]
         pub fee_growth_outside_1x_128: ::prost::alloc::string::String,
+        #[prost(uint64, tag="6")]
+        pub timestamp: u64,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

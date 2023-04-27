@@ -109,6 +109,8 @@ message Events {
     string fee_growth_outside_0X_128 = 4;
     // Integer
     string fee_growth_outside_1X_128 = 5;
+
+    uint64 timestamp = 6;
   }
 
   message PoolSqrtPrice {

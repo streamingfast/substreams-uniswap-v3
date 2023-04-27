@@ -207,6 +207,7 @@ modules:
     updatePolicy: add
     valueType: bigint
     inputs:
+      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
     doc: |
       ### Hello world
