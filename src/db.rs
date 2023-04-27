@@ -188,10 +188,10 @@ pub fn total_value_locked_pool_entity_change(tables: &mut Tables, derived_tvl_de
     for delta in key::filter_first_segment_eq(derived_tvl_deltas, "pool") {
         let pool_address = key::segment(&delta.key, 1);
         let field_name = match key::last_segment(&delta.key) {
-            "usd" => "totalValueLockedUSD",
-            "eth" => "totalValueLockedETH",
-            "usdUntracked" => "totalValueLockedUSDUntracked",
-            "ethUntracked" => "totalValueLockedETHUntracked",
+            "totalValueLockedUSD" => "totalValueLockedUSD",
+            "totalValueLockedETH" => "totalValueLockedETH",
+            "totalValueLockedUSDUntracked" => "totalValueLockedUSDUntracked",
+            "totalValueLockedETHUntracked" => "totalValueLockedETHUntracked",
             _ => continue,
         };
 

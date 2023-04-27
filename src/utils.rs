@@ -188,16 +188,20 @@ pub fn get_adjusted_amounts(
     token1_derived_eth_price: &BigDecimal,
     bundle_eth_price_usd: &BigDecimal,
 ) -> AdjustedAmounts {
+    log::info!("token0_addr {:}", token0_addr);
+    log::info!("token1_addr {:}", token1_addr);
+    log::info!("token0_amount {:}", token0_amount);
+    log::info!("token1_amount {:}", token1_amount);
+    log::info!("token0_derived_eth_price {:}", token0_derived_eth_price);
+    log::info!("token1_derived_eth_price {:}", token1_derived_eth_price);
+    log::info!("bundle_eth_price_usd {:}", bundle_eth_price_usd);
     let mut adjusted_amounts = AdjustedAmounts {
-        stable_eth: BigDecimal::zero(),
-        stable_usd: BigDecimal::zero(),
+        delta_tvl_eth: BigDecimal::zero(),
+        delta_tvl_usd: BigDecimal::zero(),
         stable_eth_untracked: BigDecimal::zero(),
         stable_usd_untracked: BigDecimal::zero(),
     };
 
-    if bundle_eth_price_usd.eq(&BigDecimal::zero()) {
-        return adjusted_amounts;
-    }
 
     let mut eth = BigDecimal::zero();
 
@@ -227,10 +231,18 @@ pub fn get_adjusted_amounts(
     let usd = eth.clone().mul(bundle_eth_price_usd.clone());
     let usd_untracked = eth_untracked.clone().mul(bundle_eth_price_usd.clone());
 
-    adjusted_amounts.stable_eth = eth;
-    adjusted_amounts.stable_usd = usd;
+    // the amount of ETH that was either added or removed during this event
+    adjusted_amounts.delta_tvl_eth = eth;
+    // the amount of USD that was either added or removed during this event
+    adjusted_amounts.delta_tvl_usd = usd;
     adjusted_amounts.stable_eth_untracked = eth_untracked;
     adjusted_amounts.stable_usd_untracked = usd_untracked;
+
+
+    log::info!("stable_eth {:}", adjusted_amounts.delta_tvl_eth);
+    log::info!("stable_usd {:}", adjusted_amounts.delta_tvl_usd);
+    log::info!("stable_eth_untracked {:}", adjusted_amounts.stable_eth_untracked);
+    log::info!("stable_usd_untracked {:}", adjusted_amounts.stable_usd_untracked);
 
     return adjusted_amounts;
 }

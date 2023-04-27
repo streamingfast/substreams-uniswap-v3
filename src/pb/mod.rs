@@ -95,8 +95,8 @@ pub struct AdjustedAmounts {
     // pub token1_abs: BigDecimal,
     // pub token1_eth: BigDecimal,
     // pub token1_usd: BigDecimal,
-    pub stable_eth: BigDecimal,
-    pub stable_usd: BigDecimal,
+    pub delta_tvl_eth: BigDecimal,
+    pub delta_tvl_usd: BigDecimal,
     pub stable_eth_untracked: BigDecimal,
     pub stable_usd_untracked: BigDecimal,
 }

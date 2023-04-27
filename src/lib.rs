@@ -616,8 +616,8 @@ pub fn store_swaps_volume(
                     &token1_derived_eth_price,
                     &eth_price_in_usd,
                 );
-                let volume_eth = volume_amounts.stable_eth.clone().div(BigDecimal::from(2 as i32));
-                let volume_usd = volume_amounts.stable_usd.clone().div(BigDecimal::from(2 as i32));
+                let volume_eth = volume_amounts.delta_tvl_eth.clone().div(BigDecimal::from(2 as i32));
+                let volume_usd = volume_amounts.delta_tvl_usd.clone().div(BigDecimal::from(2 as i32));
                 let volume_usd_untracked = volume_amounts
                     .stable_usd_untracked
                     .clone()
@@ -845,45 +845,38 @@ pub fn store_derived_tvl(
             ],
             &derived_token1_usd, // token1.totalValueLockedUSD
         );
-        output.set_many(
+
+
+        output.set(
             ord,
-            &vec![
-                format!("pool:{pool_address}:{token0_addr}:0:eth"),
-                format!("pool:{pool_address}:{token1_addr}:1:eth"),
-            ],
-            &amounts.stable_eth, // pool.totalValueLockedETH
+            format!("pool:{pool_address}:totalValueLockedETH"),
+            &amounts.delta_tvl_eth, // pool.totalValueLockedETH
         );
 
+        // TODO: @ed change for untracked
         output.set_many(
             ord,
             &vec![
-                format!("pool:{pool_address}:{token0_addr}:0:usd"),
-                format!("pool:{pool_address}:{token1_addr}:1:usd"),
+                format!("pool:{pool_address}:totalValueLockedUSD"),
                 format!("PoolDayData:{day_id}:{pool_address}:{token0_addr}:0:usd"),
                 format!("PoolDayData:{day_id}:{pool_address}:{token1_addr}:1:usd"),
                 format!("PoolHourData:{hour_id}:{pool_address}:{token0_addr}:0:usd"),
                 format!("PoolHourData:{hour_id}:{pool_address}:{token1_addr}:1:usd"),
             ],
-            &amounts.stable_usd, // pool.totalValueLockedUSD
+            &amounts.delta_tvl_usd, // pool.totalValueLockedUSD
         );
 
         // pool.totalValueLockedETHUntracked
-        output.set_many(
+        output.set(
             pool_event.log_ordinal,
-            &vec![
-                format!("pool:{pool_address}:{token0_addr}:0:ethUntracked"),
-                format!("pool:{pool_address}:{token1_addr}:1:ethUntracked"),
-            ],
+            format!("pool:{pool_address}:totalValueLockedETHUntracked"),
             &amounts.stable_eth_untracked,
         );
 
         // pool.totalValueLockedUSDUntracked
-        output.set_many(
+        output.set(
             ord,
-            &vec![
-                format!("pool:{pool_address}:{token0_addr}:0:usdUntracked"),
-                format!("pool:{pool_address}:{token1_addr}:1:usdUntracked"),
-            ],
+            format!("pool:{pool_address}:totalValueLockedUSDUntracked"),
             &amounts.stable_usd_untracked,
         );
     }
@@ -904,9 +897,9 @@ pub fn store_derived_factory_tvl(
         let ord = delta.ordinal;
 
         match key::last_segment(&delta.key) {
-            "eth" => output.add(ord, &format!("factory:totalValueLockedETH"), delta_diff),
-            "ethUntracked" => output.add(ord, &format!("factory:totalValueLockedETHUntracked"), delta_diff),
-            "usd" => output.add_many(
+            "totalValueLockedETH" => output.add(ord, &format!("factory:totalValueLockedETH"), delta_diff),
+            "totalValueLockedETHUntracked" => output.add(ord, &format!("factory:totalValueLockedETHUntracked"), delta_diff),
+            "totalValueLockedUSD" => output.add_many(
                 ord,
                 &vec![
                     format!("factory:totalValueLockedUSD"),
@@ -914,7 +907,7 @@ pub fn store_derived_factory_tvl(
                 ],
                 delta_diff,
             ),
-            "usdUntracked" => output.add(ord, &format!("factory:totalValueLockedUSDUntracked"), delta_diff),
+            "totalValueLockedUSDUntracked" => output.add(ord, &format!("factory:totalValueLockedUSDUntracked"), delta_diff),
             _ => {}
         }
     }
