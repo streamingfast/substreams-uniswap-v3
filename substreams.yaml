@@ -205,6 +205,42 @@ modules:
     inputs:
       - map: map_extract_data_types
 
+  - name: store_min_pool_prices
+    kind: store
+    updatePolicy: min
+    valueType: bigdecimal
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - store: store_prices
+        mode: deltas
+
+  - name: store_max_pool_prices
+    kind: store
+    updatePolicy: max
+    valueType: bigdecimal
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - store: store_prices
+        mode: deltas
+
+  - name: store_min_token_prices
+    kind: store
+    updatePolicy: min
+    valueType: bigdecimal
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - store: store_eth_prices
+        mode: deltas
+
+  - name: store_max_token_prices
+    kind: store
+    updatePolicy: max
+    valueType: bigdecimal
+    inputs:
+      - source: sf.substreams.v1.Clock
+      - store: store_eth_prices
+        mode: deltas
+
   - name: graph_out
     kind: map
     initialBlock: 12369621
@@ -228,7 +264,6 @@ modules:
         mode: deltas
       - store: store_token_tvl
         mode: deltas
-
       - store: store_prices
         mode: deltas
       - store: store_tokens
@@ -241,6 +276,14 @@ modules:
       - store: store_total_tx_counts
       - store: store_eth_prices
       - store: store_positions
+      - store: store_min_pool_prices
+        mode: deltas
+      - store: store_max_pool_prices
+        mode: deltas
+      - store: store_min_token_prices
+        mode: deltas
+      - store: store_max_token_prices
+        mode: deltas
 
     output:
       type: proto:substreams.entity.v1.EntityChanges

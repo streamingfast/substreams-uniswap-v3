@@ -501,10 +501,12 @@ pub fn create_entity_tick_windows(tables: &mut Tables, ticks_created: &Vec<event
         let day_id = tick.created_at_timestamp / 86400;
         let hour_id = tick.created_at_timestamp / 3600;
 
+        log::info!("create_entity_tick_windows hour_id {}", hour_id);
+
         let pool_address = &tick.pool_address;
         let tick_idx = &tick.idx;
         create_tick_windows(tables, "TickDayData", pool_address.as_str(), tick_idx, day_id);
-        create_tick_windows(tables, "TickHourData", pool_address.as_str(), tick_idx, hour_id);
+        // create_tick_windows(tables, "TickHourData", pool_address.as_str(), tick_idx, hour_id);
     }
 }
 
@@ -513,6 +515,8 @@ pub fn update_tick_windows(tables: &mut Tables, ticks_updated: &Vec<events::Tick
         let day_id = tick.timestamp / 86400;
         let hour_id = tick.timestamp / 3600;
 
+        log::info!("update_tick_windows hour_id {}", hour_id);
+
         let tick_idx = &tick.idx;
         let pool_address = &tick.pool_address;
 
@@ -520,17 +524,17 @@ pub fn update_tick_windows(tables: &mut Tables, ticks_updated: &Vec<events::Tick
             tables
                 .update_row("TickDayData", format!("0x{pool_address}#{tick_idx}-{day_id}"))
                 .set_bigint("feeGrowthOutside0X128", &tick.fee_growth_outside_0x_128);
-            tables
-                .update_row("TickHourData", format!("0x{pool_address}#{tick_idx}-{hour_id}"))
-                .set_bigint("feeGrowthOutside0X128", &tick.fee_growth_outside_0x_128);
+            // tables
+            //     .update_row("TickHourData", format!("0x{pool_address}#{tick_idx}-{hour_id}"))
+            //     .set_bigint("feeGrowthOutside0X128", &tick.fee_growth_outside_0x_128);
         }
         if tick.fee_growth_outside_1x_128.len() != 0 {
             tables
                 .update_row("TickDayData", format!("0x{pool_address}#{tick_idx}-{day_id}"))
                 .set_bigint("feeGrowthOutside1X128", &tick.fee_growth_outside_1x_128);
-            tables
-                .update_row("TickHourData", format!("0x{pool_address}#{tick_idx}-{hour_id}"))
-                .set_bigint("feeGrowthOutside1X128", &tick.fee_growth_outside_1x_128);
+            // tables
+            //     .update_row("TickHourData", format!("0x{pool_address}#{tick_idx}-{hour_id}"))
+            //     .set_bigint("feeGrowthOutside1X128", &tick.fee_growth_outside_1x_128);
         }
     }
 }
@@ -539,10 +543,13 @@ pub fn liquidities_tick_windows(tables: &mut Tables, ticks_liquidities_deltas: &
     for delta in ticks_liquidities_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {
             "TickDayData" => "TickDayData",
-            "TickHourData" => "TickHourData",
+            // "TickHourData" => "TickHourData",
             _ => continue,
         };
         let time_id = key::segment(&delta.key, 1);
+
+        log::info!("liquidities_tick_windows time_id {}", time_id);
+
         let pool_address = key::segment(&delta.key, 2);
         let tick_idx = key::segment(&delta.key, 3);
 
@@ -1290,35 +1297,57 @@ pub fn prices_pool_windows(tables: &mut Tables, price_deltas: &Deltas<DeltaBigDe
 
         let pool_hour_id = format!("0x{pool_address}-{time_id}");
 
-        let old_value = delta.old_value.clone();
-        let new_value = delta.new_value.clone();
-
-        // TODO: create a StorePricesMin and StorePricesMax to set the low and high values
-        let mut low = BigDecimal::zero();
-        let mut high = BigDecimal::zero();
-        //TODO: these are not properly set in the subgraph so we
-        // let mut open = BigDecimal::zero();
-        // let mut close = BigDecimal::zero();
-
-        if new_value.gt(&old_value) {
-            high = new_value.clone();
-        }
-
-        if new_value.lt(&old_value) {
-            low = new_value.clone();
-        }
-
-        let mut row = tables
+        tables
             .update_row(table_name, &pool_hour_id)
             .set(field_name, &delta.new_value);
+    }
+}
 
-        if !high.eq(&BigDecimal::zero()) {
-            row.set("high", high);
+pub fn prices_min_pool_windows(tables: &mut Tables, min_pool_prices_deltas: &Deltas<DeltaBigDecimal>) {
+    for delta in min_pool_prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
         }
 
-        if !low.eq(&BigDecimal::zero()) {
-            row.set("low", low);
+        let table_name = match key::first_segment(&delta.key) {
+            "PoolDayData" => "PoolDayData",
+            "PoolHourData" => "PoolHourData",
+            _ => continue,
+        };
+
+        let time_id = key::segment(&delta.key, 1);
+        let pool_address = key::segment(&delta.key, 2);
+        let pool_time_id = format!("0x{pool_address}-{time_id}");
+
+        tables
+            .update_row(table_name, &pool_time_id)
+            .set("low", &delta.new_value);
+    }
+}
+
+pub fn prices_max_pool_windows(tables: &mut Tables, max_pool_prices_deltas: &Deltas<DeltaBigDecimal>) {
+    for delta in max_pool_prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
         }
+
+        let table_name = match key::first_segment(&delta.key) {
+            "PoolDayData" => "PoolDayData",
+            "PoolHourData" => "PoolHourData",
+            _ => continue,
+        };
+
+        let time_id = key::segment(&delta.key, 1);
+        let pool_address = key::segment(&delta.key, 2);
+        let pool_time_id = format!("0x{pool_address}-{time_id}");
+
+        tables
+            .update_row(table_name, &pool_time_id)
+            .set("high", &delta.new_value);
     }
 }
 
@@ -1622,5 +1651,53 @@ pub fn total_prices_token_windows(tables: &mut Tables, derived_eth_prices_deltas
         tables
             .update_row(table_name, format!("0x{token_address}-{time_id}"))
             .set("priceUSD", &delta.new_value);
+    }
+}
+
+pub fn prices_min_token_windows(tables: &mut Tables, min_token_prices_deltas: &Deltas<DeltaBigDecimal>) {
+    for delta in min_token_prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let table_name = match key::first_segment(&delta.key) {
+            "TokenDayData" => "TokenDayData",
+            "TokenHourData" => "TokenHourData",
+            _ => continue,
+        };
+
+        let time_id = key::segment(&delta.key, 1);
+        let token_address = key::segment(&delta.key, 2);
+        let token_time_id = format!("0x{token_address}-{time_id}");
+
+        tables
+            .update_row(table_name, &token_time_id)
+            .set("low", &delta.new_value);
+    }
+}
+
+pub fn prices_max_token_windows(tables: &mut Tables, max_token_prices_deltas: &Deltas<DeltaBigDecimal>) {
+    for delta in max_token_prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let table_name = match key::first_segment(&delta.key) {
+            "TokenDayData" => "TokenDayData",
+            "TokenHourData" => "TokenHourData",
+            _ => continue,
+        };
+
+        let time_id = key::segment(&delta.key, 1);
+        let token_address = key::segment(&delta.key, 2);
+        let token_time_id = format!("0x{token_address}-{time_id}");
+
+        tables
+            .update_row(table_name, &token_time_id)
+            .set("high", &delta.new_value);
     }
 }

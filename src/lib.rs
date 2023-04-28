@@ -32,7 +32,7 @@ use crate::utils::UNISWAP_V3_FACTORY;
 use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
 use substreams::errors::Error;
-use substreams::pb::substreams::Clock;
+use substreams::pb::substreams::{store_delta, Clock};
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
@@ -282,9 +282,11 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
 
-    store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
-    store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
+    store.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    store.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
 
     for sqrt_price_update in events.pool_sqrt_prices {
         let pool_address = &sqrt_price_update.pool_address;
@@ -318,6 +320,7 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                     &vec![
                         format!("pool:{pool_address}:{token0_addr}:token0"),
                         format!("pair:{}:{}", token0_addr, token1_addr), // used for find_eth_per_token
+                        // We only need the token0Prices to compute the open, high, low and close
                         format!("PoolDayData:{day_id}:{pool_address}:token0"),
                         format!("PoolHourData:{hour_id}:{pool_address}:token0"),
                     ],
@@ -1057,6 +1060,194 @@ pub fn store_positions(events: Events, output: StoreSetProto<PositionEvent>) {
     }
 }
 
+//TODO: create a StoreTicks like it was done for the store positions then
+// consume in the graph_out and merge the fields together
+
+#[substreams::handlers::store]
+pub fn store_min_pool_prices(
+    clock: Clock,
+    prices_deltas: Deltas<DeltaBigDecimal>, /* store_prices */
+    output: StoreMinBigDecimal,
+) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id = timestamp_seconds / 86400;
+    let hour_id = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
+
+    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
+    for delta in prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            continue;
+        }
+
+        if key::last_segment(&delta.key) != "token0" {
+            continue;
+        }
+
+        match key::first_segment(&delta.key) {
+            "PoolDayData" => {
+                let pool_address = key::segment(&delta.key, 2);
+                let day_id = key::segment(&delta.key, 1);
+                output.min(
+                    delta.ordinal,
+                    format!("PoolDayData:{day_id}:{pool_address}:low"),
+                    &delta.new_value,
+                )
+            }
+            "PoolHourData" => {
+                let pool_address = key::segment(&delta.key, 2);
+                let hour_id = key::segment(&delta.key, 1);
+                output.min(
+                    delta.ordinal,
+                    format!("PoolHourData:{hour_id}:{pool_address}:low"),
+                    &delta.new_value,
+                )
+            }
+            _ => continue,
+        };
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_max_pool_prices(
+    clock: Clock,
+    prices_deltas: Deltas<DeltaBigDecimal>, /* store_prices */
+    output: StoreMaxBigDecimal,
+) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id = timestamp_seconds / 86400;
+    let hour_id = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
+
+    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
+
+    for delta in prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            continue;
+        }
+
+        if key::last_segment(&delta.key) != "token0" {
+            continue;
+        }
+
+        log::info!("store_max_pool_prices - delta new_value: {}", delta.new_value);
+
+        match key::first_segment(&delta.key) {
+            "PoolDayData" => {
+                let pool_address = key::segment(&delta.key, 2);
+                let day_id = key::segment(&delta.key, 1);
+                output.max(
+                    delta.ordinal,
+                    format!("PoolDayData:{day_id}:{pool_address}:high"),
+                    &delta.new_value,
+                )
+            }
+            "PoolHourData" => {
+                let pool_address = key::segment(&delta.key, 2);
+                let hour_id = key::segment(&delta.key, 1);
+                output.max(
+                    delta.ordinal,
+                    format!("PoolHourData:{hour_id}:{pool_address}:high"),
+                    &delta.new_value,
+                )
+            }
+            _ => continue,
+        };
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_min_token_prices(
+    clock: Clock,
+    eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
+    output: StoreMinBigDecimal,
+) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id = timestamp_seconds / 86400;
+    let hour_id = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
+
+    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
+
+    for delta in eth_prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            continue;
+        }
+
+        match key::first_segment(&delta.key) {
+            "TokenDayData" => {
+                let token_address = key::segment(&delta.key, 2);
+                let day_id = key::segment(&delta.key, 1);
+                output.min(
+                    delta.ordinal,
+                    format!("TokenDayData:{day_id}:{token_address}:low"),
+                    &delta.new_value,
+                )
+            }
+            "TokenHourData" => {
+                let token_address = key::segment(&delta.key, 2);
+                let hour_id = key::segment(&delta.key, 1);
+                output.min(
+                    delta.ordinal,
+                    format!("TokenHourData:{hour_id}:{token_address}:low"),
+                    &delta.new_value,
+                )
+            }
+            _ => continue,
+        };
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_max_token_prices(
+    clock: Clock,
+    eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
+    output: StoreMaxBigDecimal,
+) {
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id = timestamp_seconds / 86400;
+    let hour_id = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
+
+    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
+
+    for delta in eth_prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            continue;
+        }
+
+        match key::first_segment(&delta.key) {
+            "TokenDayData" => {
+                let token_address = key::segment(&delta.key, 2);
+                let day_id = key::segment(&delta.key, 1);
+                output.max(
+                    delta.ordinal,
+                    format!("TokenDayData:{day_id}:{token_address}:high"),
+                    &delta.new_value,
+                )
+            }
+            "TokenHourData" => {
+                let token_address = key::segment(&delta.key, 2);
+                let hour_id = key::segment(&delta.key, 1);
+                output.max(
+                    delta.ordinal,
+                    format!("TokenHourData:{hour_id}:{token_address}:high"),
+                    &delta.new_value,
+                )
+            }
+            _ => continue,
+        };
+    }
+}
+
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
@@ -1078,6 +1269,10 @@ pub fn graph_out(
     tx_count_store: StoreGetBigInt,                      /* store_total_tx_counts */
     store_eth_prices: StoreGetBigDecimal,                /* store_eth_prices */
     store_positions: StoreGetProto<PositionEvent>,       /* store_positions */
+    min_pool_prices_deltas: Deltas<DeltaBigDecimal>,     /* store_min_pool_prices */
+    max_pool_prices_deltas: Deltas<DeltaBigDecimal>,     /* store_max_pool_prices */
+    min_token_prices_deltas: Deltas<DeltaBigDecimal>,    /* store_min_token_prices */
+    max_token_prices_deltas: Deltas<DeltaBigDecimal>,    /* store_max_token_prices */
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
 
@@ -1178,6 +1373,8 @@ pub fn graph_out(
     db::create_entity_change_pool_windows(&mut tables, &tx_count_deltas);
     db::tx_count_pool_windows(&mut tables, &tx_count_deltas);
     db::prices_pool_windows(&mut tables, &price_deltas);
+    db::prices_min_pool_windows(&mut tables, &min_pool_prices_deltas);
+    db::prices_max_pool_windows(&mut tables, &max_pool_prices_deltas);
     db::liquidities_pool_windows(&mut tables, &pool_liquidities_store_deltas);
     db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
     db::swap_volume_pool_windows(&mut tables, &swaps_volume_deltas);
@@ -1194,6 +1391,8 @@ pub fn graph_out(
     db::total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_windows(&mut tables, &token_tvl_deltas);
     db::total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
+    db::prices_min_token_windows(&mut tables, &min_token_prices_deltas);
+    db::prices_max_token_windows(&mut tables, &max_token_prices_deltas);
 
     Ok(tables.to_entity_changes())
 }
