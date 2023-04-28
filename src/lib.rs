@@ -419,7 +419,7 @@ pub fn store_native_amounts(events: Events, store: StoreSetBigDecimal) {
         if let Some(token_amounts) = pool_event.get_amounts() {
             let amount0 = token_amounts.amount0;
             let amount1 = token_amounts.amount1;
-            log::info!("amount 0: {amount0} amount 1: {amount1}");
+            log::info!("amount 0: {} amount 1: {}", amount0, amount1);
 
             let pool_address = &pool_event.pool_address;
             let token0_addr = token_amounts.token0_addr;
@@ -723,16 +723,7 @@ pub fn store_swaps_volume(
 }
 
 #[substreams::handlers::store]
-pub fn store_token_tvl(clock: Clock, events: Events, output: StoreAddBigDecimal) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id: i64 = timestamp_seconds / 86400;
-    let hour_id: i64 = timestamp_seconds / 3600;
-    let prev_day_id = day_id - 1;
-    let prev_hour_id = hour_id - 1;
-
-    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
-    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
-
+pub fn store_token_tvl(events: Events, output: StoreAddBigDecimal) {
     for pool_event in events.pool_events {
         let token_amounts = pool_event.get_amounts().unwrap();
         let pool_address = pool_event.pool_address.to_string();
@@ -745,8 +736,6 @@ pub fn store_token_tvl(clock: Clock, events: Events, output: StoreAddBigDecimal)
             &vec![
                 &format!("pool:{pool_address}:{token0_addr}:token0"),
                 &format!("token:{token0_addr}"),
-                &format!("TokenDayData:{day_id}:{token0_addr}"),
-                &format!("TokenHourData:{hour_id}:{token0_addr}"),
             ],
             &token_amounts.amount0,
         );
@@ -756,8 +745,6 @@ pub fn store_token_tvl(clock: Clock, events: Events, output: StoreAddBigDecimal)
             &vec![
                 &format!("pool:{pool_address}:{token1_addr}:token1"),
                 &format!("token:{token1_addr}"),
-                &format!("TokenDayData:{day_id}:{token1_addr}"),
-                &format!("TokenHourData:{hour_id}:{token1_addr}"),
             ],
             &token_amounts.amount1,
         );
@@ -796,13 +783,17 @@ pub fn store_derived_tvl(
         let token0_addr = &pool.token0.as_ref().unwrap().address();
         let token1_addr = &pool.token1.as_ref().unwrap().address();
 
+        log::info!("pool address {}", pool_address);
+        log::info!("token0 address {}", token0_addr);
+        log::info!("token1 address {}", token1_addr);
+
         let token0_derive_eth = utils::get_derived_eth_price(ord, token0_addr, &eth_prices_store);
         let token1_derive_eth = utils::get_derived_eth_price(ord, token1_addr, &eth_prices_store);
 
         let total_value_locked_token0 =
-            utils::get_total_value_locked_token(ord, token0_addr, &token_total_value_locked);
+            utils::get_token_tvl_in_pool(ord, pool_address, token0_addr, "token0", &token_total_value_locked);
         let total_value_locked_token1 =
-            utils::get_total_value_locked_token(ord, token1_addr, &token_total_value_locked);
+            utils::get_token_tvl_in_pool(ord, pool_address, token1_addr, "token1", &token_total_value_locked);
 
         log::info!("total_value_locked_token0: {}", total_value_locked_token0);
         log::info!("total_value_locked_token1: {}", total_value_locked_token1);
@@ -855,7 +846,6 @@ pub fn store_derived_tvl(
             &amounts.delta_tvl_eth, // pool.totalValueLockedETH
         );
 
-        // TODO: @ed change for untracked
         output.set_many(
             ord,
             &vec![
@@ -1067,6 +1057,8 @@ pub fn store_positions(events: Events, output: StoreSetProto<PositionEvent>) {
 // open: we get a create so we know that this is the first time we see the key for the day/hour
 // close: we get a delete and we know that the old value is the close
 
+//FIXME: close is the last price we ALWAYS get
+
 #[substreams::handlers::store]
 pub fn store_min_pool_prices(
     clock: Clock,
@@ -1087,7 +1079,6 @@ pub fn store_min_pool_prices(
         }
 
         if delta.operation == store_delta::Operation::Delete {
-            // compute the close
             continue;
         }
 
@@ -1284,6 +1275,7 @@ pub fn graph_out(
     max_token_prices_deltas: Deltas<DeltaBigDecimal>,    /* store_max_token_prices */
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
+    let timestamp = clock.timestamp.unwrap().seconds;
 
     if clock.number == 12369621 {
         // FIXME: Hard-coded start block, how could we pull that from the manifest?
@@ -1387,18 +1379,14 @@ pub fn graph_out(
     db::liquidities_pool_windows(&mut tables, &pool_liquidities_store_deltas);
     db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
     db::swap_volume_pool_windows(&mut tables, &swaps_volume_deltas);
-    db::fee_growth_global_x128_pool_windows(
-        &mut tables,
-        clock.timestamp.unwrap().seconds,
-        &events.fee_growth_global_updates,
-    );
+    db::fee_growth_global_x128_pool_windows(&mut tables, timestamp, &events.fee_growth_global_updates);
     db::total_value_locked_usd_pool_windows(&mut tables, &derived_tvl_deltas);
 
     // Token Day/Hour data:
     db::create_entity_change_token_windows(&mut tables, &tx_count_deltas);
     db::swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
-    db::total_value_locked_token_windows(&mut tables, &token_tvl_deltas);
+    db::total_value_locked_token_windows(&mut tables, timestamp, &token_tvl_deltas);
     db::total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
     db::prices_min_token_windows(&mut tables, &min_token_prices_deltas);
     db::prices_max_token_windows(&mut tables, &max_token_prices_deltas);

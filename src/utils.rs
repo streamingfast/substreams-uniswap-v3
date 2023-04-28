@@ -202,7 +202,6 @@ pub fn get_adjusted_amounts(
         stable_usd_untracked: BigDecimal::zero(),
     };
 
-
     let mut eth = BigDecimal::zero();
 
     let eth_untracked = token0_amount
@@ -237,7 +236,6 @@ pub fn get_adjusted_amounts(
     adjusted_amounts.delta_tvl_usd = usd;
     adjusted_amounts.stable_eth_untracked = eth_untracked;
     adjusted_amounts.stable_usd_untracked = usd_untracked;
-
 
     log::info!("stable_eth {:}", adjusted_amounts.delta_tvl_eth);
     log::info!("stable_usd {:}", adjusted_amounts.delta_tvl_usd);
@@ -295,12 +293,14 @@ pub fn get_derived_eth_price(ordinal: u64, token_addr: &String, eth_prices_store
     };
 }
 
-pub fn get_total_value_locked_token(
+pub fn get_token_tvl_in_pool(
     ordinal: u64,
+    pool_addr: &String,
     token_addr: &String,
+    token_denom: &str,
     total_value_locked_store: &StoreGetBigDecimal,
 ) -> BigDecimal {
-    return match total_value_locked_store.get_at(ordinal, format!("token:{token_addr}")) {
+    return match total_value_locked_store.get_at(ordinal, format!("pool:{pool_addr}:{token_addr}:{token_denom}")) {
         None => {
             panic!("impossible")
         }

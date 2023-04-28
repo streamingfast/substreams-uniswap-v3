@@ -216,21 +216,6 @@ pub fn total_value_locked_by_token_pool_entity_change(tables: &mut Tables, token
     }
 }
 
-pub fn fee_growth_global_x128_pool_entity_change(tables: &mut Tables, deltas: &Deltas<DeltaBigInt>) {
-    for delta in key::filter_first_segment_eq(deltas, "pool") {
-        let pool_address = key::segment(&delta.key, 1);
-        let name = match key::last_segment(&delta.key) {
-            "token0" => "feeGrowthGlobal0X128",
-            "token1" => "feeGrowthGlobal1X128",
-            _ => continue,
-        };
-
-        tables
-            .update_row("Pool", &format!("0x{pool_address}"))
-            .set(name, &delta.new_value);
-    }
-}
-
 pub fn price_pool_entity_change(tables: &mut Tables, price_deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(price_deltas, "pool") {
         let pool_address = key::segment(&delta.key, 1);
@@ -1608,11 +1593,17 @@ pub fn total_value_locked_usd_token_windows(tables: &mut Tables, derived_tvl_del
     }
 }
 
-pub fn total_value_locked_token_windows(tables: &mut Tables, token_tvl_deltas: &Deltas<DeltaBigDecimal>) {
+pub fn total_value_locked_token_windows(
+    tables: &mut Tables,
+    timestamp: i64,
+    token_tvl_deltas: &Deltas<DeltaBigDecimal>,
+) {
+    let day_id = timestamp / 86400;
+    let hour_id = timestamp / 3600;
+
     for delta in token_tvl_deltas.deltas.iter() {
-        let table_name = match key::first_segment(&delta.key) {
-            "TokenDayData" => "TokenDayData",
-            "TokenHourData" => "TokenHourData",
+        match key::first_segment(&delta.key) {
+            "token" => {}
             _ => continue,
         };
 
@@ -1622,13 +1613,31 @@ pub fn total_value_locked_token_windows(tables: &mut Tables, token_tvl_deltas: &
             continue;
         }
 
-        let time_id = key::segment(&delta.key, 1);
-        let token_address = key::segment(&delta.key, 2);
-
-        tables
-            .update_row(table_name, format!("0x{token_address}-{time_id}"))
-            .set("totalValueLocked", &delta.new_value);
+        let token_address = key::segment(&delta.key, 1);
+        total_value_locked_token_windows_update(
+            tables,
+            "TokenDayData",
+            format!("0x{token_address}-{day_id}"),
+            &delta.new_value,
+        );
+        total_value_locked_token_windows_update(
+            tables,
+            "TokenHourData",
+            format!("0x{token_address}-{hour_id}"),
+            &delta.new_value,
+        );
     }
+}
+
+fn total_value_locked_token_windows_update(
+    tables: &mut Tables,
+    table_name: &str,
+    token_time_id: String,
+    value: &BigDecimal,
+) {
+    tables
+        .update_row(table_name, token_time_id)
+        .set("totalValueLocked", value);
 }
 
 pub fn total_prices_token_windows(tables: &mut Tables, derived_eth_prices_deltas: &Deltas<DeltaBigDecimal>) {
