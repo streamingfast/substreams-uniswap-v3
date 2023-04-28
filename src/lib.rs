@@ -15,7 +15,6 @@ mod storage;
 mod tables;
 mod utils;
 
-use crate::abi::pool::functions::Ticks;
 use crate::ethpb::v2::{Block, StorageChange};
 use crate::pb::uniswap;
 use crate::pb::uniswap::events::pool_event::Type;
@@ -29,9 +28,9 @@ use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, Pools};
 use crate::price::WHITELIST_TOKENS;
 use crate::tables::Tables;
 use crate::utils::UNISWAP_V3_FACTORY;
-use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
 use substreams::errors::Error;
+use substreams::hex;
 use substreams::pb::substreams::{store_delta, Clock};
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
@@ -39,7 +38,6 @@ use substreams::store::{
     DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigDecimal, StoreAddBigInt, StoreAppend,
     StoreGetBigDecimal, StoreGetBigInt, StoreGetProto, StoreGetRaw, StoreSetBigDecimal, StoreSetBigInt, StoreSetProto,
 };
-use substreams::{hex, proto};
 use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::EntityChanges;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
@@ -883,11 +881,19 @@ pub fn store_derived_factory_tvl(
     output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
 
     for delta in key::filter_first_segment_eq(&derived_tvl_deltas, "pool") {
+        log::info!("delta key {}", delta.key);
+        log::info!("delta old {}", delta.old_value);
+        log::info!("delta new {}", delta.new_value);
         let delta_diff = &calculate_diff(&delta);
         let ord = delta.ordinal;
 
+        log::info!("delta diff {}", delta_diff);
+
         match key::last_segment(&delta.key) {
-            "totalValueLockedETH" => output.add(ord, &format!("factory:totalValueLockedETH"), delta_diff),
+            "totalValueLockedETH" => {
+                log::info!("adding factory:totalValueLockedETH {}", delta_diff);
+                output.add(ord, &format!("factory:totalValueLockedETH"), delta_diff)
+            }
             "totalValueLockedETHUntracked" => {
                 output.add(ord, &format!("factory:totalValueLockedETHUntracked"), delta_diff)
             }
@@ -1050,15 +1056,6 @@ pub fn store_positions(events: Events, output: StoreSetProto<PositionEvent>) {
     }
 }
 
-//TODO: create a StoreTicks like it was done for the store positions then
-// consume in the graph_out and merge the fields together
-
-//TODO: to compute the open and close we have to check the deltas
-// open: we get a create so we know that this is the first time we see the key for the day/hour
-// close: we get a delete and we know that the old value is the close
-
-//FIXME: close is the last price we ALWAYS get
-
 #[substreams::handlers::store]
 pub fn store_min_pool_prices(
     clock: Clock,
@@ -1074,15 +1071,36 @@ pub fn store_min_pool_prices(
     output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
     for delta in prices_deltas.deltas.iter() {
-        if delta.operation == store_delta::Operation::Create {
-            // send the open and keep going in the code path
-        }
-
-        if delta.operation == store_delta::Operation::Delete {
+        if key::last_segment(&delta.key) != "token0" {
             continue;
         }
 
-        if key::last_segment(&delta.key) != "token0" {
+        if delta.operation == store_delta::Operation::Create {
+            match key::first_segment(&delta.key) {
+                "PoolDayData" => {
+                    let day_id = key::segment(&delta.key, 1);
+                    let pool_address = key::segment(&delta.key, 2);
+                    output.min(
+                        delta.ordinal,
+                        format!("PoolDayData:{day_id}:{pool_address}:open"),
+                        &delta.new_value,
+                    )
+                }
+                "PoolHourData" => {
+                    let hour_id = key::segment(&delta.key, 1);
+                    let pool_address = key::segment(&delta.key, 2);
+                    output.min(
+                        delta.ordinal,
+                        format!("PoolHourData:{hour_id}:{pool_address}:open"),
+                        &delta.new_value,
+                    )
+                }
+                _ => continue,
+            };
+            continue;
+        }
+
+        if delta.operation == store_delta::Operation::Delete {
             continue;
         }
 
@@ -1176,6 +1194,31 @@ pub fn store_min_token_prices(
     output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
     for delta in eth_prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Create {
+            match key::first_segment(&delta.key) {
+                "TokenDayData" => {
+                    let day_id = key::segment(&delta.key, 1);
+                    let pool_address = key::segment(&delta.key, 2);
+                    output.min(
+                        delta.ordinal,
+                        format!("TokenDayData:{day_id}:{pool_address}:open"),
+                        &delta.new_value,
+                    )
+                }
+                "TokenHourData" => {
+                    let hour_id = key::segment(&delta.key, 1);
+                    let pool_address = key::segment(&delta.key, 2);
+                    output.min(
+                        delta.ordinal,
+                        format!("TokenHourData:{hour_id}:{pool_address}:open"),
+                        &delta.new_value,
+                    )
+                }
+                _ => continue,
+            };
+            continue;
+        }
+
         if delta.operation == store_delta::Operation::Delete {
             continue;
         }
@@ -1319,9 +1362,9 @@ pub fn graph_out(
     db::liquidities_tick_entity_change(&mut tables, &ticks_liquidities_deltas);
 
     // Tick Day/Hour data
-    db::create_entity_tick_windows(&mut tables, &events.ticks_created);
-    db::update_tick_windows(&mut tables, &events.ticks_updated);
-    db::liquidities_tick_windows(&mut tables, &ticks_liquidities_deltas);
+    // db::create_entity_tick_windows(&mut tables, &events.ticks_created);
+    // db::update_tick_windows(&mut tables, &events.ticks_updated);
+    // db::liquidities_tick_windows(&mut tables, &ticks_liquidities_deltas);
 
     // Position:
     // TODO: validate all the positions here
@@ -1376,6 +1419,7 @@ pub fn graph_out(
     db::prices_pool_windows(&mut tables, &price_deltas);
     db::prices_min_pool_windows(&mut tables, &min_pool_prices_deltas);
     db::prices_max_pool_windows(&mut tables, &max_pool_prices_deltas);
+    db::prices_close_pool_windows(&mut tables, &price_deltas);
     db::liquidities_pool_windows(&mut tables, &pool_liquidities_store_deltas);
     db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
     db::swap_volume_pool_windows(&mut tables, &swaps_volume_deltas);
@@ -1390,6 +1434,7 @@ pub fn graph_out(
     db::total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
     db::prices_min_token_windows(&mut tables, &min_token_prices_deltas);
     db::prices_max_token_windows(&mut tables, &max_token_prices_deltas);
+    db::prices_close_token_windows(&mut tables, &derived_eth_prices_deltas);
 
     Ok(tables.to_entity_changes())
 }

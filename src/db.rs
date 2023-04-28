@@ -1134,9 +1134,9 @@ pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, swaps_volume_
         let day_id = key::segment(&delta.key, 1);
 
         let name = match key::last_segment(&delta.key) {
-            "volumeETH" => "volumeETH", // TODO: validate data
-            "volumeUSD" => "volumeUSD", // TODO: validate data
-            "feesUSD" => "feesUSD",     // TODO: validate data
+            "volumeETH" => "volumeETH",
+            "volumeUSD" => "volumeUSD",
+            "feesUSD" => "feesUSD",
             _ => continue,
         };
 
@@ -1302,13 +1302,19 @@ pub fn prices_min_pool_windows(tables: &mut Tables, min_pool_prices_deltas: &Del
             _ => continue,
         };
 
+        let field = match key::last_segment(&delta.key) {
+            "low" => "low",
+            "open" => "open",
+            _ => continue,
+        };
+
         let time_id = key::segment(&delta.key, 1);
         let pool_address = key::segment(&delta.key, 2);
         let pool_time_id = format!("0x{pool_address}-{time_id}");
 
         tables
             .update_row(table_name, &pool_time_id)
-            .set("low", &delta.new_value);
+            .set(field, &delta.new_value);
     }
 }
 
@@ -1333,6 +1339,31 @@ pub fn prices_max_pool_windows(tables: &mut Tables, max_pool_prices_deltas: &Del
         tables
             .update_row(table_name, &pool_time_id)
             .set("high", &delta.new_value);
+    }
+}
+
+pub fn prices_close_pool_windows(tables: &mut Tables, prices_deltas: &Deltas<DeltaBigDecimal>) {
+    for delta in prices_deltas.deltas.iter() {
+        let table_name = match key::first_segment(&delta.key) {
+            "PoolDayData" => "PoolDayData",
+            "PoolHourData" => "PoolHourData",
+            _ => continue,
+        };
+
+        if delta.operation == store_delta::Operation::Delete {
+            let time_id = key::segment(&delta.key, 1);
+            let pool_address = key::segment(&delta.key, 2);
+            let pool_time_id = format!("0x{pool_address}-{time_id}");
+
+            tables
+                .update_row(table_name, &pool_time_id)
+                .set("close", &delta.old_value);
+
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+        }
+
+        continue;
     }
 }
 
@@ -1677,13 +1708,19 @@ pub fn prices_min_token_windows(tables: &mut Tables, min_token_prices_deltas: &D
             _ => continue,
         };
 
+        let field = match key::last_segment(&delta.key) {
+            "low" => "low",
+            "open" => "open",
+            _ => continue,
+        };
+
         let time_id = key::segment(&delta.key, 1);
         let token_address = key::segment(&delta.key, 2);
         let token_time_id = format!("0x{token_address}-{time_id}");
 
         tables
             .update_row(table_name, &token_time_id)
-            .set("low", &delta.new_value);
+            .set(field, &delta.new_value);
     }
 }
 
@@ -1708,5 +1745,30 @@ pub fn prices_max_token_windows(tables: &mut Tables, max_token_prices_deltas: &D
         tables
             .update_row(table_name, &token_time_id)
             .set("high", &delta.new_value);
+    }
+}
+
+pub fn prices_close_token_windows(tables: &mut Tables, eth_prices_deltas: &Deltas<DeltaBigDecimal>) {
+    for delta in eth_prices_deltas.deltas.iter() {
+        let table_name = match key::first_segment(&delta.key) {
+            "TokenDayData" => "TokenDayData",
+            "TokenHourData" => "TokenHourData",
+            _ => continue,
+        };
+
+        if delta.operation == store_delta::Operation::Delete {
+            let time_id = key::segment(&delta.key, 1);
+            let pool_address = key::segment(&delta.key, 2);
+            let pool_time_id = format!("0x{pool_address}-{time_id}");
+
+            tables
+                .update_row(table_name, &pool_time_id)
+                .set("close", &delta.old_value);
+
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+        }
+
+        continue;
     }
 }
