@@ -1063,6 +1063,10 @@ pub fn store_positions(events: Events, output: StoreSetProto<PositionEvent>) {
 //TODO: create a StoreTicks like it was done for the store positions then
 // consume in the graph_out and merge the fields together
 
+//TODO: to compute the open and close we have to check the deltas
+// open: we get a create so we know that this is the first time we see the key for the day/hour
+// close: we get a delete and we know that the old value is the close
+
 #[substreams::handlers::store]
 pub fn store_min_pool_prices(
     clock: Clock,
@@ -1078,7 +1082,12 @@ pub fn store_min_pool_prices(
     output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
     for delta in prices_deltas.deltas.iter() {
+        if delta.operation == store_delta::Operation::Create {
+            // send the open and keep going in the code path
+        }
+
         if delta.operation == store_delta::Operation::Delete {
+            // compute the close
             continue;
         }
 
