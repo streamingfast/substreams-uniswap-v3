@@ -617,6 +617,12 @@ pub fn store_swaps_volume(
                     &token1_derived_eth_price,
                     &eth_price_in_usd,
                 );
+
+                log::info!("volumeAmounts.eth {}", volume_amounts.delta_tvl_eth);
+                log::info!("volumeAmounts.usd {}", volume_amounts.delta_tvl_usd);
+                log::info!("volumeAmounts.untrackedETH {}", volume_amounts.stable_eth_untracked);
+                log::info!("volumeAmounts.untrackedUSD {}", volume_amounts.stable_usd_untracked);
+
                 let volume_eth = volume_amounts.delta_tvl_eth.clone().div(BigDecimal::from(2 as i32));
                 let volume_usd = volume_amounts.delta_tvl_usd.clone().div(BigDecimal::from(2 as i32));
                 let volume_usd_untracked = volume_amounts
@@ -640,7 +646,7 @@ pub fn store_swaps_volume(
                         format!("pool:{pool_address}:volumeToken0"),
                         // FIXME: why compute volumes only for one side of the tokens?!  We should compute them for both sides no?
                         //  Does it really matter which side the volume comes from?
-                        format!("token:{token0_addr}:token0"),
+                        format!("token:{token0_addr}:volume"),
                         format!("PoolDayData:{day_id}:{pool_address}:{token0_addr}:volumeToken0"),
                         format!("TokenDayData:{day_id}:{token0_addr}:volume"),
                         format!("PoolHourData:{hour_id}:{pool_address}:{token0_addr}:volumeToken0"),
@@ -652,7 +658,7 @@ pub fn store_swaps_volume(
                     ord,
                     &vec![
                         format!("pool:{pool_address}:volumeToken1"),
-                        format!("token:{token1_addr}:token1"),
+                        format!("token:{token1_addr}:volume"),
                         format!("PoolDayData:{day_id}:{pool_address}:{token1_addr}:volumeToken1"),
                         format!("TokenDayData:{day_id}:{token1_addr}:volume"),
                         format!("PoolHourData:{hour_id}:{pool_address}:{token1_addr}:volumeToken1"),
@@ -685,6 +691,10 @@ pub fn store_swaps_volume(
                         format!("pool:{pool_address}:volumeUntrackedUSD"),
                         format!("token:{token0_addr}:volume:untrackedUSD"),
                         format!("token:{token1_addr}:volume:untrackedUSD"),
+                        format!("TokenDayData:{day_id}:{token0_addr}:volume:untrackedUSD"),
+                        format!("TokenDayData:{day_id}:{token1_addr}:volume:untrackedUSD"),
+                        format!("TokenHourData:{hour_id}:{token0_addr}:volume:untrackedUSD"),
+                        format!("TokenHourData:{hour_id}:{token1_addr}:volume:untrackedUSD"),
                     ],
                     &volume_usd_untracked,
                 );

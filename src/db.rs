@@ -303,7 +303,7 @@ pub fn swap_volume_token_entity_change(tables: &mut Tables, swaps_volume_deltas:
     for delta in key::filter_first_segment_eq(swaps_volume_deltas, "token") {
         let token_address = key::segment(&delta.key, 1);
         let field_name: &str = match key::last_segment(&delta.key) {
-            "token0" | "token1" => "volume",
+            "volume" => "volume",
             "usd" => "volumeUSD",
             "untrackedUSD" => "untrackedVolumeUSD",
             "feesUSD" => "feesUSD",
@@ -1129,6 +1129,7 @@ pub fn totals_uniswap_day_data_entity_change(
             .set("totalValueLockedUSD", &delta.new_value);
     }
 }
+
 pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, swaps_volume_deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(swaps_volume_deltas, "UniswapDayData") {
         let day_id = key::segment(&delta.key, 1);
@@ -1583,10 +1584,11 @@ pub fn swap_volume_token_windows(tables: &mut Tables, swaps_volume_deltas: &Delt
         let token_address = key::segment(&delta.key, 2);
 
         let field_name = match key::last_segment(&delta.key) {
-            "volume" => "volume",       // TODO: validate data
-            "volumeUSD" => "volumeUSD", // TODO: validate data
-            "feesUSD" => "feesUSD",     // TODO: validate data
-            _ => continue,              // TODO: need to add the :volume key
+            "volume" => "volume",
+            "volumeUSD" => "volumeUSD",
+            "feesUSD" => "feesUSD",
+            "untrackedUSD" => "volumeUSDUntracked",
+            _ => continue,
         };
 
         if delta.operation == store_delta::Operation::Delete {
