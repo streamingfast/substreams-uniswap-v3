@@ -34,8 +34,7 @@ mod tests {
     fn test_read_token_name_32_bytes() {
         let expected_name = "Maker";
         let name_bytes: &[u8; 32] = &[
-            77, 97, 107, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0,
+            77, 97, 107, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         assert_eq!(expected_name, read_string_from_bytes(name_bytes));
@@ -45,8 +44,7 @@ mod tests {
     fn test_read_token_symbol_32_bytes() {
         let expected_name = "MKR";
         let name_bytes: &[u8; 32] = &[
-            77, 75, 82, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0,
+            77, 75, 82, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         assert_eq!(expected_name, read_string_from_bytes(name_bytes));
@@ -55,8 +53,7 @@ mod tests {
     #[test]
     fn test_read_string_from_bytes32_all_zeros() {
         let bytes: &[u8; 32] = &[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         assert_eq!("".to_string(), read_string_from_bytes(bytes));
@@ -65,9 +62,8 @@ mod tests {
     #[test]
     fn test_read_string_from_bytes64_all_zeros() {
         let bytes: &[u8; 64] = &[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         assert_eq!("".to_string(), read_string_from_bytes(bytes));

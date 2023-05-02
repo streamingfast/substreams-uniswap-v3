@@ -22,20 +22,18 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
     log::info!("bytes response.0: {:?}", responses[0].raw);
     log::info!("bytes response.1: {:?}", responses[1].raw);
 
-    let fee_0: BigInt =
-        match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal0X128>(&responses[0]) {
-            Some(data) => data,
-            None => {
-                panic!("Failed to decode fee growth global 0x128");
-            }
-        };
-    let fee_1: BigInt =
-        match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal1X128>(&responses[1]) {
-            Some(data) => data,
-            None => {
-                panic!("Failed to decode fee growth global 1x128");
-            }
-        };
+    let fee_0: BigInt = match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal0X128>(&responses[0]) {
+        Some(data) => data,
+        None => {
+            panic!("Failed to decode fee growth global 0x128");
+        }
+    };
+    let fee_1: BigInt = match RpcBatch::decode::<_, abi::pool::functions::FeeGrowthGlobal1X128>(&responses[1]) {
+        Some(data) => data,
+        None => {
+            panic!("Failed to decode fee growth global 1x128");
+        }
+    };
 
     return (fee_0, fee_1);
 }
@@ -43,18 +41,9 @@ pub fn fee_growth_global_x128_call(pool_address: &String) -> (BigInt, BigInt) {
 pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     let batch = RpcBatch::new();
     let responses = batch
-        .add(
-            abi::erc20::functions::Decimals {},
-            hex::decode(token_address).unwrap(),
-        )
-        .add(
-            abi::erc20::functions::Name {},
-            hex::decode(token_address).unwrap(),
-        )
-        .add(
-            abi::erc20::functions::Symbol {},
-            hex::decode(token_address).unwrap(),
-        )
+        .add(abi::erc20::functions::Decimals {}, hex::decode(token_address).unwrap())
+        .add(abi::erc20::functions::Name {}, hex::decode(token_address).unwrap())
+        .add(abi::erc20::functions::Symbol {}, hex::decode(token_address).unwrap())
         .execute()
         .unwrap()
         .responses;

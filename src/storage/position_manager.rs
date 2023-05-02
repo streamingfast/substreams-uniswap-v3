@@ -284,7 +284,9 @@ impl<'a> PoolKeyStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) =
+            utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes)
+        {
             Some((
                 <[u8; 20]>::try_from(old_data).unwrap(),
                 <[u8; 20]>::try_from(new_data).unwrap(),
@@ -301,7 +303,9 @@ impl<'a> PoolKeyStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) =
+            utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes)
+        {
             Some((
                 <[u8; 20]>::try_from(old_data).unwrap(),
                 <[u8; 20]>::try_from(new_data).unwrap(),
@@ -318,7 +322,9 @@ impl<'a> PoolKeyStruct<'a> {
 
         let slot_key = utils::calc_struct_slot(&self.struct_slot, slot);
 
-        if let Some((old_data, new_data)) = utils::get_storage_change(&self.storage_changes,slot_key, offset, number_of_bytes) {
+        if let Some((old_data, new_data)) =
+            utils::get_storage_change(&self.storage_changes, slot_key, offset, number_of_bytes)
+        {
             Some((
                 BigInt::from_signed_bytes_be(old_data),
                 BigInt::from_signed_bytes_be(new_data),
