@@ -1,3 +1,4 @@
+use crate::ticks_idx::ONE_POINT_0001;
 use crate::BigInt;
 use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul};
@@ -31,7 +32,7 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: i32) -> BigDecimal {
 pub fn compute_price_from_tick_idx(desired_tick_idx: i32) -> BigDecimal {
     let base = desired_tick_idx - (desired_tick_idx % 1000);
     let ratio = BigDecimal::try_from(1.0001).unwrap().with_prec(34);
-    let mut val = BigDecimal::try_from(*ONEPOINT0001.get(&base).unwrap()).unwrap();
+    let mut val = BigDecimal::try_from(*ONE_POINT_0001.get(&base).unwrap()).unwrap();
 
     let mut idx = base;
     while idx <= desired_tick_idx {

@@ -13,6 +13,7 @@ mod price;
 mod rpc;
 mod storage;
 mod tables;
+mod ticks_idx;
 mod utils;
 
 use crate::ethpb::v2::{Block, StorageChange};
