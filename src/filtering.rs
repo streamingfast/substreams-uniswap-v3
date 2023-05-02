@@ -259,15 +259,16 @@ pub fn extract_pool_events_and_positions(
             &position_manager_contract_call,
         );
     } else if let Some(_collect) = abi::pool::events::Collect::match_and_decode(log) {
-        let position_manager_contract_call = call_view.parent().unwrap();
-        extract_positions(
-            pool,
-            increase_liquidity_positions,
-            decrease_liquidity_positions,
-            collect_positions,
-            transfer_positions,
-            &position_manager_contract_call,
-        );
+        if let Some(position_manager_contract_call) = call_view.parent() {
+            extract_positions(
+                pool,
+                increase_liquidity_positions,
+                decrease_liquidity_positions,
+                collect_positions,
+                transfer_positions,
+                &position_manager_contract_call,
+            );
+        };
     }
 }
 
