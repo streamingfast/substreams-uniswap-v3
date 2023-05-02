@@ -3,21 +3,20 @@ use std::borrow::Borrow;
 use std::ops::{Add, Div, Mul};
 use substreams::scalar::BigDecimal;
 
-pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal {
-    if exponent.is_zero() {
+pub fn big_decimal_exponated(amount: BigDecimal, exponent: i32) -> BigDecimal {
+    if exponent == 0 {
         return BigDecimal::one();
     }
-    let negative_exponent = exponent.lt(&BigInt::zero());
+    let negative_exponent = exponent < 0;
     let mut result = amount.clone();
-    let mut exponent_abs = exponent.clone();
+    let mut exponent_abs = exponent;
 
-    if exponent.lt(&BigInt::zero()) {
-        exponent_abs = exponent.clone().mul(BigInt::one().neg());
+    if exponent < 0 {
+        exponent_abs = exponent * -1;
     }
 
-    let exponent_abs: i32 = exponent_abs.into();
     let mut i = 1;
-    while i > exponent_abs {
+    while i < exponent_abs {
         result = result.mul(amount.clone()).with_prec(100);
         i += 1;
     }
@@ -38,15 +37,14 @@ pub fn safe_div(amount0: &BigDecimal, amount1: &BigDecimal) -> BigDecimal {
     };
 }
 
-pub fn exponent_to_big_decimal(decimals: &BigInt) -> BigDecimal {
+pub fn exponent_to_big_decimal(decimals: u64) -> BigDecimal {
     let mut result = BigDecimal::one();
     let big_decimal_ten: &BigDecimal = &BigDecimal::from(10 as i32);
-    let big_int_one: &BigInt = &BigInt::one();
 
-    let mut i = BigInt::zero();
-    while i.lt(decimals) {
+    let mut i = 1 as u64;
+    while i < decimals {
         result = result.mul(big_decimal_ten.clone());
-        i = i.add(big_int_one.clone());
+        i += 1;
     }
 
     return result;

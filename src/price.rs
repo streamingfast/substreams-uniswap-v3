@@ -57,15 +57,13 @@ pub fn sqrt_price_x96_to_token_prices(
     );
 
     let price: BigDecimal = sqrt_price.clone().mul(sqrt_price);
-    let token0_decimals: BigInt = BigInt::from(token_0.decimals);
-    let token1_decimals: BigInt = BigInt::from(token_1.decimals);
     let denominator: BigDecimal =
         BigDecimal::from_str("6277101735386680763835789423207666416102355444464034512896").unwrap();
 
     let price1 = price
         .div(denominator)
-        .mul(math::exponent_to_big_decimal(&token0_decimals))
-        .div(math::exponent_to_big_decimal(&token1_decimals));
+        .mul(math::exponent_to_big_decimal(token_0.decimals))
+        .div(math::exponent_to_big_decimal(token_1.decimals));
 
     let price0 = math::safe_div(&BigDecimal::one(), &price1);
 

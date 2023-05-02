@@ -121,14 +121,14 @@ pub fn extract_pool_events_and_positions(
         };
 
         let mut lower_tick = common_tick.clone();
-        let (price0, price1) = prices_from_tick_index(&mint.tick_lower);
+        let (price0, price1) = prices_from_tick_index(mint.tick_lower.to_i32());
         lower_tick.idx = mint.tick_lower.as_ref().into();
         lower_tick.price0 = price0.into();
         lower_tick.price1 = price1.into();
         ticks_created.push(lower_tick);
 
         let mut upper_tick = common_tick.clone();
-        let (price0, price1) = prices_from_tick_index(&mint.tick_upper);
+        let (price0, price1) = prices_from_tick_index(mint.tick_upper.to_i32());
         upper_tick.idx = mint.tick_upper.as_ref().into();
         upper_tick.price0 = price0.into();
         upper_tick.price1 = price1.into();
@@ -287,8 +287,8 @@ fn initialized_changed(input: Option<(bool, bool)>) -> bool {
     }
 }
 
-fn prices_from_tick_index(tick_idx: &BigInt) -> (BigDecimal, BigDecimal) {
-    let price0 = math::big_decimal_exponated(BigDecimal::try_from(1.0001).unwrap().with_prec(100), tick_idx.clone());
+fn prices_from_tick_index(tick_idx: i32) -> (BigDecimal, BigDecimal) {
+    let price0 = math::big_decimal_exponated(BigDecimal::try_from(1.0001).unwrap().with_prec(100), tick_idx);
     let price1 = math::safe_div(&BigDecimal::from(1 as i32), &price0);
     (price0, price1)
 }
