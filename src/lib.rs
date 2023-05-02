@@ -231,7 +231,8 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
             );
 
             filtering::extract_transactions(&mut transactions, log, &trx, timestamp, block.number);
-            filtering::extract_flashes(&mut flashes, &log);
+
+            //filtering::extract_flashes(&mut flashes, &log);
         }
     }
 

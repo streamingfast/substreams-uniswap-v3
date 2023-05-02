@@ -15,14 +15,15 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: BigInt) -> BigDecimal
         exponent_abs = exponent.clone().mul(BigInt::one().neg());
     }
 
-    let mut i = BigInt::one();
-    while i.lt(exponent_abs.borrow()) {
+    let exponent_abs: i32 = exponent_abs.into();
+    let mut i = 1;
+    while i > exponent_abs {
         result = result.mul(amount.clone()).with_prec(100);
-        i = i.add(BigInt::one());
+        i += 1;
     }
 
     if negative_exponent {
-        result = safe_div(&BigDecimal::one(), &result);
+        result = safe_div(&BigDecimal::one(), &result).with_prec(100);
     }
 
     return result;
