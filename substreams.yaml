@@ -204,7 +204,7 @@ modules:
     inputs:
       - map: map_extract_data_types
 
-  - name: store_min_pool_prices
+  - name: store_min_windows
     kind: store
     updatePolicy: min
     valueType: bigdecimal
@@ -212,31 +212,17 @@ modules:
       - source: sf.substreams.v1.Clock
       - store: store_prices
         mode: deltas
-
-  - name: store_max_pool_prices
-    kind: store
-    updatePolicy: max
-    valueType: bigdecimal
-    inputs:
-      - source: sf.substreams.v1.Clock
-      - store: store_prices
-        mode: deltas
-
-  - name: store_min_token_prices
-    kind: store
-    updatePolicy: min
-    valueType: bigdecimal
-    inputs:
-      - source: sf.substreams.v1.Clock
       - store: store_eth_prices
         mode: deltas
 
-  - name: store_max_token_prices
+  - name: store_max_windows
     kind: store
     updatePolicy: max
     valueType: bigdecimal
     inputs:
       - source: sf.substreams.v1.Clock
+      - store: store_prices
+        mode: deltas
       - store: store_eth_prices
         mode: deltas
 
@@ -275,13 +261,9 @@ modules:
       - store: store_total_tx_counts
       - store: store_eth_prices
       - store: store_positions
-      - store: store_min_pool_prices
+      - store: store_min_windows
         mode: deltas
-      - store: store_max_pool_prices
-        mode: deltas
-      - store: store_min_token_prices
-        mode: deltas
-      - store: store_max_token_prices
+      - store: store_max_windows
         mode: deltas
 
     output:

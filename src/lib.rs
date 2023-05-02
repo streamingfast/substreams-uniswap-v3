@@ -232,7 +232,7 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
 
             filtering::extract_transactions(&mut transactions, log, &trx, timestamp, block.number);
 
-            //filtering::extract_flashes(&mut flashes, &log);
+            // filtering::extract_flashes(&mut flashes, &log);
         }
     }
 
@@ -1068,11 +1068,17 @@ pub fn store_positions(events: Events, output: StoreSetProto<PositionEvent>) {
 }
 
 #[substreams::handlers::store]
-pub fn store_min_pool_prices(
+pub fn store_min_windows(
     clock: Clock,
-    prices_deltas: Deltas<DeltaBigDecimal>, /* store_prices */
+    prices_deltas: Deltas<DeltaBigDecimal>,     /* store_prices */
+    eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
     output: StoreMinBigDecimal,
 ) {
+    let mut deltas = prices_deltas.deltas;
+    let mut eth_deltas = eth_prices_deltas.deltas;
+    deltas.append(&mut eth_deltas);
+    deltas.sort_by(|x, y| x.ordinal.cmp(&y.ordinal));
+
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id = timestamp_seconds / 86400;
     let hour_id = timestamp_seconds / 3600;
@@ -1081,61 +1087,106 @@ pub fn store_min_pool_prices(
 
     output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
-    for delta in prices_deltas.deltas.iter() {
-        if key::last_segment(&delta.key) != "token0" {
-            continue;
-        }
+    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
-        if delta.operation == store_delta::Operation::Create {
-            match key::first_segment(&delta.key) {
-                "PoolDayData" => {
-                    let day_id = key::segment(&delta.key, 1);
-                    let pool_address = key::segment(&delta.key, 2);
-                    output.min(
-                        delta.ordinal,
-                        format!("PoolDayData:{day_id}:{pool_address}:open"),
-                        &delta.new_value,
-                    )
-                }
-                "PoolHourData" => {
-                    let hour_id = key::segment(&delta.key, 1);
-                    let pool_address = key::segment(&delta.key, 2);
-                    output.min(
-                        delta.ordinal,
-                        format!("PoolHourData:{hour_id}:{pool_address}:open"),
-                        &delta.new_value,
-                    )
-                }
-                _ => continue,
-            };
-            continue;
-        }
-
+    for delta in deltas.iter() {
         if delta.operation == store_delta::Operation::Delete {
             continue;
         }
 
-        match key::first_segment(&delta.key) {
+        let table_name = match key::first_segment(&delta.key) {
             "PoolDayData" => {
-                let pool_address = key::segment(&delta.key, 2);
-                let day_id = key::segment(&delta.key, 1);
-                output.min(
-                    delta.ordinal,
-                    format!("PoolDayData:{day_id}:{pool_address}:low"),
-                    &delta.new_value,
-                )
+                if key::last_segment(&delta.key) != "token0" {
+                    continue;
+                }
+                "PoolDayData"
             }
             "PoolHourData" => {
-                let pool_address = key::segment(&delta.key, 2);
-                let hour_id = key::segment(&delta.key, 1);
-                output.min(
-                    delta.ordinal,
-                    format!("PoolHourData:{hour_id}:{pool_address}:low"),
-                    &delta.new_value,
-                )
+                if key::last_segment(&delta.key) != "token0" {
+                    continue;
+                }
+                "PoolHourData"
             }
+            "TokenDayData" => "TokenDayData",
+            "TokenHourData" => "TokenHourData",
             _ => continue,
         };
+
+        let day_id = key::segment(&delta.key, 1);
+        let pool_address = key::segment(&delta.key, 2);
+
+        if delta.operation == store_delta::Operation::Create {
+            output.min(
+                delta.ordinal,
+                format!("{table_name}:{day_id}:{pool_address}:open"),
+                &delta.new_value,
+            );
+            continue;
+        }
+
+        output.min(
+            delta.ordinal,
+            format!("{table_name}:{day_id}:{pool_address}:low"),
+            &delta.new_value,
+        );
+    }
+}
+
+#[substreams::handlers::store]
+pub fn store_max_windows(
+    clock: Clock,
+    prices_deltas: Deltas<DeltaBigDecimal>,     /* store_prices */
+    eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
+    output: StoreMaxBigDecimal,
+) {
+    let mut deltas = prices_deltas.deltas;
+    let mut eth_deltas = eth_prices_deltas.deltas;
+    deltas.append(&mut eth_deltas);
+    deltas.sort_by(|x, y| x.ordinal.cmp(&y.ordinal));
+
+    let timestamp_seconds = clock.timestamp.unwrap().seconds;
+    let day_id = timestamp_seconds / 86400;
+    let hour_id = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
+
+    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
+    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
+
+    for delta in deltas.iter() {
+        if delta.operation == store_delta::Operation::Delete {
+            continue;
+        }
+
+        let table_name = match key::first_segment(&delta.key) {
+            "PoolDayData" => {
+                if key::last_segment(&delta.key) != "token0" {
+                    continue;
+                }
+                "PoolDayData"
+            }
+            "PoolHourData" => {
+                if key::last_segment(&delta.key) != "token0" {
+                    continue;
+                }
+                "PoolHourData"
+            }
+            "TokenDayData" => "TokenDayData",
+            "TokenHourData" => "TokenHourData",
+            _ => continue,
+        };
+
+        let day_id = key::segment(&delta.key, 1);
+        let pool_address = key::segment(&delta.key, 2);
+
+        output.max(
+            delta.ordinal,
+            format!("{table_name}:{day_id}:{pool_address}:high"),
+            &delta.new_value,
+        );
     }
 }
 
@@ -1181,75 +1232,6 @@ pub fn store_max_pool_prices(
                 output.max(
                     delta.ordinal,
                     format!("PoolHourData:{hour_id}:{pool_address}:high"),
-                    &delta.new_value,
-                )
-            }
-            _ => continue,
-        };
-    }
-}
-
-#[substreams::handlers::store]
-pub fn store_min_token_prices(
-    clock: Clock,
-    eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
-    output: StoreMinBigDecimal,
-) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id = timestamp_seconds / 86400;
-    let hour_id = timestamp_seconds / 3600;
-    let prev_day_id = day_id - 1;
-    let prev_hour_id = hour_id - 1;
-
-    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
-    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
-
-    for delta in eth_prices_deltas.deltas.iter() {
-        if delta.operation == store_delta::Operation::Create {
-            match key::first_segment(&delta.key) {
-                "TokenDayData" => {
-                    let day_id = key::segment(&delta.key, 1);
-                    let pool_address = key::segment(&delta.key, 2);
-                    output.min(
-                        delta.ordinal,
-                        format!("TokenDayData:{day_id}:{pool_address}:open"),
-                        &delta.new_value,
-                    )
-                }
-                "TokenHourData" => {
-                    let hour_id = key::segment(&delta.key, 1);
-                    let pool_address = key::segment(&delta.key, 2);
-                    output.min(
-                        delta.ordinal,
-                        format!("TokenHourData:{hour_id}:{pool_address}:open"),
-                        &delta.new_value,
-                    )
-                }
-                _ => continue,
-            };
-            continue;
-        }
-
-        if delta.operation == store_delta::Operation::Delete {
-            continue;
-        }
-
-        match key::first_segment(&delta.key) {
-            "TokenDayData" => {
-                let token_address = key::segment(&delta.key, 2);
-                let day_id = key::segment(&delta.key, 1);
-                output.min(
-                    delta.ordinal,
-                    format!("TokenDayData:{day_id}:{token_address}:low"),
-                    &delta.new_value,
-                )
-            }
-            "TokenHourData" => {
-                let token_address = key::segment(&delta.key, 2);
-                let hour_id = key::segment(&delta.key, 1);
-                output.min(
-                    delta.ordinal,
-                    format!("TokenHourData:{hour_id}:{token_address}:low"),
                     &delta.new_value,
                 )
             }
@@ -1323,10 +1305,8 @@ pub fn graph_out(
     tx_count_store: StoreGetBigInt,                      /* store_total_tx_counts */
     store_eth_prices: StoreGetBigDecimal,                /* store_eth_prices */
     store_positions: StoreGetProto<PositionEvent>,       /* store_positions */
-    min_pool_prices_deltas: Deltas<DeltaBigDecimal>,     /* store_min_pool_prices */
-    max_pool_prices_deltas: Deltas<DeltaBigDecimal>,     /* store_max_pool_prices */
-    min_token_prices_deltas: Deltas<DeltaBigDecimal>,    /* store_min_token_prices */
-    max_token_prices_deltas: Deltas<DeltaBigDecimal>,    /* store_max_token_prices */
+    min_windows_deltas: Deltas<DeltaBigDecimal>,         /* store_min_windows */
+    max_windows_deltas: Deltas<DeltaBigDecimal>,         /* store_max_windows */
 ) -> Result<EntityChanges, Error> {
     let mut tables = Tables::new();
     let timestamp = clock.timestamp.unwrap().seconds;
@@ -1416,7 +1396,7 @@ pub fn graph_out(
 
     // Flashes:
     // TODO: implement flashes entity change - UNISWAP has not done this part
-    db::flashes_update_pool_fee_entity_change(&mut tables, events.flashes);
+    // db::flashes_update_pool_fee_entity_change(&mut tables, events.flashes);
 
     // Uniswap day data:
     db::uniswap_day_data_create_entity_change(&mut tables, &tx_count_deltas);
@@ -1428,8 +1408,8 @@ pub fn graph_out(
     db::create_entity_change_pool_windows(&mut tables, &tx_count_deltas);
     db::tx_count_pool_windows(&mut tables, &tx_count_deltas);
     db::prices_pool_windows(&mut tables, &price_deltas);
-    db::prices_min_pool_windows(&mut tables, &min_pool_prices_deltas);
-    db::prices_max_pool_windows(&mut tables, &max_pool_prices_deltas);
+    db::prices_min_pool_windows(&mut tables, &min_windows_deltas);
+    db::prices_max_pool_windows(&mut tables, &max_windows_deltas);
     db::prices_close_pool_windows(&mut tables, &price_deltas);
     db::liquidities_pool_windows(&mut tables, &pool_liquidities_store_deltas);
     db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
@@ -1443,8 +1423,8 @@ pub fn graph_out(
     db::total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_windows(&mut tables, timestamp, &token_tvl_deltas);
     db::total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
-    db::prices_min_token_windows(&mut tables, &min_token_prices_deltas);
-    db::prices_max_token_windows(&mut tables, &max_token_prices_deltas);
+    db::prices_min_token_windows(&mut tables, &min_windows_deltas);
+    db::prices_max_token_windows(&mut tables, &max_windows_deltas);
     db::prices_close_token_windows(&mut tables, &derived_eth_prices_deltas);
 
     Ok(tables.to_entity_changes())

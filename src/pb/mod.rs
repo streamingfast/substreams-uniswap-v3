@@ -47,7 +47,7 @@ impl Pool {
         if self.ignore_pool {
             return false;
         }
-        // In the minimal, they are not ignoring this pool anymore
+        // We have some pricing that makes sense, should we still ignore this??
         // return &self.address != "9663f2ca0454accad3e094448ea6f77443880454";
         return true;
     }

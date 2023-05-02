@@ -23,6 +23,15 @@ pub fn filter_first_segment_eq<'a, T: GetKey>(deltas: &'a Deltas<T>, val: &str) 
     out
 }
 
+pub fn filter_first_segment_in_list<'a, T: GetKey>(deltas: &'a Vec<T>, vals: &Vec<&str>) -> Vec<&'a T> {
+    let mut out: Vec<&T> = vec![];
+    deltas
+        .iter()
+        .filter(|delta| vals.contains(&first_segment(delta.get_key())))
+        .for_each(|delta| out.push(delta));
+    out
+}
+
 pub fn first_segment(key: &String) -> &str {
     key.split(":").next().unwrap()
 }
