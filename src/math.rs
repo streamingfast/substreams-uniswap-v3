@@ -35,12 +35,13 @@ pub fn compute_price_from_tick_idx(desired_tick_idx: i32) -> BigDecimal {
         return BigDecimal::one();
     }
 
-    let base_abs = (desired_tick_idx - (desired_tick_idx % 1000)).abs();
+    let desired_tick_idx_abs = desired_tick_idx.abs();
+    let base_abs = desired_tick_idx_abs - (desired_tick_idx_abs % 1000);
     let ratio = BigDecimal::try_from(1.0001).unwrap().with_prec(100);
     let mut val = BigDecimal::try_from(*ONE_POINT_0001.get(&base_abs).unwrap()).unwrap();
 
     let mut idx = base_abs;
-    while idx < desired_tick_idx {
+    while idx < desired_tick_idx_abs {
         val = val.mul(ratio.clone()).with_prec(100);
         idx += 1;
     }
