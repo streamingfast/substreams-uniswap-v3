@@ -17,15 +17,29 @@ pub fn big_decimal_exponated(amount: BigDecimal, exponent: i32) -> BigDecimal {
 
     let mut i = 1;
     while i < exponent_abs {
-        result = result.mul(amount.clone()).with_prec(100);
+        result = result.mul(amount.clone()).with_prec(34);
         i += 1;
     }
 
     if negative_exponent {
-        result = safe_div(&BigDecimal::one(), &result).with_prec(100);
+        result = safe_div(&BigDecimal::one(), &result).with_prec(34);
     }
 
     return result;
+}
+
+pub fn compute_price_from_tick_idx(desired_tick_idx: i32) -> BigDecimal {
+    let base = desired_tick_idx - (desired_tick_idx % 1000);
+    let ratio = BigDecimal::try_from(1.0001).unwrap().with_prec(34);
+    let mut val = BigDecimal::try_from(*ONEPOINT0001.get(&base).unwrap()).unwrap();
+
+    let mut idx = base;
+    while idx <= desired_tick_idx {
+        val = val.mul(ratio.clone()).with_prec(100);
+        idx += 1;
+    }
+
+    return val;
 }
 
 pub fn safe_div(amount0: &BigDecimal, amount1: &BigDecimal) -> BigDecimal {

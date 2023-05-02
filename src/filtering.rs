@@ -1,9 +1,10 @@
+use crate::math::compute_price_from_tick_idx;
 use crate::pb::uniswap::events;
 use crate::storage::position_manager::PositionManagerStorage;
 use crate::storage::uniswap_v3_pool::UniswapPoolStorage;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
 use crate::{abi, math, rpc, utils, BurnEvent, EventTrait, MintEvent, Pool, SwapEvent};
-use substreams::prelude::{BigDecimal, BigInt};
+use substreams::prelude::{BigDecimal, BigInt, StoreGet, StoreGetBigDecimal};
 use substreams::{log, Hex};
 use substreams_ethereum::block_view::CallView;
 use substreams_ethereum::pb::eth::v2::{Call, Log, StorageChange, TransactionTrace};
@@ -288,7 +289,7 @@ fn initialized_changed(input: Option<(bool, bool)>) -> bool {
 }
 
 fn prices_from_tick_index(tick_idx: i32) -> (BigDecimal, BigDecimal) {
-    let price0 = math::big_decimal_exponated(BigDecimal::try_from(1.0001).unwrap().with_prec(100), tick_idx);
+    let price0 = compute_price_from_tick_idx(tick_idx);
     let price1 = math::safe_div(&BigDecimal::from(1 as i32), &price0);
     (price0, price1)
 }

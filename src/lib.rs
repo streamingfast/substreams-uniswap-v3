@@ -173,7 +173,11 @@ pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreApp
 }
 
 #[substreams::handlers::map]
-pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) -> Result<Events, Error> {
+pub fn map_extract_data_types(
+    block: Block,
+    pools_store: StoreGetProto<Pool>,
+    ticks_idx: StoreGetBigDecimal,
+) -> Result<Events, Error> {
     let mut events = Events::default();
 
     let mut pool_sqrt_prices: Vec<events::PoolSqrtPrice> = vec![];
@@ -181,7 +185,7 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
     let mut fee_growth_global_updates: Vec<events::FeeGrowthGlobal> = vec![];
     let mut pool_events: Vec<events::PoolEvent> = vec![];
     let mut transactions: Vec<events::Transaction> = vec![];
-    let mut flashes: Vec<events::Flash> = vec![];
+    // let mut flashes: Vec<events::Flash> = vec![];
     let mut ticks_created: Vec<events::TickCreated> = vec![];
     let mut ticks_updated: Vec<events::TickUpdated> = vec![];
 
@@ -246,7 +250,7 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
     events.decrease_liquidity_positions = positions_decrease_liquidity;
     events.collect_positions = positions_collect;
     events.transfer_positions = positions_transfer;
-    events.flashes = flashes;
+    // events.flashes = flashes;
     events.ticks_created = ticks_created;
     events.ticks_updated = ticks_updated;
 
