@@ -23,7 +23,7 @@ pub fn filter_first_segment_eq<'a, T: GetKey>(deltas: &'a Deltas<T>, val: &str) 
     out
 }
 
-pub fn filter_first_segment_in_list<'a, T: GetKey>(deltas: &'a Vec<T>, vals: &Vec<&str>) -> Vec<&'a T> {
+pub fn _filter_first_segment_in_list<'a, T: GetKey>(deltas: &'a Vec<T>, vals: &Vec<&str>) -> Vec<&'a T> {
     let mut out: Vec<&T> = vec![];
     deltas
         .iter()

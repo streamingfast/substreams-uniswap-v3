@@ -1,15 +1,13 @@
 use crate::ethpb::v2::TransactionTrace;
 use crate::pb::uniswap::events;
 use crate::pb::AdjustedAmounts;
-use crate::tables::Tables;
 use crate::uniswap::events::Transaction;
-use crate::{key, keyer, storage, Erc20Token, StorageChange, WHITELIST_TOKENS};
-use std::fmt::Display;
+use crate::{storage, Erc20Token, StorageChange, WHITELIST_TOKENS};
 use std::ops::{Add, Mul};
 use std::string::ToString;
-use substreams::prelude::{DeltaBigDecimal, StoreGetBigDecimal};
+use substreams::prelude::StoreGetBigDecimal;
 use substreams::scalar::{BigDecimal, BigInt};
-use substreams::store::{DeltaBigInt, StoreGet};
+use substreams::store::StoreGet;
 use substreams::{hex, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");

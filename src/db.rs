@@ -8,7 +8,6 @@ use substreams::store::{
 };
 use substreams::{log, Hex};
 
-use crate::keyer::{POOL_DAY_DATA, POOL_HOUR_DATA, TOKEN_DAY_DATA, TOKEN_HOUR_DATA};
 use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::position_event::Type;
@@ -481,104 +480,104 @@ pub fn liquidities_tick_entity_change(tables: &mut Tables, ticks_liquidities_del
 // -----------------------
 //  Map Tick Day/Hour data
 // -----------------------
-pub fn create_entity_tick_windows(tables: &mut Tables, ticks_created: &Vec<events::TickCreated>) {
-    for tick in ticks_created {
-        let day_id = tick.created_at_timestamp / 86400;
-        let hour_id = tick.created_at_timestamp / 3600;
-
-        log::info!("create_entity_tick_windows hour_id {}", hour_id);
-
-        let pool_address = &tick.pool_address;
-        let tick_idx = &tick.idx;
-        create_tick_windows(tables, "TickDayData", pool_address.as_str(), tick_idx, day_id);
-        // create_tick_windows(tables, "TickHourData", pool_address.as_str(), tick_idx, hour_id);
-    }
-}
-
-pub fn update_tick_windows(tables: &mut Tables, ticks_updated: &Vec<events::TickUpdated>) {
-    for tick in ticks_updated {
-        let day_id = tick.timestamp / 86400;
-        let hour_id = tick.timestamp / 3600;
-
-        log::info!("update_tick_windows hour_id {}", hour_id);
-
-        let tick_idx = &tick.idx;
-        let pool_address = &tick.pool_address;
-
-        if tick.fee_growth_outside_0x_128.len() != 0 {
-            tables
-                .update_row("TickDayData", format!("0x{pool_address}#{tick_idx}-{day_id}"))
-                .set_bigint("feeGrowthOutside0X128", &tick.fee_growth_outside_0x_128);
-            // tables
-            //     .update_row("TickHourData", format!("0x{pool_address}#{tick_idx}-{hour_id}"))
-            //     .set_bigint("feeGrowthOutside0X128", &tick.fee_growth_outside_0x_128);
-        }
-        if tick.fee_growth_outside_1x_128.len() != 0 {
-            tables
-                .update_row("TickDayData", format!("0x{pool_address}#{tick_idx}-{day_id}"))
-                .set_bigint("feeGrowthOutside1X128", &tick.fee_growth_outside_1x_128);
-            // tables
-            //     .update_row("TickHourData", format!("0x{pool_address}#{tick_idx}-{hour_id}"))
-            //     .set_bigint("feeGrowthOutside1X128", &tick.fee_growth_outside_1x_128);
-        }
-    }
-}
-
-pub fn liquidities_tick_windows(tables: &mut Tables, ticks_liquidities_deltas: &Deltas<DeltaBigInt>) {
-    for delta in ticks_liquidities_deltas.deltas.iter() {
-        let table_name = match key::first_segment(&delta.key) {
-            "TickDayData" => "TickDayData",
-            // "TickHourData" => "TickHourData",
-            _ => continue,
-        };
-        let time_id = key::segment(&delta.key, 1);
-
-        log::info!("liquidities_tick_windows time_id {}", time_id);
-
-        let pool_address = key::segment(&delta.key, 2);
-        let tick_idx = key::segment(&delta.key, 3);
-
-        let field_name = match key::last_segment(&delta.key) {
-            "liquidityNet" => "liquidityNet",
-            "liquidityGross" => "liquidityGross",
-            _ => continue,
-        };
-
-        tables
-            .update_row(table_name, format!("0x{pool_address}#{tick_idx}-{time_id}"))
-            .set(field_name, &delta.new_value);
-    }
-}
-
-fn create_tick_windows(tables: &mut Tables, table_name: &str, pool_address: &str, tick_idx: &String, time_id: u64) {
-    let bigdecimal0 = BigDecimal::from(0);
-    let bigint0 = BigInt::from(0);
-
-    // We cannot determine when a new Tick is created. If a given tick idx was initialized
-    // in the past. In the future the same tick idx can be re-used for an event.
-    let row = tables
-        .update_row(table_name, format!("0x{pool_address}#{tick_idx}-{time_id}"))
-        .set("pool", &format!("0x{pool_address}"))
-        .set("tick", &format!("0x{pool_address}#{tick_idx}"))
-        .set("liquidityGross", &bigint0)
-        .set("liquidityNet", &bigint0)
-        .set("volumeToken0", &bigdecimal0)
-        .set("volumeToken1", &bigdecimal0)
-        .set("volumeUSD", &bigdecimal0)
-        .set("feesUSD", &bigdecimal0);
-
-    match table_name {
-        "TickDayData" => {
-            row.set("date", (time_id * 86400) as i32);
-            row.set("feeGrowthOutside0X128", &bigint0);
-            row.set("feeGrowthOutside1X128", &bigint0);
-        }
-        "TickHourData" => {
-            row.set("periodStartUnix", (time_id * 3600) as i32);
-        }
-        _ => {}
-    }
-}
+// pub fn create_entity_tick_windows(tables: &mut Tables, ticks_created: &Vec<events::TickCreated>) {
+//     for tick in ticks_created {
+//         let day_id = tick.created_at_timestamp / 86400;
+//         let hour_id = tick.created_at_timestamp / 3600;
+//
+//         log::info!("create_entity_tick_windows hour_id {}", hour_id);
+//
+//         let pool_address = &tick.pool_address;
+//         let tick_idx = &tick.idx;
+//         create_tick_windows(tables, "TickDayData", pool_address.as_str(), tick_idx, day_id);
+//         // create_tick_windows(tables, "TickHourData", pool_address.as_str(), tick_idx, hour_id);
+//     }
+// }
+//
+// pub fn update_tick_windows(tables: &mut Tables, ticks_updated: &Vec<events::TickUpdated>) {
+//     for tick in ticks_updated {
+//         let day_id = tick.timestamp / 86400;
+//         let hour_id = tick.timestamp / 3600;
+//
+//         log::info!("update_tick_windows hour_id {}", hour_id);
+//
+//         let tick_idx = &tick.idx;
+//         let pool_address = &tick.pool_address;
+//
+//         if tick.fee_growth_outside_0x_128.len() != 0 {
+//             tables
+//                 .update_row("TickDayData", format!("0x{pool_address}#{tick_idx}-{day_id}"))
+//                 .set_bigint("feeGrowthOutside0X128", &tick.fee_growth_outside_0x_128);
+//             // tables
+//             //     .update_row("TickHourData", format!("0x{pool_address}#{tick_idx}-{hour_id}"))
+//             //     .set_bigint("feeGrowthOutside0X128", &tick.fee_growth_outside_0x_128);
+//         }
+//         if tick.fee_growth_outside_1x_128.len() != 0 {
+//             tables
+//                 .update_row("TickDayData", format!("0x{pool_address}#{tick_idx}-{day_id}"))
+//                 .set_bigint("feeGrowthOutside1X128", &tick.fee_growth_outside_1x_128);
+//             // tables
+//             //     .update_row("TickHourData", format!("0x{pool_address}#{tick_idx}-{hour_id}"))
+//             //     .set_bigint("feeGrowthOutside1X128", &tick.fee_growth_outside_1x_128);
+//         }
+//     }
+// }
+//
+// pub fn liquidities_tick_windows(tables: &mut Tables, ticks_liquidities_deltas: &Deltas<DeltaBigInt>) {
+//     for delta in ticks_liquidities_deltas.deltas.iter() {
+//         let table_name = match key::first_segment(&delta.key) {
+//             "TickDayData" => "TickDayData",
+//             // "TickHourData" => "TickHourData",
+//             _ => continue,
+//         };
+//         let time_id = key::segment(&delta.key, 1);
+//
+//         log::info!("liquidities_tick_windows time_id {}", time_id);
+//
+//         let pool_address = key::segment(&delta.key, 2);
+//         let tick_idx = key::segment(&delta.key, 3);
+//
+//         let field_name = match key::last_segment(&delta.key) {
+//             "liquidityNet" => "liquidityNet",
+//             "liquidityGross" => "liquidityGross",
+//             _ => continue,
+//         };
+//
+//         tables
+//             .update_row(table_name, format!("0x{pool_address}#{tick_idx}-{time_id}"))
+//             .set(field_name, &delta.new_value);
+//     }
+// }
+//
+// fn create_tick_windows(tables: &mut Tables, table_name: &str, pool_address: &str, tick_idx: &String, time_id: u64) {
+//     let bigdecimal0 = BigDecimal::from(0);
+//     let bigint0 = BigInt::from(0);
+//
+//     // We cannot determine when a new Tick is created. If a given tick idx was initialized
+//     // in the past. In the future the same tick idx can be re-used for an event.
+//     let row = tables
+//         .update_row(table_name, format!("0x{pool_address}#{tick_idx}-{time_id}"))
+//         .set("pool", &format!("0x{pool_address}"))
+//         .set("tick", &format!("0x{pool_address}#{tick_idx}"))
+//         .set("liquidityGross", &bigint0)
+//         .set("liquidityNet", &bigint0)
+//         .set("volumeToken0", &bigdecimal0)
+//         .set("volumeToken1", &bigdecimal0)
+//         .set("volumeUSD", &bigdecimal0)
+//         .set("feesUSD", &bigdecimal0);
+//
+//     match table_name {
+//         "TickDayData" => {
+//             row.set("date", (time_id * 86400) as i32);
+//             row.set("feeGrowthOutside0X128", &bigint0);
+//             row.set("feeGrowthOutside1X128", &bigint0);
+//         }
+//         "TickHourData" => {
+//             row.set("periodStartUnix", (time_id * 3600) as i32);
+//         }
+//         _ => {}
+//     }
+// }
 
 // --------------------
 //  Map Position Entities
@@ -1058,21 +1057,21 @@ pub fn swaps_mints_burns_created_entity_change(
 // --------------------
 //  Map Flashes Entities
 // --------------------
-pub fn flashes_update_pool_fee_entity_change(tables: &mut Tables, flashes: Vec<events::Flash>) {
-    // TODO: wut? flash updates would affect `fee_growth_global_0x_128` and `fee_growth_global_1x_128`?
-    //  it's the business of TickUpdate, not of Flashes. Don't flashes produce some such updates?
-    for flash in flashes {
-        // tables.update_row("Pool", flash.pool_address.as_str());
-        // .set(
-        //     "feeGrowthGlobal0X128",
-        //     BigInt::from(flash.fee_growth_global_0x_128.unwrap()),
-        // )
-        // .set(
-        //     "feeGrowthGlobal1X128",
-        //     BigInt::from(flash.fee_growth_global_1x_128.unwrap()),
-        // );
-    }
-}
+// pub fn flashes_update_pool_fee_entity_change(tables: &mut Tables, flashes: Vec<events::Flash>) {
+//     // TODO: wut? flash updates would affect `fee_growth_global_0x_128` and `fee_growth_global_1x_128`?
+//     //  it's the business of TickUpdate, not of Flashes. Don't flashes produce some such updates?
+//     for flash in flashes {
+//         // tables.update_row("Pool", flash.pool_address.as_str());
+//         // .set(
+//         //     "feeGrowthGlobal0X128",
+//         //     BigInt::from(flash.fee_growth_global_0x_128.unwrap()),
+//         // )
+//         // .set(
+//         //     "feeGrowthGlobal1X128",
+//         //     BigInt::from(flash.fee_growth_global_1x_128.unwrap()),
+//         // );
+//     }
+// }
 
 // --------------------
 //  Map Uniswap Day Data Entities
@@ -1146,9 +1145,7 @@ pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, swaps_volume_
             continue;
         }
 
-        tables
-            .update_row(keyer::UNISWAP_DAY_DATA, &day_id)
-            .set(name, &delta.new_value);
+        tables.update_row("UniswapDayData", &day_id).set(name, &delta.new_value);
     }
 }
 

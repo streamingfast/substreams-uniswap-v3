@@ -112,9 +112,11 @@ pub fn store_tokens(clock: Clock, pools: Pools, store: StoreAddInt64) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
 
-    store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_DAY_DATA, day_id - 1));
-    store.delete_prefix(0, &format!("{}:{}:", keyer::TOKEN_HOUR_DATA, hour_id - 1));
+    store.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
+    store.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
     for pool in pools.pools {
         store.add_many(
@@ -174,11 +176,7 @@ pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreApp
 }
 
 #[substreams::handlers::map]
-pub fn map_extract_data_types(
-    block: Block,
-    pools_store: StoreGetProto<Pool>,
-    ticks_idx: StoreGetBigDecimal,
-) -> Result<Events, Error> {
+pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) -> Result<Events, Error> {
     let mut events = Events::default();
 
     let mut pool_sqrt_prices: Vec<events::PoolSqrtPrice> = vec![];
@@ -263,9 +261,11 @@ pub fn store_pool_sqrt_price(clock: Clock, events: Events, store: StoreSetProto<
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
 
-    store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
-    store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
+    store.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    store.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
 
     for sqrt_price in events.pool_sqrt_prices {
         let pool_address = &sqrt_price.pool_address;
@@ -351,9 +351,11 @@ pub fn store_pool_liquidities(clock: Clock, events: Events, store: StoreSetBigIn
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
     let hour_id: i64 = timestamp_seconds / 3600;
+    let prev_day_id = day_id - 1;
+    let prev_hour_id = hour_id - 1;
 
-    store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_DAY_DATA, day_id - 1));
-    store.delete_prefix(0, &format!("{}:{}:", keyer::POOL_HOUR_DATA, hour_id - 1));
+    store.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
+    store.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
 
     for pool_liquidity in events.pool_liquidities {
         let pool_address = &pool_liquidity.pool_address;
@@ -894,7 +896,8 @@ pub fn store_derived_factory_tvl(
 ) {
     let timestamp_seconds = clock.timestamp.unwrap().seconds;
     let day_id: i64 = timestamp_seconds / 86400;
-    output.delete_prefix(0, &format!("{}:{}:", keyer::UNISWAP_DAY_DATA, day_id - 1));
+    let prev_day_id = day_id - 1;
+    output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
 
     for delta in key::filter_first_segment_eq(&derived_tvl_deltas, "pool") {
         log::info!("delta key {}", delta.key);

@@ -3,8 +3,8 @@ use crate::pb::uniswap::events;
 use crate::storage::position_manager::PositionManagerStorage;
 use crate::storage::uniswap_v3_pool::UniswapPoolStorage;
 use crate::utils::NON_FUNGIBLE_POSITION_MANAGER;
-use crate::{abi, math, rpc, utils, BurnEvent, EventTrait, MintEvent, Pool, SwapEvent};
-use substreams::prelude::{BigDecimal, BigInt, StoreGet, StoreGetBigDecimal};
+use crate::{abi, math, utils, BurnEvent, EventTrait, MintEvent, Pool, SwapEvent};
+use substreams::prelude::{BigDecimal, BigInt};
 use substreams::{log, Hex};
 use substreams_ethereum::block_view::CallView;
 use substreams_ethereum::pb::eth::v2::{Call, Log, StorageChange, TransactionTrace};
@@ -281,13 +281,6 @@ fn bigint_if_some(input: Option<(BigInt, BigInt)>) -> String {
     }
 }
 
-fn initialized_changed(input: Option<(bool, bool)>) -> bool {
-    match input {
-        Some((old, new)) => old != new,
-        None => false,
-    }
-}
-
 fn prices_from_tick_index(tick_idx: i32) -> (BigDecimal, BigDecimal) {
     let price0 = compute_price_from_tick_idx(tick_idx);
     let price1 = math::safe_div(&BigDecimal::from(1 as i32), &price0);
@@ -496,19 +489,19 @@ fn extract_positions(
     }
 }
 
-pub fn extract_flashes(flashes: &mut Vec<events::Flash>, log: &Log) {
-    if abi::pool::events::Flash::match_log(&log) {
-        let pool_address: String = Hex(&log.address).to_string();
-
-        // FIXME: kill those `rpc` calls here!
-        log::info!("pool_address: {}", pool_address);
-        let (fee_growth_global_0x_128, fee_growth_global_1x_128) = rpc::fee_growth_global_x128_call(&pool_address);
-
-        flashes.push(events::Flash {
-            pool_address,
-            fee_growth_global_0x_128: fee_growth_global_0x_128.to_string(),
-            fee_growth_global_1x_128: fee_growth_global_1x_128.to_string(),
-            log_ordinal: log.ordinal,
-        });
-    }
-}
+// pub fn extract_flashes(flashes: &mut Vec<events::Flash>, log: &Log) {
+//     if abi::pool::events::Flash::match_log(&log) {
+//         let pool_address: String = Hex(&log.address).to_string();
+//
+//         // FIXME: kill those `rpc` calls here!
+//         log::info!("pool_address: {}", pool_address);
+//         let (fee_growth_global_0x_128, fee_growth_global_1x_128) = rpc::fee_growth_global_x128_call(&pool_address);
+//
+//         flashes.push(events::Flash {
+//             pool_address,
+//             fee_growth_global_0x_128: fee_growth_global_0x_128.to_string(),
+//             fee_growth_global_1x_128: fee_growth_global_1x_128.to_string(),
+//             log_ordinal: log.ordinal,
+//         });
+//     }
+// }

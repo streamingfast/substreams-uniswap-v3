@@ -1,34 +1,7 @@
 use crate::ticks_idx::ONE_POINT_0001;
-use crate::BigInt;
-use std::borrow::Borrow;
-use std::ops::{Add, Div, Mul};
+use std::ops::{Div, Mul};
 use substreams::log;
 use substreams::scalar::BigDecimal;
-
-pub fn big_decimal_exponated(amount: BigDecimal, exponent: i32) -> BigDecimal {
-    if exponent == 0 {
-        return BigDecimal::one();
-    }
-    let negative_exponent = exponent < 0;
-    let mut result = amount.clone();
-    let mut exponent_abs = exponent;
-
-    if exponent < 0 {
-        exponent_abs = exponent * -1;
-    }
-
-    let mut i = 1;
-    while i < exponent_abs {
-        result = result.mul(amount.clone()).with_prec(34);
-        i += 1;
-    }
-
-    if negative_exponent {
-        result = safe_div(&BigDecimal::one(), &result).with_prec(34);
-    }
-
-    return result;
-}
 
 pub fn compute_price_from_tick_idx(desired_tick_idx: i32) -> BigDecimal {
     if desired_tick_idx == 0 {
