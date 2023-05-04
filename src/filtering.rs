@@ -70,15 +70,16 @@ pub fn extract_pool_events_and_positions(
         });
 
         //TODO: verify if a swap changes the fee growth inside 0x128 and 1x128
-        let position_manager_contract_call = call_view.parent().unwrap();
-        extract_positions(
-            pool,
-            increase_liquidity_positions,
-            decrease_liquidity_positions,
-            collect_positions,
-            transfer_positions,
-            &position_manager_contract_call,
-        );
+        if let Some(position_manager_contract_call) = call_view.parent() {
+            extract_positions(
+                pool,
+                increase_liquidity_positions,
+                decrease_liquidity_positions,
+                collect_positions,
+                transfer_positions,
+                &position_manager_contract_call,
+            );
+        }
     } else if let Some(mint) = abi::pool::events::Mint::match_and_decode(log) {
         log::info!("MINT: transaction: {}", transaction_id.to_string());
         if !pool.should_handle_mint_and_burn() {
@@ -150,56 +151,57 @@ pub fn extract_pool_events_and_positions(
             ..common_tick_updated.clone()
         });
 
-        let position_manager_contract_call = call_view.parent().unwrap();
-        let uniswap_pool_manager_storage = PositionManagerStorage::new(
-            &position_manager_contract_call.storage_changes,
-            &position_manager_contract_call.address,
-        );
+        if let Some(position_manager_contract_call) = call_view.parent() {
+            let uniswap_pool_manager_storage = PositionManagerStorage::new(
+                &position_manager_contract_call.storage_changes,
+                &position_manager_contract_call.address,
+            );
 
-        if let Some((old_value, _new_value)) = uniswap_pool_manager_storage.next_id() {
-            let token_id = old_value;
+            if let Some((old_value, _new_value)) = uniswap_pool_manager_storage.next_id() {
+                let token_id = old_value;
 
-            let mut fee_growth_inside0_last_x128 = None;
-            let mut fee_growth_inside1_last_x128 = None;
+                let mut fee_growth_inside0_last_x128 = None;
+                let mut fee_growth_inside1_last_x128 = None;
 
-            if let Some((_old_value, new_value)) = uniswap_pool_manager_storage
-                .positions(&token_id)
-                .fee_growth_inside0last_x128()
-            {
-                fee_growth_inside0_last_x128 = Some(new_value.to_string());
+                if let Some((_old_value, new_value)) = uniswap_pool_manager_storage
+                    .positions(&token_id)
+                    .fee_growth_inside0last_x128()
+                {
+                    fee_growth_inside0_last_x128 = Some(new_value.to_string());
+                }
+
+                if let Some((_old_value, new_value)) = uniswap_pool_manager_storage
+                    .positions(&token_id)
+                    .fee_growth_inside1last_x128()
+                {
+                    fee_growth_inside1_last_x128 = Some(new_value.to_string());
+                }
+
+                created_positions.push(events::CreatedPosition {
+                    token_id: token_id.to_string(),
+                    pool: pool.address.clone(),
+                    token0: token0.address.clone(),
+                    token1: token1.address.clone(),
+                    tick_lower: mint.tick_lower.to_string(),
+                    tick_upper: mint.tick_upper.to_string(),
+                    transaction: transaction_id.to_string(),
+                    log_ordinal: log.ordinal,
+                    timestamp: timestamp_seconds,
+                    block_number,
+                    fee_growth_inside0_last_x128,
+                    fee_growth_inside1_last_x128,
+                });
             }
 
-            if let Some((_old_value, new_value)) = uniswap_pool_manager_storage
-                .positions(&token_id)
-                .fee_growth_inside1last_x128()
-            {
-                fee_growth_inside1_last_x128 = Some(new_value.to_string());
-            }
-
-            created_positions.push(events::CreatedPosition {
-                token_id: token_id.to_string(),
-                pool: pool.address.clone(),
-                token0: token0.address.clone(),
-                token1: token1.address.clone(),
-                tick_lower: mint.tick_lower.to_string(),
-                tick_upper: mint.tick_upper.to_string(),
-                transaction: transaction_id.to_string(),
-                log_ordinal: log.ordinal,
-                timestamp: timestamp_seconds,
-                block_number,
-                fee_growth_inside0_last_x128,
-                fee_growth_inside1_last_x128,
-            });
+            extract_positions(
+                pool,
+                increase_liquidity_positions,
+                decrease_liquidity_positions,
+                collect_positions,
+                transfer_positions,
+                &position_manager_contract_call,
+            );
         }
-
-        extract_positions(
-            pool,
-            increase_liquidity_positions,
-            decrease_liquidity_positions,
-            collect_positions,
-            transfer_positions,
-            &position_manager_contract_call,
-        );
     } else if let Some(burn) = abi::pool::events::Burn::match_and_decode(log) {
         log::info!("BURN: transaction: {}", transaction_id.to_string());
         if !pool.should_handle_mint_and_burn() {
@@ -250,15 +252,16 @@ pub fn extract_pool_events_and_positions(
             ..common_tick_updated.clone()
         });
 
-        let position_manager_contract_call = call_view.parent().unwrap();
-        extract_positions(
-            pool,
-            increase_liquidity_positions,
-            decrease_liquidity_positions,
-            collect_positions,
-            transfer_positions,
-            &position_manager_contract_call,
-        );
+        if let Some(position_manager_contract_call) = call_view.parent() {
+            extract_positions(
+                pool,
+                increase_liquidity_positions,
+                decrease_liquidity_positions,
+                collect_positions,
+                transfer_positions,
+                &position_manager_contract_call,
+            );
+        }
     } else if let Some(_collect) = abi::pool::events::Collect::match_and_decode(log) {
         if let Some(position_manager_contract_call) = call_view.parent() {
             extract_positions(
