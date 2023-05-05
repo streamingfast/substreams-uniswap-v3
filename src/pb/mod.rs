@@ -4,9 +4,10 @@ use crate::pb::uniswap::events::position_event::Type::{
 };
 use crate::pb::uniswap::events::PoolEvent;
 use crate::pb::uniswap::events::PositionEvent;
+use crate::utils::ERROR_POOL;
 use crate::{Erc20Token, Pool};
-use substreams::log;
 use substreams::scalar::BigDecimal;
+use substreams::{log, Hex};
 
 #[allow(unused_imports)]
 #[allow(dead_code)]
@@ -47,16 +48,15 @@ impl Pool {
         if self.ignore_pool {
             return false;
         }
-        // We have some pricing that makes sense, should we still ignore this??
-        // return &self.address != "9663f2ca0454accad3e094448ea6f77443880454";
-        return true;
+        return &self.address != "9663f2ca0454accad3e094448ea6f77443880454"
+            || &self.address != &Hex(ERROR_POOL).to_string();
     }
 
     pub fn should_handle_mint_and_burn(&self) -> bool {
         if self.ignore_pool {
             return false;
         }
-        return true;
+        return &self.address != &Hex(ERROR_POOL).to_string();
     }
 
     pub fn token0_ref(&self) -> &Erc20Token {

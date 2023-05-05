@@ -1,6 +1,5 @@
 use crate::ticks_idx::ONE_POINT_0001;
 use std::ops::{Div, Mul};
-use substreams::log;
 use substreams::scalar::BigDecimal;
 
 pub fn compute_price_from_tick_idx(desired_tick_idx: i32) -> BigDecimal {

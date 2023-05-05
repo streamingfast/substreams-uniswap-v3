@@ -1,5 +1,5 @@
 // ------------------------------------------------
-//      store_pools
+//      store_pools_created
 // ------------------------------------------------
 pub fn pool_key(pool_address: &String) -> String {
     format!("pool:{}", pool_address)

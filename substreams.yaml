@@ -38,7 +38,7 @@ modules:
       substreams gui substreams.yaml map_pools_created -e $SUBSTREAMS_ENDPOINT -t +1000
       ```
 
-  - name: store_pools
+  - name: store_pools_created
     kind: store
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Pool
@@ -80,7 +80,7 @@ modules:
     initialBlock: 12369621
     inputs:
       - source: sf.ethereum.type.v2.Block
-      - store: store_pools
+      - store: store_pools_created
     output:
       type: proto:uniswap.types.v1.Events
 
@@ -100,7 +100,7 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
-      - store: store_pools
+      - store: store_pools_created
 
   - name: store_pool_liquidities
     kind: store
@@ -126,7 +126,7 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
-      - store: store_pools
+      - store: store_pools_created
       - store: store_total_tx_counts
       - store: store_eth_prices
 
@@ -145,7 +145,7 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
-      - store: store_pools
+      - store: store_pools_created
       - store: store_prices
       - store: store_tokens_whitelist_pools
       - store: store_native_amounts
@@ -168,7 +168,7 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
       - store: store_token_tvl
-      - store: store_pools
+      - store: store_pools_created
       - store: store_eth_prices
 
   - name: store_derived_factory_tvl
@@ -245,12 +245,14 @@ modules:
       - map: map_pools_created
       - store: store_pool_sqrt_price
         mode: deltas
+      - store: store_pool_sqrt_price
       - store: store_pool_liquidities
         mode: deltas
       - store: store_token_tvl
         mode: deltas
       - store: store_prices
         mode: deltas
+      - store: store_prices
       - store: store_tokens
       - store: store_tokens_whitelist_pools
         mode: deltas

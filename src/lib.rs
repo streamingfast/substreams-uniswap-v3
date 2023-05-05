@@ -28,7 +28,7 @@ use crate::pb::uniswap::{events, Events};
 use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, Pools};
 use crate::price::WHITELIST_TOKENS;
 use crate::tables::Tables;
-use crate::utils::UNISWAP_V3_FACTORY;
+use crate::utils::{ERROR_POOL, UNISWAP_V3_FACTORY};
 use std::ops::{Div, Mul, Sub};
 use substreams::errors::Error;
 use substreams::hex;
@@ -67,7 +67,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                     fee_tier: event.fee.to_string(),
                     tick_spacing: event.tick_spacing.into(),
                     log_ordinal: log.ordinal(),
-                    ignore_pool: event.pool == hex!("8fe8d9bb8eeba3ed688069c3d6b556c9ca258248"),
+                    ignore_pool: event.pool == ERROR_POOL,
                     token0: Some(match rpc::create_uniswap_token(&token0_address) {
                         Some(mut token) => {
                             token.total_supply = rpc::token_total_supply_call(&token0_address)
@@ -100,7 +100,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
 }
 
 #[substreams::handlers::store]
-pub fn store_pools(pools: Pools, store: StoreSetProto<Pool>) {
+pub fn store_pools_created(pools: Pools, store: StoreSetProto<Pool>) {
     for pool in pools.pools {
         let pool_address = &pool.address;
         store.set(pool.log_ordinal, format!("pool:{pool_address}"), &pool);
@@ -323,7 +323,7 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                     sqrt_price_update.ordinal,
                     &vec![
                         format!("pool:{pool_address}:{token0_addr}:token0"),
-                        format!("pair:{}:{}", token0_addr, token1_addr), // used for find_eth_per_token
+                        format!("pair:{token0_addr}:{token1_addr}"), // used for find_eth_per_token
                         // We only need the token0Prices to compute the open, high, low and close
                         format!("PoolDayData:{day_id}:{pool_address}:token0"),
                         format!("PoolHourData:{hour_id}:{pool_address}:token0"),
@@ -335,7 +335,7 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                     sqrt_price_update.ordinal,
                     &vec![
                         format!("pool:{pool_address}:{token1_addr}:token1"),
-                        format!("pair:{}:{}", token1_addr, token0_addr), // used for find_eth_per_token
+                        format!("pair:{token1_addr}:{token0_addr}"), // used for find_eth_per_token
                         format!("PoolDayData:{day_id}:{pool_address}:token1"),
                         format!("PoolHourData:{hour_id}:{pool_address}:token1"),
                     ],
@@ -455,7 +455,7 @@ pub fn store_native_amounts(events: Events, store: StoreSetBigDecimal) {
 pub fn store_eth_prices(
     clock: Clock,
     events: Events,                                /* map_extract_data_types */
-    pools_store: StoreGetProto<Pool>,              /* store_pools */
+    pools_store: StoreGetProto<Pool>,              /* store_pools_created */
     prices_store: StoreGetBigDecimal,              /* store_prices */
     tokens_whitelist_pools_store: StoreGetRaw,     /* store_tokens_whitelist_pools */
     total_native_amount_store: StoreGetBigDecimal, /* store_native_amounts */
@@ -1121,21 +1121,20 @@ pub fn store_min_windows(
             _ => continue,
         };
 
-        let day_id = key::segment(&delta.key, 1);
+        let time_id = key::segment(&delta.key, 1);
         let pool_address = key::segment(&delta.key, 2);
 
         if delta.operation == store_delta::Operation::Create {
             output.min(
                 delta.ordinal,
-                format!("{table_name}:{day_id}:{pool_address}:open"),
+                format!("{table_name}:{time_id}:{pool_address}:open"),
                 &delta.new_value,
             );
-            continue;
         }
 
         output.min(
             delta.ordinal,
-            format!("{table_name}:{day_id}:{pool_address}:low"),
+            format!("{table_name}:{time_id}:{pool_address}:low"),
             &delta.new_value,
         );
     }
@@ -1198,100 +1197,6 @@ pub fn store_max_windows(
     }
 }
 
-#[substreams::handlers::store]
-pub fn store_max_pool_prices(
-    clock: Clock,
-    prices_deltas: Deltas<DeltaBigDecimal>, /* store_prices */
-    output: StoreMaxBigDecimal,
-) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id = timestamp_seconds / 86400;
-    let hour_id = timestamp_seconds / 3600;
-    let prev_day_id = day_id - 1;
-    let prev_hour_id = hour_id - 1;
-
-    output.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
-    output.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
-
-    for delta in prices_deltas.deltas.iter() {
-        if delta.operation == store_delta::Operation::Delete {
-            continue;
-        }
-
-        if key::last_segment(&delta.key) != "token0" {
-            continue;
-        }
-
-        log::info!("store_max_pool_prices - delta new_value: {}", delta.new_value);
-
-        match key::first_segment(&delta.key) {
-            "PoolDayData" => {
-                let pool_address = key::segment(&delta.key, 2);
-                let day_id = key::segment(&delta.key, 1);
-                output.max(
-                    delta.ordinal,
-                    format!("PoolDayData:{day_id}:{pool_address}:high"),
-                    &delta.new_value,
-                )
-            }
-            "PoolHourData" => {
-                let pool_address = key::segment(&delta.key, 2);
-                let hour_id = key::segment(&delta.key, 1);
-                output.max(
-                    delta.ordinal,
-                    format!("PoolHourData:{hour_id}:{pool_address}:high"),
-                    &delta.new_value,
-                )
-            }
-            _ => continue,
-        };
-    }
-}
-
-#[substreams::handlers::store]
-pub fn store_max_token_prices(
-    clock: Clock,
-    eth_prices_deltas: Deltas<DeltaBigDecimal>, /* store_eth_prices */
-    output: StoreMaxBigDecimal,
-) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id = timestamp_seconds / 86400;
-    let hour_id = timestamp_seconds / 3600;
-    let prev_day_id = day_id - 1;
-    let prev_hour_id = hour_id - 1;
-
-    output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
-    output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
-
-    for delta in eth_prices_deltas.deltas.iter() {
-        if delta.operation == store_delta::Operation::Delete {
-            continue;
-        }
-
-        match key::first_segment(&delta.key) {
-            "TokenDayData" => {
-                let token_address = key::segment(&delta.key, 2);
-                let day_id = key::segment(&delta.key, 1);
-                output.max(
-                    delta.ordinal,
-                    format!("TokenDayData:{day_id}:{token_address}:high"),
-                    &delta.new_value,
-                )
-            }
-            "TokenHourData" => {
-                let token_address = key::segment(&delta.key, 2);
-                let hour_id = key::segment(&delta.key, 1);
-                output.max(
-                    delta.ordinal,
-                    format!("TokenHourData:{hour_id}:{token_address}:high"),
-                    &delta.new_value,
-                )
-            }
-            _ => continue,
-        };
-    }
-}
-
 #[substreams::handlers::map]
 pub fn graph_out(
     clock: Clock,
@@ -1303,9 +1208,11 @@ pub fn graph_out(
     events: Events,                                      /* map_extract_data_types */
     pools_created: Pools,                                /* map_pools_created */
     pool_sqrt_price_deltas: Deltas<DeltaProto<events::PoolSqrtPrice>>, /* store_pool_sqrt_price */
+    pool_sqrt_price_store: StoreGetProto<events::PoolSqrtPrice>, /* store_pool_sqrt_price */
     pool_liquidities_store_deltas: Deltas<DeltaBigInt>,  /* store_pool_liquidities */
     token_tvl_deltas: Deltas<DeltaBigDecimal>,           /* store_token_tvl */
     price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
+    store_prices: StoreGetBigDecimal,                    /* store_prices */
     tokens_store: StoreGetInt64,                         /* store_tokens */
     tokens_whitelist_pools_deltas: Deltas<DeltaArray<String>>, /* store_tokens_whitelist_pools */
     derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
@@ -1400,10 +1307,10 @@ pub fn graph_out(
     db::transaction_entity_change(&mut tables, events.transactions);
 
     // Swap, Mint, Burn:
-    db::swaps_mints_burns_created_entity_change(&mut tables, events.pool_events, tx_count_store, store_eth_prices);
+    db::swaps_mints_burns_created_entity_change(&mut tables, &events.pool_events, tx_count_store, store_eth_prices);
 
     // Flashes:
-    // TODO: implement flashes entity change - UNISWAP has not done this part
+    // TODO: should we implement flashes entity change - UNISWAP has not done this part
     // db::flashes_update_pool_fee_entity_change(&mut tables, events.flashes);
 
     // Uniswap day data:
@@ -1415,11 +1322,15 @@ pub fn graph_out(
     // Pool Day/Hour data:
     db::create_entity_change_pool_windows(&mut tables, &tx_count_deltas);
     db::tx_count_pool_windows(&mut tables, &tx_count_deltas);
+    // db::mint_burn_prices_pool_windows(&mut tables, timestamp, &events.pool_events, &store_prices);
+    // the check should be done before -> need to check on any type of event and set the price of the pool window
+    // we can skip for a swap because it will be taken care of in the prices_pool_windows later
+    // but for the burn or a mint, the price of token0Price
     db::prices_pool_windows(&mut tables, &price_deltas);
     db::prices_min_pool_windows(&mut tables, &min_windows_deltas);
     db::prices_max_pool_windows(&mut tables, &max_windows_deltas);
     db::prices_close_pool_windows(&mut tables, &price_deltas);
-    db::liquidities_pool_windows(&mut tables, &pool_liquidities_store_deltas);
+    db::liquidities_and_sqrt_tick_pool_windows(&mut tables, &pool_liquidities_store_deltas, &pool_sqrt_price_store);
     db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
     db::swap_volume_pool_windows(&mut tables, &swaps_volume_deltas);
     db::fee_growth_global_x128_pool_windows(&mut tables, timestamp, &events.fee_growth_global_updates);

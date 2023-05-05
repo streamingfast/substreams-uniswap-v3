@@ -8,13 +8,14 @@ use substreams::store::{
 };
 use substreams::{log, Hex};
 
+use crate::pb::uniswap;
 use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::position_event::Type;
-use crate::pb::uniswap::events::{IncreaseLiquidityPosition, PositionEvent};
+use crate::pb::uniswap::events::{IncreaseLiquidityPosition, PoolSqrtPrice, PositionEvent};
 use crate::tables::Tables;
 use crate::uniswap::{Erc20Token, Pools};
-use crate::{key, keyer, utils};
+use crate::{key, utils};
 
 // -------------------
 //  Map Bundle Entities
@@ -918,27 +919,27 @@ pub fn transaction_entity_change(tables: &mut Tables, transactions: Vec<events::
 // --------------------
 pub fn swaps_mints_burns_created_entity_change(
     tables: &mut Tables,
-    events: Vec<events::PoolEvent>,
+    pool_events: &Vec<events::PoolEvent>,
     tx_count_store: StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
 ) {
-    for event in events {
-        if event.r#type.is_none() {
+    for pool_event in pool_events {
+        if pool_event.r#type.is_none() {
             continue;
         }
 
-        let ord = event.log_ordinal;
-        let token0_addr = &event.token0;
-        let token1_addr = &event.token1;
+        let ord = pool_event.log_ordinal;
+        let token0_addr = &pool_event.token0;
+        let token1_addr = &pool_event.token1;
 
-        if event.r#type.is_some() {
-            let pool_address = &event.pool_address;
+        if pool_event.r#type.is_some() {
+            let pool_address = &pool_event.pool_address;
             let transaction_count: i32 = tx_count_store
                 .get_at(ord, format!("pool:{pool_address}"))
                 .unwrap_or_default()
                 .to_u64() as i32;
 
-            let transaction_id = &event.transaction_id;
+            let transaction_id = &pool_event.transaction_id;
             let event_primary_key: String = format!("0x{transaction_id}#{transaction_count}");
 
             // initializePool has occurred beforehand so there should always be a price
@@ -952,17 +953,17 @@ pub fn swaps_mints_burns_created_entity_change(
 
             let bundle_eth_price = store_eth_prices.get_at(ord, "bundle").unwrap_or_default();
 
-            return match event.r#type.unwrap() {
+            match pool_event.r#type.as_ref().unwrap() {
                 SwapEvent(swap) => {
-                    let amount0 = BigDecimal::try_from(swap.amount_0).unwrap();
-                    let amount1 = BigDecimal::try_from(swap.amount_1).unwrap();
+                    let amount0 = BigDecimal::try_from(swap.amount_0.as_str()).unwrap();
+                    let amount1 = BigDecimal::try_from(swap.amount_1.as_str()).unwrap();
 
                     let amount0_abs = amount0.absolute();
                     let amount1_abs = amount1.absolute();
 
                     let amount_total_usd_tracked = utils::get_tracked_amount_usd(
-                        &event.token0,
-                        &event.token1,
+                        &pool_event.token0,
+                        &pool_event.token1,
                         &token0_derived_eth_price,
                         &token1_derived_eth_price,
                         &amount0_abs,
@@ -974,24 +975,23 @@ pub fn swaps_mints_burns_created_entity_change(
                     tables
                         .create_row("Swap", &event_primary_key)
                         .set("transaction", format!("0x{transaction_id}"))
-                        .set("timestamp", event.timestamp)
+                        .set("timestamp", pool_event.timestamp)
                         .set("pool", format!("0x{pool_address}"))
-                        .set("token0", format!("0x{}", event.token0))
-                        .set("token1", format!("0x{}", event.token1))
+                        .set("token0", format!("0x{}", pool_event.token0))
+                        .set("token1", format!("0x{}", pool_event.token1))
                         .set("sender", &hex::decode(&swap.sender).unwrap())
                         .set("recipient", &hex::decode(&swap.recipient).unwrap())
                         .set("origin", &hex::decode(&swap.origin).unwrap())
                         .set("amount0", &amount0)
                         .set("amount1", &amount1)
                         .set("amountUSD", &amount_total_usd_tracked)
-                        .set("sqrtPriceX96", &BigInt::try_from(swap.sqrt_price).unwrap())
-                        .set("tick", &BigInt::try_from(swap.tick).unwrap())
-                        .set("logIndex", event.log_index);
+                        .set("sqrtPriceX96", &BigInt::try_from(swap.sqrt_price.to_string()).unwrap())
+                        .set("tick", &BigInt::try_from(swap.tick.to_string()).unwrap())
+                        .set("logIndex", pool_event.log_index);
                 }
                 MintEvent(mint) => {
-                    let amount0 = BigDecimal::try_from(mint.amount_0).unwrap();
-                    log::info!("mint amount 0 {}", amount0);
-                    let amount1 = BigDecimal::try_from(mint.amount_1).unwrap();
+                    let amount0 = BigDecimal::try_from(mint.amount_0.as_str()).unwrap();
+                    let amount1 = BigDecimal::try_from(mint.amount_1.as_str()).unwrap();
 
                     let amount_usd: BigDecimal = utils::calculate_amount_usd(
                         &amount0,
@@ -1001,14 +1001,13 @@ pub fn swaps_mints_burns_created_entity_change(
                         &bundle_eth_price,
                     );
 
-                    log::info!("sending create row for MINT");
                     tables
                         .create_row("Mint", event_primary_key)
                         .set("transaction", format!("0x{transaction_id}"))
-                        .set("timestamp", event.timestamp)
+                        .set("timestamp", pool_event.timestamp)
                         .set("pool", format!("0x{pool_address}"))
-                        .set("token0", format!("0x{}", event.token0))
-                        .set("token1", format!("0x{}", event.token1))
+                        .set("token0", format!("0x{}", pool_event.token0))
+                        .set("token1", format!("0x{}", pool_event.token1))
                         .set("owner", &hex::decode(&mint.owner).unwrap())
                         .set("sender", &hex::decode(&mint.sender).unwrap())
                         .set("origin", &hex::decode(&mint.origin).unwrap())
@@ -1018,12 +1017,11 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("amountUSD", amount_usd)
                         .set_bigint("tickLower", &mint.tick_lower)
                         .set_bigint("tickUpper", &mint.tick_upper)
-                        .set("logIndex", event.log_index);
-                    log::info!("sent create row for MINT");
+                        .set("logIndex", pool_event.log_index);
                 }
                 BurnEvent(burn) => {
-                    let amount0: BigDecimal = BigDecimal::try_from(burn.amount_0).unwrap();
-                    let amount1: BigDecimal = BigDecimal::try_from(burn.amount_1).unwrap();
+                    let amount0: BigDecimal = BigDecimal::try_from(burn.amount_0.as_str()).unwrap();
+                    let amount1: BigDecimal = BigDecimal::try_from(burn.amount_1.as_str()).unwrap();
 
                     let amount_usd: BigDecimal = utils::calculate_amount_usd(
                         &amount0,
@@ -1036,9 +1034,9 @@ pub fn swaps_mints_burns_created_entity_change(
                         .create_row("Burn", &event_primary_key)
                         .set("transaction", format!("0x{transaction_id}"))
                         .set("pool", format!("0x{pool_address}"))
-                        .set("token0", format!("0x{}", event.token0))
-                        .set("token1", format!("0x{}", event.token1))
-                        .set("timestamp", event.timestamp)
+                        .set("token0", format!("0x{}", pool_event.token0))
+                        .set("token1", format!("0x{}", pool_event.token1))
+                        .set("timestamp", pool_event.timestamp)
                         .set("owner", &hex::decode(&burn.owner).unwrap())
                         .set("origin", &hex::decode(&burn.origin).unwrap())
                         .set_bigint("amount", &burn.amount)
@@ -1047,7 +1045,7 @@ pub fn swaps_mints_burns_created_entity_change(
                         .set("amountUSD", amount_usd)
                         .set_bigint("tickLower", &burn.tick_lower)
                         .set_bigint("tickUpper", &burn.tick_upper)
-                        .set("logIndex", event.log_index);
+                        .set("logIndex", pool_event.log_index);
                 }
             };
         }
@@ -1255,6 +1253,46 @@ pub fn tx_count_pool_windows(tables: &mut Tables, tx_count_deltas: &Deltas<Delta
     }
 }
 
+// This method is to set the token0Price, token1Price, low, close, open and high
+// when a mint or a burn event occurs. We want to default to the previous values
+// set for the pool for token0Price, token1Price, (low, close, open and high -> they
+// all take the token0Price by default)
+pub fn mint_burn_prices_pool_windows(
+    tables: &mut Tables,
+    timestamp: i64,
+    pool_events: &Vec<events::PoolEvent>,
+    store_prices: &StoreGetBigDecimal,
+) {
+    for pool_event in pool_events {
+        if pool_event.r#type.is_none() {
+            continue;
+        }
+
+        let ord = pool_event.log_ordinal;
+        let token0_addr = &pool_event.token0;
+        let token1_addr = &pool_event.token1;
+
+        let day_id = timestamp / 86400;
+        let hour_id = timestamp / 3600;
+
+        if pool_event.r#type.is_some() {
+            let pool_address = &pool_event.pool_address;
+
+            let mut token0_price = BigDecimal::zero();
+            let mut token1_price = BigDecimal::zero();
+            // match store_prices.get_last(format!("pool:{}")) {}
+
+            match pool_event.r#type.as_ref().unwrap() {
+                events::pool_event::Type::Swap(_) => {
+                    continue; // the swap event will be taken care of by the prices_pool_windows
+                }
+                events::pool_event::Type::Burn(burn) => {}
+                events::pool_event::Type::Mint(mint) => {}
+            }
+        }
+    }
+}
+
 pub fn prices_pool_windows(tables: &mut Tables, price_deltas: &Deltas<DeltaBigDecimal>) {
     for delta in price_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {
@@ -1365,7 +1403,12 @@ pub fn prices_close_pool_windows(tables: &mut Tables, prices_deltas: &Deltas<Del
     }
 }
 
-pub fn liquidities_pool_windows(tables: &mut Tables, pool_liquidities_store_deltas: &Deltas<DeltaBigInt>) {
+// Order is important, this needs to be done before the sqrt_price_and_tick_pool_windows(...) changes
+pub fn liquidities_and_sqrt_tick_pool_windows(
+    tables: &mut Tables,
+    pool_liquidities_store_deltas: &Deltas<DeltaBigInt>,
+    pool_sqrt_price_store: &StoreGetProto<PoolSqrtPrice>,
+) {
     for delta in pool_liquidities_store_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {
             "PoolDayData" => "PoolDayData",
@@ -1382,9 +1425,21 @@ pub fn liquidities_pool_windows(tables: &mut Tables, pool_liquidities_store_delt
         let time_id = key::segment(&delta.key, 1);
         let pool_address = key::segment(&delta.key, 2);
 
-        tables
+        let row = tables
             .update_row(table_name, format!("0x{pool_address}-{time_id}"))
             .set("liquidity", &delta.new_value);
+
+        // The tick will be updated when we have a swap, BUT when we have a MINT/BURN set the tick
+        // of the PoolDayData/PoolHourData with the latest tick that was saved for given pool.
+        match pool_sqrt_price_store.get_last(format!("pool:{pool_address}")) {
+            None => {
+                log::info!("This is not normal, or do we have some use cases where this will be ok??")
+            }
+            Some(price) => {
+                row.set("sqrtPrice", price.sqrt_price);
+                row.set("tick", price.tick);
+            }
+        }
     }
 }
 
