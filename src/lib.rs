@@ -613,6 +613,9 @@ pub fn store_swaps_volume(
                         Some(price) => price,
                     };
 
+                log::info!("token0_derived_eth_price {}", token0_derived_eth_price);
+                log::info!("token1_derived_eth_price {}", token1_derived_eth_price);
+
                 let amount0_abs = BigDecimal::try_from(swap.amount_0).unwrap().absolute();
                 let amount1_abs = BigDecimal::try_from(swap.amount_1).unwrap().absolute();
 
@@ -647,6 +650,12 @@ pub fn store_swaps_volume(
                     .clone()
                     .mul(fee_tier.clone())
                     .div(BigDecimal::from(1000000 as u64));
+
+                log::info!("volume_eth {}", volume_eth);
+                log::info!("volume_usd {}", volume_usd);
+                log::info!("volume_usd_untracked {}", volume_usd_untracked);
+                log::info!("fee_eth {}", fee_eth);
+                log::info!("fee_usd {}", fee_usd);
 
                 output.add_many(
                     ord,
@@ -1322,10 +1331,7 @@ pub fn graph_out(
     // Pool Day/Hour data:
     db::create_entity_change_pool_windows(&mut tables, &tx_count_deltas);
     db::tx_count_pool_windows(&mut tables, &tx_count_deltas);
-    // db::mint_burn_prices_pool_windows(&mut tables, timestamp, &events.pool_events, &store_prices);
-    // the check should be done before -> need to check on any type of event and set the price of the pool window
-    // we can skip for a swap because it will be taken care of in the prices_pool_windows later
-    // but for the burn or a mint, the price of token0Price
+    db::mint_burn_prices_pool_windows(&mut tables, timestamp, &events.pool_events, &store_prices);
     db::prices_pool_windows(&mut tables, &price_deltas);
     db::prices_min_pool_windows(&mut tables, &min_windows_deltas);
     db::prices_max_pool_windows(&mut tables, &max_windows_deltas);
@@ -1341,6 +1347,7 @@ pub fn graph_out(
     db::swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_windows(&mut tables, timestamp, &token_tvl_deltas);
+    // TODO: should we do a similar thing like the mint_burn_prices_pool_windows here??
     db::total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
     db::prices_min_token_windows(&mut tables, &min_windows_deltas);
     db::prices_max_token_windows(&mut tables, &max_windows_deltas);

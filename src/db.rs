@@ -1268,27 +1268,56 @@ pub fn mint_burn_prices_pool_windows(
             continue;
         }
 
-        let ord = pool_event.log_ordinal;
-        let token0_addr = &pool_event.token0;
-        let token1_addr = &pool_event.token1;
-
         let day_id = timestamp / 86400;
         let hour_id = timestamp / 3600;
 
         if pool_event.r#type.is_some() {
+            let token0_address = &pool_event.token0;
+            let token1_address = &pool_event.token1;
             let pool_address = &pool_event.pool_address;
+            let pool_day_id = format!("0x{pool_address}-{day_id}");
+            let pool_hour_id = format!("0x{pool_address}-{hour_id}");
 
             let mut token0_price = BigDecimal::zero();
             let mut token1_price = BigDecimal::zero();
-            // match store_prices.get_last(format!("pool:{}")) {}
+            match store_prices.get_last(format!("pool:{pool_address}:{token0_address}:token0")) {
+                None => {} // do nothing
+                Some(val) => {
+                    token0_price = val;
+                }
+            }
+
+            match store_prices.get_last(format!("pool:{pool_address}:{token1_address}:token1")) {
+                None => {} // do nothing
+                Some(val) => {
+                    token1_price = val;
+                }
+            }
 
             match pool_event.r#type.as_ref().unwrap() {
                 events::pool_event::Type::Swap(_) => {
                     continue; // the swap event will be taken care of by the prices_pool_windows
                 }
-                events::pool_event::Type::Burn(burn) => {}
-                events::pool_event::Type::Mint(mint) => {}
+                _ => {}
             }
+
+            tables
+                .update_row("PoolDayData", &pool_day_id)
+                .set("open", &token0_price)
+                .set("close", &token0_price)
+                .set("high", &token0_price)
+                .set("low", &token0_price)
+                .set("token0Price", &token0_price)
+                .set("token1Price", &token1_price);
+
+            tables
+                .update_row("PoolHourData", &pool_hour_id)
+                .set("open", &token0_price)
+                .set("close", &token0_price)
+                .set("high", &token0_price)
+                .set("low", &token0_price)
+                .set("token0Price", &token0_price)
+                .set("token1Price", &token1_price);
         }
     }
 }
@@ -1436,8 +1465,8 @@ pub fn liquidities_and_sqrt_tick_pool_windows(
                 log::info!("This is not normal, or do we have some use cases where this will be ok??")
             }
             Some(price) => {
-                row.set("sqrtPrice", price.sqrt_price);
-                row.set("tick", price.tick);
+                row.set("sqrtPrice", BigInt::try_from(&price.sqrt_price).unwrap());
+                row.set("tick", BigInt::try_from(&price.tick).unwrap());
             }
         }
     }
