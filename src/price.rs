@@ -11,12 +11,12 @@ const USDC_ADDRESS: &str = "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const WETH_ADDRESS: &str = "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 
 pub const STABLE_COINS: [&str; 6] = [
-    "6b175474e89094c44da98b954eedeac495271d0f",
-    "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-    "dac17f958d2ee523a2206206994597c13d831ec7",
-    "0000000000085d4780b73119b644ae5ecd22b376",
-    "956f47f50a910163d8bf957cf5846d573e7f87ca",
-    "4dd28568d05f09b02220b09c2cb307bfd837cb95",
+    "6b175474e89094c44da98b954eedeac495271d0f", // DAI
+    "a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
+    "dac17f958d2ee523a2206206994597c13d831ec7", // USDT
+    "0000000000085d4780b73119b644ae5ecd22b376", // TUSD
+    "956f47f50a910163d8bf957cf5846d573e7f87ca", // FEI
+    "4dd28568d05f09b02220b09c2cb307bfd837cb95", // PRINTS
 ];
 
 pub const WHITELIST_TOKENS: [&str; 21] = [
@@ -115,7 +115,7 @@ pub fn find_eth_per_token(
         log::debug!("found whitelisted pools {}", whitelisted_pools.len());
 
         let mut largest_eth_locked = BigDecimal::zero();
-        let minimum_eth_locked = BigDecimal::from_str("60").unwrap();
+        let minimum_eth_locked = BigDecimal::from_str("52").unwrap();
         let mut eth_locked: BigDecimal;
 
         for pool_address in whitelisted_pools.iter() {
@@ -142,7 +142,8 @@ pub fn find_eth_per_token(
             if liquidity.gt(&BigInt::zero()) {
                 if &token0.address == token_address {
                     log::info!(
-                        "current pool token 0 matches desired token, complementary token is {token1_addr} {}",
+                        "current pool token 0 matches desired token, complementary token is {} {}",
+                        token1_addr,
                         token1.symbol
                     );
                     let native_amount = match total_native_amounts_store
@@ -161,7 +162,7 @@ pub fn find_eth_per_token(
                         token1_eth_price = BigDecimal::one();
                     } else {
                         log::debug!("token 1 is NOT WETH");
-                        token1_eth_price = match prices_store.get_at(ord, format!("pair:{token1_addr}:{WETH_ADDRESS}"))
+                        token1_eth_price = match prices_store.get_at(ord, format!("pair:{WETH_ADDRESS}:{token1_addr}"))
                         {
                             None => {
                                 log::debug!("unable to find token 1 price in eth {token1_addr}");
@@ -178,8 +179,9 @@ pub fn find_eth_per_token(
                         eth_locked,
                         largest_eth_locked
                     );
+                    // should the check below make more sens if we EITHER have eth.gt > largest && (eth_locked > min BUT !Whitelist || whitelist)???
                     if eth_locked.gt(&largest_eth_locked)
-                        && (eth_locked.gt(&minimum_eth_locked) || WHITELIST_TOKENS.contains(&token1_addr.as_str()))
+                        && (eth_locked.gt(&minimum_eth_locked) || WHITELIST_TOKENS.contains(&token0_addr.as_str()))
                     {
                         log::debug!("eth locked passed test");
                         let token1_price =
@@ -218,7 +220,7 @@ pub fn find_eth_per_token(
                         eth_locked = native_amount
                     } else {
                         log::debug!("token 0 is NOT WETH");
-                        token0_eth_price = match prices_store.get_at(ord, format!("pair:{token0_addr}:{WETH_ADDRESS}"))
+                        token0_eth_price = match prices_store.get_at(ord, format!("pair:{WETH_ADDRESS}:{token0_addr}"))
                         {
                             None => {
                                 log::debug!("unable to find token 0 price in eth {:?}", token0.address);
@@ -232,7 +234,7 @@ pub fn find_eth_per_token(
                     }
                     log::debug!("eth locked in pool {pool_address} {eth_locked} (largest {largest_eth_locked})",);
                     if eth_locked.gt(&largest_eth_locked)
-                        && (eth_locked.gt(&minimum_eth_locked) || WHITELIST_TOKENS.contains(&token0_addr.as_str()))
+                        && (eth_locked.gt(&minimum_eth_locked) || WHITELIST_TOKENS.contains(&token1_addr.as_str()))
                     {
                         log::debug!("eth locked passed test");
                         let token0_price =
@@ -246,7 +248,7 @@ pub fn find_eth_per_token(
                         log::debug!("found token 0 price {}", token0_price);
                         largest_eth_locked = eth_locked.clone();
                         price_so_far = token0_price.mul(token0_eth_price.clone());
-                        log::debug!("price_so_far {price_so_far}");
+                        log::debug!("price_so_far {}", price_so_far);
                     }
                 }
             }

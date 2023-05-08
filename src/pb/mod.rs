@@ -48,8 +48,7 @@ impl Pool {
         if self.ignore_pool {
             return false;
         }
-        return &self.address != "9663f2ca0454accad3e094448ea6f77443880454"
-            || &self.address != &Hex(ERROR_POOL).to_string();
+        return &self.address != &Hex(ERROR_POOL).to_string();
     }
 
     pub fn should_handle_mint_and_burn(&self) -> bool {

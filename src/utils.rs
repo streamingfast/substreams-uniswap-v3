@@ -236,11 +236,6 @@ pub fn get_adjusted_amounts(
     adjusted_amounts.stable_eth_untracked = eth_untracked;
     adjusted_amounts.stable_usd_untracked = usd_untracked;
 
-    log::info!("stable_eth {:}", adjusted_amounts.delta_tvl_eth);
-    log::info!("stable_usd {:}", adjusted_amounts.delta_tvl_usd);
-    log::info!("stable_eth_untracked {:}", adjusted_amounts.stable_eth_untracked);
-    log::info!("stable_usd_untracked {:}", adjusted_amounts.stable_usd_untracked);
-
     return adjusted_amounts;
 }
 

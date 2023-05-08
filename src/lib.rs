@@ -53,6 +53,10 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
             .filter_map(|(event, log)| {
                 log::info!("pool addr: {}", Hex(&event.pool));
 
+                if event.pool == ERROR_POOL {
+                    return None;
+                }
+
                 let token0_address = Hex(&event.token0).to_string();
                 let token1_address = Hex(&event.token1).to_string();
 
@@ -619,6 +623,9 @@ pub fn store_swaps_volume(
                 let amount0_abs = BigDecimal::try_from(swap.amount_0).unwrap().absolute();
                 let amount1_abs = BigDecimal::try_from(swap.amount_1).unwrap().absolute();
 
+                log::info!("amount0_abs {}", amount0_abs);
+                log::info!("amount1_abs {}", amount1_abs);
+
                 let volume_amounts = utils::get_adjusted_amounts(
                     token0_addr,
                     token1_addr,
@@ -656,6 +663,7 @@ pub fn store_swaps_volume(
                 log::info!("volume_usd_untracked {}", volume_usd_untracked);
                 log::info!("fee_eth {}", fee_eth);
                 log::info!("fee_usd {}", fee_usd);
+                log::info!("fee_tier {}", fee_tier);
 
                 output.add_many(
                     ord,

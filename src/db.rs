@@ -39,12 +39,12 @@ pub fn bundle_store_eth_price_usd_bundle_entity_change(
 //  Map Factory Entities
 // -------------------
 pub fn factory_created_factory_entity_change(tables: &mut Tables) {
-    let id = "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string();
+    let id = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
 
     let bigint0 = BigInt::zero();
     let bigdecimal0 = BigDecimal::zero();
     tables
-        .create_row("Factory", &id)
+        .create_row("Factory", id)
         .set("poolCount", &bigint0)
         .set("txCount", &bigint0)
         .set("totalVolumeUSD", &bigdecimal0)
@@ -69,7 +69,7 @@ pub fn pool_created_factory_entity_change(tables: &mut Tables, deltas: &Deltas<D
 pub fn tx_count_factory_entity_change(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
     for delta in key::filter_first_segment_eq(&tx_count_deltas, "factory") {
         tables
-            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string())
+            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984")
             .set("txCount", &delta.new_value);
     }
 }
@@ -86,7 +86,7 @@ pub fn swap_volume_factory_entity_change(tables: &mut Tables, swaps_volume_delta
         };
 
         tables
-            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string())
+            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984")
             .set(field_name, &delta.new_value);
     }
 }
@@ -102,7 +102,7 @@ pub fn tvl_factory_entity_change(tables: &mut Tables, derived_factory_tvl_deltas
         };
 
         tables
-            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984".to_string())
+            .update_row("Factory", "0x1F98431c8aD98523631AE4a59f267346ea31F984")
             .set(field_name, &delta.new_value);
     }
 }
