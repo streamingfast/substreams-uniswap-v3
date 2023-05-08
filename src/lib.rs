@@ -31,7 +31,6 @@ use crate::tables::Tables;
 use crate::utils::{ERROR_POOL, UNISWAP_V3_FACTORY};
 use std::ops::{Div, Mul, Sub};
 use substreams::errors::Error;
-use substreams::hex;
 use substreams::pb::substreams::{store_delta, Clock};
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
@@ -1260,7 +1259,7 @@ pub fn graph_out(
     db::tvl_factory_entity_change(&mut tables, &derived_factory_tvl_deltas);
 
     // Pool:
-    db::pools_created_pool_entity_change(&mut tables, &pools_created);
+    db::pools_created_pool_entity_changes(&mut tables, timestamp, &pools_created); // creates also PoolDayData and PoolHourData
     db::sqrt_price_and_tick_pool_entity_change(&mut tables, &pool_sqrt_price_deltas);
     db::liquidities_pool_entity_change(&mut tables, &pool_liquidities_store_deltas);
     db::fee_growth_global_pool_entity_change(&mut tables, &events.fee_growth_global_updates);
@@ -1271,7 +1270,7 @@ pub fn graph_out(
     db::swap_volume_pool_entity_change(&mut tables, &swaps_volume_deltas);
 
     // Tokens:
-    db::tokens_created_token_entity_change(&mut tables, &pools_created, tokens_store);
+    db::tokens_created_token_entity_changes(&mut tables, timestamp, &pools_created, tokens_store); // creates also TokenDayData and TokenHourData
     db::swap_volume_token_entity_change(&mut tables, &swaps_volume_deltas);
     db::tx_count_token_entity_change(&mut tables, &tx_count_deltas);
     db::total_value_locked_by_token_token_entity_change(&mut tables, &token_tvl_deltas);
@@ -1337,7 +1336,7 @@ pub fn graph_out(
     db::volumes_uniswap_day_data_entity_change(&mut tables, &swaps_volume_deltas);
 
     // Pool Day/Hour data:
-    db::create_entity_change_pool_windows(&mut tables, &tx_count_deltas);
+    db::upsert_entity_change_pool_windows(&mut tables, &tx_count_deltas);
     db::tx_count_pool_windows(&mut tables, &tx_count_deltas);
     db::mint_burn_prices_pool_windows(&mut tables, timestamp, &events.pool_events, &store_prices);
     db::prices_pool_windows(&mut tables, &price_deltas);
@@ -1351,11 +1350,10 @@ pub fn graph_out(
     db::total_value_locked_usd_pool_windows(&mut tables, &derived_tvl_deltas);
 
     // Token Day/Hour data:
-    db::create_entity_change_token_windows(&mut tables, &tx_count_deltas);
+    db::upsert_entity_change_token_windows(&mut tables, &tx_count_deltas);
     db::swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
     db::total_value_locked_token_windows(&mut tables, timestamp, &token_tvl_deltas);
-    // TODO: should we do a similar thing like the mint_burn_prices_pool_windows here??
     db::total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
     db::prices_min_token_windows(&mut tables, &min_windows_deltas);
     db::prices_max_token_windows(&mut tables, &max_windows_deltas);

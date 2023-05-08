@@ -8,11 +8,10 @@ use substreams::store::{
 };
 use substreams::{log, Hex};
 
-use crate::pb::uniswap;
-use crate::pb::uniswap::events;
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::position_event::Type;
 use crate::pb::uniswap::events::{IncreaseLiquidityPosition, PoolSqrtPrice, PositionEvent};
+use crate::pb::uniswap::{events, Pool};
 use crate::tables::Tables;
 use crate::uniswap::{Erc20Token, Pools};
 use crate::{key, utils};
@@ -110,42 +109,101 @@ pub fn tvl_factory_entity_change(tables: &mut Tables, derived_factory_tvl_deltas
 // -------------------
 //  Map Pool Entities
 // -------------------
-pub fn pools_created_pool_entity_change(tables: &mut Tables, pools: &Pools) {
-    let bigint0 = BigInt::zero();
-    let bigdecimal0 = BigDecimal::zero();
+pub fn pools_created_pool_entity_changes(tables: &mut Tables, timestamp: i64, pools: &Pools) {
+    let day_id = timestamp / 86400;
+    let hour_id = timestamp / 3600;
 
     for pool in &pools.pools {
-        tables
-            .create_row("Pool", format!("0x{}", pool.address))
-            .set("createdAtTimestamp", BigInt::from(pool.created_at_timestamp))
-            .set("createdAtBlockNumber", pool.created_at_block_number)
-            .set("token0", format!("0x{}", pool.token0.as_ref().unwrap().address))
-            .set("token1", format!("0x{}", pool.token1.as_ref().unwrap().address))
-            .set_bigint("feeTier", &pool.fee_tier)
-            .set("liquidity", &bigint0)
-            .set("sqrtPrice", &bigint0)
-            .set("feeGrowthGlobal0X128", &bigint0)
-            .set("feeGrowthGlobal1X128", &bigint0)
-            .set("token0Price", &bigdecimal0)
-            .set("token1Price", &bigdecimal0)
-            .set("tick", &bigint0)
-            .set("observationIndex", &bigint0)
-            .set("volumeToken0", &bigdecimal0)
-            .set("volumeToken1", &bigdecimal0)
-            .set("volumeUSD", &bigdecimal0)
-            .set("untrackedVolumeUSD", &bigdecimal0)
-            .set("feesUSD", &bigdecimal0)
-            .set("txCount", &bigint0)
-            .set("collectedFeesToken0", &bigdecimal0)
-            .set("collectedFeesToken1", &bigdecimal0)
-            .set("collectedFeesUSD", &bigdecimal0)
-            .set("totalValueLockedToken0", &bigdecimal0)
-            .set("totalValueLockedToken1", &bigdecimal0)
-            .set("totalValueLockedETH", &bigdecimal0)
-            .set("totalValueLockedUSD", &bigdecimal0)
-            .set("totalValueLockedUSDUntracked", &bigdecimal0)
-            .set("totalValueLockedETHUntracked", &bigdecimal0)
-            .set("liquidityProviderCount", &bigint0);
+        let pool_address = &pool.address;
+        create_pool(tables, pool);
+
+        // This will take care of use-cases where a pool is created and or initialized in the
+        // same transaction but there were no mint/burn/swaps.
+        //TODO: extract the PoolSqrtPrices and the PoolEvents and filter by the ordinal to
+        // better iron out the create vs update operations.
+        create_pool_windows(
+            tables,
+            "PoolDayData",
+            day_id,
+            &format!("0x{pool_address}-{day_id}"),
+            pool_address,
+        );
+        create_pool_windows(
+            tables,
+            "PoolHourData",
+            hour_id,
+            &format!("0x{pool_address}-{hour_id}"),
+            pool_address,
+        );
+    }
+}
+
+fn create_pool(tables: &mut Tables, pool: &Pool) {
+    let bigint0 = BigInt::zero();
+    let bigdecimal0 = BigDecimal::zero();
+    tables
+        .create_row("Pool", format!("0x{}", &pool.address))
+        .set("createdAtTimestamp", BigInt::from(pool.created_at_timestamp))
+        .set("createdAtBlockNumber", pool.created_at_block_number)
+        .set("token0", format!("0x{}", pool.token0.as_ref().unwrap().address))
+        .set("token1", format!("0x{}", pool.token1.as_ref().unwrap().address))
+        .set_bigint("feeTier", &pool.fee_tier)
+        .set("liquidity", &bigint0)
+        .set("sqrtPrice", &bigint0)
+        .set("feeGrowthGlobal0X128", &bigint0)
+        .set("feeGrowthGlobal1X128", &bigint0)
+        .set("token0Price", &bigdecimal0)
+        .set("token1Price", &bigdecimal0)
+        .set("tick", &bigint0)
+        .set("observationIndex", &bigint0)
+        .set("volumeToken0", &bigdecimal0)
+        .set("volumeToken1", &bigdecimal0)
+        .set("volumeUSD", &bigdecimal0)
+        .set("untrackedVolumeUSD", &bigdecimal0)
+        .set("feesUSD", &bigdecimal0)
+        .set("txCount", &bigint0)
+        .set("collectedFeesToken0", &bigdecimal0)
+        .set("collectedFeesToken1", &bigdecimal0)
+        .set("collectedFeesUSD", &bigdecimal0)
+        .set("totalValueLockedToken0", &bigdecimal0)
+        .set("totalValueLockedToken1", &bigdecimal0)
+        .set("totalValueLockedETH", &bigdecimal0)
+        .set("totalValueLockedUSD", &bigdecimal0)
+        .set("totalValueLockedUSDUntracked", &bigdecimal0)
+        .set("totalValueLockedETHUntracked", &bigdecimal0)
+        .set("liquidityProviderCount", &bigint0);
+}
+
+fn create_pool_windows(tables: &mut Tables, table_name: &str, time_id: i64, pool_time_id: &String, pool_addr: &str) {
+    let row = tables
+        .update_row(table_name, pool_time_id)
+        .set("pool", format!("0x{}", pool_addr))
+        .set("liquidity", BigInt::zero())
+        .set("sqrtPrice", BigInt::zero())
+        .set("token0Price", BigDecimal::zero())
+        .set("token1Price", BigDecimal::zero())
+        .set("tick", BigInt::zero())
+        .set("feeGrowthGlobal0X128", BigInt::zero())
+        .set("feeGrowthGlobal1X128", BigInt::zero())
+        .set("totalValueLockedUSD", BigDecimal::zero())
+        .set("volumeToken0", BigDecimal::zero())
+        .set("volumeToken1", BigDecimal::zero())
+        .set("volumeUSD", BigDecimal::zero())
+        .set("feesUSD", BigDecimal::zero())
+        .set("txCount", BigInt::zero())
+        .set("open", BigDecimal::zero())
+        .set("high", BigDecimal::zero())
+        .set("low", BigDecimal::zero())
+        .set("close", BigDecimal::zero());
+
+    match table_name {
+        "PoolDayData" => {
+            row.set("date", (time_id * 86400) as i32);
+        }
+        "PoolHourData" => {
+            row.set("periodStartUnix", (time_id * 3600) as i32);
+        }
+        _ => {}
     }
 }
 
@@ -269,7 +327,15 @@ pub fn swap_volume_pool_entity_change(tables: &mut Tables, swaps_volume_deltas: 
 // --------------------
 //  Map Token Entities
 // --------------------
-pub fn tokens_created_token_entity_change(tables: &mut Tables, pools: &Pools, tokens_store: StoreGetInt64) {
+pub fn tokens_created_token_entity_changes(
+    tables: &mut Tables,
+    timestamp: i64,
+    pools: &Pools,
+    tokens_store: StoreGetInt64,
+) {
+    let day_id = timestamp / 86400;
+    let hour_id = timestamp / 3600;
+
     for pool in &pools.pools {
         let ord = pool.log_ordinal;
         let pool_address = &pool.address;
@@ -279,6 +345,11 @@ pub fn tokens_created_token_entity_change(tables: &mut Tables, pools: &Pools, to
             Some(value) => {
                 if value.eq(&1) {
                     add_token_entity_change(tables, pool.token0_ref());
+
+                    let token_day_id = format!("0x{token0_addr}-{day_id}");
+                    let token_hour_id = format!("0x{token0_addr}-{hour_id}");
+                    create_token_windows(tables, "TokenDayData", day_id, &token_day_id, token0_addr);
+                    create_token_windows(tables, "TokenHourData", hour_id, &token_hour_id, token0_addr);
                 }
             }
             None => {
@@ -290,12 +361,77 @@ pub fn tokens_created_token_entity_change(tables: &mut Tables, pools: &Pools, to
             Some(value) => {
                 if value.eq(&1) {
                     add_token_entity_change(tables, pool.token1_ref());
+
+                    let token_day_id = format!("0x{token1_addr}-{day_id}");
+                    let token_hour_id = format!("0x{token1_addr}-{hour_id}");
+                    create_token_windows(tables, "TokenDayData", day_id, &token_day_id, token1_addr);
+                    create_token_windows(tables, "TokenHourData", hour_id, &token_hour_id, token1_addr);
                 }
             }
             None => {
                 panic!("pool contains token that doesn't exist {}", pool_address.as_str())
             }
         }
+    }
+}
+
+fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token) {
+    let bigdecimal0 = BigDecimal::from(0);
+    let bigint0 = BigInt::from(0);
+
+    let token_addr = &token.address;
+    let mut whitelist = token.clone().whitelist_pools;
+    whitelist = whitelist.iter().map(|item| format!("0x{item}")).collect();
+
+    tables
+        .create_row("Token", format!("0x{token_addr}"))
+        .set("symbol", &token.symbol)
+        .set("name", &token.name)
+        .set("decimals", token.decimals)
+        .set_bigint("totalSupply", &token.total_supply)
+        .set("volume", &bigdecimal0)
+        .set("volumeUSD", &bigdecimal0)
+        .set("untrackedVolumeUSD", &bigdecimal0)
+        .set("feesUSD", &bigdecimal0)
+        .set("txCount", &bigint0)
+        .set("poolCount", &bigint0)
+        .set("totalValueLocked", &bigdecimal0)
+        .set("totalValueLockedUSD", &bigdecimal0)
+        .set("totalValueLockedUSDUntracked", &bigdecimal0)
+        .set("derivedETH", &bigdecimal0)
+        .set("whitelistPools", &whitelist);
+}
+
+fn create_token_windows(
+    tables: &mut Tables,
+    table_name: &str,
+    time_id: i64,
+    token_day_time_id: &String,
+    token_addr: &str,
+) {
+    let row = tables
+        .update_row(table_name, token_day_time_id)
+        .set("token", format!("0x{}", token_addr.to_string()))
+        .set("volume", BigDecimal::zero())
+        .set("volumeUSD", BigDecimal::zero())
+        .set("volumeUSDUntracked", BigDecimal::zero()) // TODO: NEED TO SET THIS VALUE IN THE SUBSTREAMS
+        .set("totalValueLocked", BigDecimal::zero())
+        .set("totalValueLockedUSD", BigDecimal::zero())
+        .set("priceUSD", BigDecimal::zero())
+        .set("feesUSD", BigDecimal::zero())
+        .set("open", BigDecimal::zero())
+        .set("high", BigDecimal::zero())
+        .set("low", BigDecimal::zero())
+        .set("close", BigDecimal::zero());
+
+    match table_name {
+        "TokenDayData" => {
+            row.set("date", (time_id * 86400) as i32);
+        }
+        "TokenHourData" => {
+            row.set("periodStartUnix", (time_id * 3600) as i32);
+        }
+        _ => {}
     }
 }
 
@@ -382,33 +518,6 @@ pub fn whitelist_token_entity_change(tables: &mut Tables, tokens_whitelist_pools
     }
 }
 
-fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token) {
-    let bigdecimal0 = BigDecimal::from(0);
-    let bigint0 = BigInt::from(0);
-
-    let token_addr = &token.address;
-    let mut whitelist = token.clone().whitelist_pools;
-    whitelist = whitelist.iter().map(|item| format!("0x{item}")).collect();
-
-    tables
-        .create_row("Token", format!("0x{token_addr}"))
-        .set("symbol", &token.symbol)
-        .set("name", &token.name)
-        .set("decimals", token.decimals)
-        .set_bigint("totalSupply", &token.total_supply)
-        .set("volume", &bigdecimal0)
-        .set("volumeUSD", &bigdecimal0)
-        .set("untrackedVolumeUSD", &bigdecimal0)
-        .set("feesUSD", &bigdecimal0)
-        .set("txCount", &bigint0)
-        .set("poolCount", &bigint0)
-        .set("totalValueLocked", &bigdecimal0)
-        .set("totalValueLockedUSD", &bigdecimal0)
-        .set("totalValueLockedUSDUntracked", &bigdecimal0)
-        .set("derivedETH", &bigdecimal0)
-        .set("whitelistPools", &whitelist);
-}
-
 // --------------------
 //  Map Tick Entities
 // --------------------
@@ -419,11 +528,12 @@ pub fn create_tick_entity_change(tables: &mut Tables, ticks_created: &Vec<events
     for tick in ticks_created {
         let pool_address = &tick.pool_address;
         let tick_idx = &tick.idx;
+        let id = format!("0x{pool_address}#{tick_idx}");
 
         // We cannot determine when a new Tick is created. If a given tick idx was initialized
         // in the past. In the future the same tick idx can be re-used for an event.
         tables
-            .update_row("Tick", format!("0x{pool_address}#{tick_idx}"))
+            .update_row("Tick", &id)
             .set("poolAddress", format!("0x{}", &tick.pool_address))
             .set_bigint("tickIdx", &tick.idx)
             .set("pool", &format!("0x{pool_address}"))
@@ -587,8 +697,7 @@ pub fn position_create_entity_change(tables: &mut Tables, positions: &Vec<events
     for position in positions {
         let bigdecimal0 = BigDecimal::from(0);
         tables
-            .create_row("Position", position.token_id.clone().as_str())
-            .set("id", &position.token_id)
+            .create_row("Position", &position.token_id)
             .set("owner", &Hex(utils::ZERO_ADDRESS).to_string().into_bytes())
             .set("pool", format!("0x{}", &position.pool))
             .set("token0", format!("0x{}", position.token0))
@@ -708,7 +817,6 @@ pub fn snapshot_positions_create_entity_change(tables: &mut Tables, positions: &
 fn create_snapshot_position(tables: &mut Tables, id: &String, position: &events::CreatedPosition) {
     tables
         .create_row("PositionSnapshot", &id)
-        .set("id", id)
         .set("owner", &utils::ZERO_ADDRESS.to_vec())
         .set("pool", format!("0x{}", &position.pool))
         .set("position", &position.token_id)
@@ -904,9 +1012,9 @@ fn fetch_and_update_snapshot_position(
 // --------------------
 pub fn transaction_entity_change(tables: &mut Tables, transactions: Vec<events::Transaction>) {
     for transaction in transactions {
-        let id = transaction.id;
+        let id = format!("0x{}", transaction.id);
         tables
-            .update_row("Transaction", format!("0x{id}"))
+            .update_row("Transaction", &id)
             .set("blockNumber", transaction.block_number)
             .set("timestamp", transaction.timestamp)
             .set("gasUsed", transaction.gas_used)
@@ -1002,7 +1110,7 @@ pub fn swaps_mints_burns_created_entity_change(
                     );
 
                     tables
-                        .create_row("Mint", event_primary_key)
+                        .create_row("Mint", &event_primary_key)
                         .set("transaction", format!("0x{transaction_id}"))
                         .set("timestamp", pool_event.timestamp)
                         .set("pool", format!("0x{pool_address}"))
@@ -1164,7 +1272,8 @@ fn create_uniswap_day_data(tables: &mut Tables, day_id: i64, day_start_timestamp
 // -----------------------
 //  Map Pool Day/Hour Data
 // -----------------------
-pub fn create_entity_change_pool_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
+pub fn upsert_entity_change_pool_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
+    // We
     for delta in tx_count_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {
             "PoolDayData" => "PoolDayData",
@@ -1186,47 +1295,7 @@ pub fn create_entity_change_pool_windows(tables: &mut Tables, tx_count_deltas: &
         let pool_address = key::segment(&delta.key, 2);
 
         let pool_time_id = format!("0x{pool_address}-{time_id}");
-        create_pool_windows(tables, table_name, time_id, &pool_time_id, pool_address, delta);
-    }
-}
-
-fn create_pool_windows(
-    tables: &mut Tables,
-    table_name: &str,
-    time_id: i64,
-    pool_time_id: &String,
-    pool_addr: &str,
-    delta: &DeltaBigInt,
-) {
-    let row = tables
-        .create_row(table_name, pool_time_id)
-        .set("pool", format!("0x{}", pool_addr))
-        .set("liquidity", BigInt::zero())
-        .set("sqrtPrice", BigInt::zero())
-        .set("token0Price", BigDecimal::zero())
-        .set("token1Price", BigDecimal::zero())
-        .set("tick", BigInt::zero())
-        .set("feeGrowthGlobal0X128", BigInt::zero())
-        .set("feeGrowthGlobal1X128", BigInt::zero())
-        .set("totalValueLockedUSD", BigDecimal::zero())
-        .set("volumeToken0", BigDecimal::zero())
-        .set("volumeToken1", BigDecimal::zero())
-        .set("volumeUSD", BigDecimal::zero())
-        .set("feesUSD", BigDecimal::zero())
-        .set("txCount", &delta.new_value)
-        .set("open", BigDecimal::zero())
-        .set("high", BigDecimal::zero())
-        .set("low", BigDecimal::zero())
-        .set("close", BigDecimal::zero());
-
-    match table_name {
-        "PoolDayData" => {
-            row.set("date", (time_id * 86400) as i32);
-        }
-        "PoolHourData" => {
-            row.set("periodStartUnix", (time_id * 3600) as i32);
-        }
-        _ => {}
+        create_pool_windows(tables, table_name, time_id, &pool_time_id, pool_address);
     }
 }
 
@@ -1594,7 +1663,7 @@ pub fn total_value_locked_usd_pool_windows(tables: &mut Tables, derived_tvl_delt
 // ---------------------------------
 //  Map Token Day/Hour Data Entities
 // ---------------------------------
-pub fn create_entity_change_token_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
+pub fn upsert_entity_change_token_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
     for delta in tx_count_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {
             "TokenDayData" => "TokenDayData",
@@ -1617,39 +1686,6 @@ pub fn create_entity_change_token_windows(tables: &mut Tables, tx_count_deltas: 
 
         let token_time_id = format!("0x{token_address}-{time_id}");
         create_token_windows(tables, table_name, time_id, &token_time_id, token_address);
-    }
-}
-
-fn create_token_windows(
-    tables: &mut Tables,
-    table_name: &str,
-    time_id: i64,
-    token_day_time_id: &String,
-    token_addr: &str,
-) {
-    let row = tables
-        .create_row(table_name, token_day_time_id)
-        .set("token", format!("0x{}", token_addr.to_string()))
-        .set("volume", BigDecimal::zero())
-        .set("volumeUSD", BigDecimal::zero())
-        .set("volumeUSDUntracked", BigDecimal::zero()) // TODO: NEED TO SET THIS VALUE IN THE SUBSTREAMS
-        .set("totalValueLocked", BigDecimal::zero())
-        .set("totalValueLockedUSD", BigDecimal::zero())
-        .set("priceUSD", BigDecimal::zero())
-        .set("feesUSD", BigDecimal::zero())
-        .set("open", BigDecimal::zero())
-        .set("high", BigDecimal::zero())
-        .set("low", BigDecimal::zero())
-        .set("close", BigDecimal::zero());
-
-    match table_name {
-        "TokenDayData" => {
-            row.set("date", (time_id * 86400) as i32);
-        }
-        "TokenHourData" => {
-            row.set("periodStartUnix", (time_id * 3600) as i32);
-        }
-        _ => {}
     }
 }
 

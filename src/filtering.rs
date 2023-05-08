@@ -152,6 +152,10 @@ pub fn extract_pool_events_and_positions(
         });
 
         if let Some(position_manager_contract_call) = call_view.parent() {
+            if position_manager_contract_call.address != NON_FUNGIBLE_POSITION_MANAGER {
+                return;
+            }
+
             let uniswap_pool_manager_storage = PositionManagerStorage::new(
                 &position_manager_contract_call.storage_changes,
                 &position_manager_contract_call.address,
