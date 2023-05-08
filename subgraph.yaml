@@ -1,4 +1,4 @@
-specVersion: 0.0.4
+specVersion: 0.0.6
 description: Ethereum Uniswap V3 Subgraph (powered by StreamingFast Substreams)
 repository: https://github.com/streamingfast/substreams-uniswap-v3.git
 schema:
