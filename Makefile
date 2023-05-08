@@ -9,6 +9,10 @@ build:
 stream: build
 	substreams run -e $(ENDPOINT) substreams.yaml map_extract_data_types -s 12369621 -t +1000
 
+.PHONY: graph_out
+graph_out: build
+	substreams run -e $(ENDPOINT) substreams.yaml graph_out -s 12369621 -t +1000
+
 .PHONY: protogen
 protogen:
 	substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google"
