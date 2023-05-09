@@ -1367,7 +1367,12 @@ pub fn graph_out(
     );
 
     // Token Day/Hour data:
-    db::token_windows_create(&mut tables, &tokens_store_deltas, &tx_count_deltas);
+    db::token_windows_create(
+        &mut tables,
+        &pool_sqrt_price_deltas,
+        &tokens_store_deltas,
+        &tx_count_deltas,
+    );
     db::token_windows_update(
         &mut tables,
         timestamp,
