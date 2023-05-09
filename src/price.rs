@@ -1,4 +1,4 @@
-use crate::{keyer, math, Erc20Token, Pool};
+use crate::{math, Erc20Token, Pool};
 use std::ops::{Div, Mul};
 use std::str;
 use std::str::FromStr;
@@ -98,7 +98,7 @@ pub fn find_eth_per_token(
         price_so_far = math::safe_div(&BigDecimal::one(), &eth_price_usd);
     } else {
         // TODO: @eduard change this once the changes for store of list has been merged
-        let wl = match tokens_whitelist_pools_store.get_last(&keyer::token_pool_whitelist(token_address)) {
+        let wl = match tokens_whitelist_pools_store.get_last(&format!("token:{token_address}")) {
             None => {
                 log::debug!("failed to get whitelisted pools for token {}", token_address);
                 return BigDecimal::zero();
@@ -258,13 +258,7 @@ pub fn find_eth_per_token(
 }
 
 pub fn get_eth_price_in_usd(prices_store: &StoreGetBigDecimal, ordinal: u64) -> BigDecimal {
-    // USDC is the token0 in this pool kinda same point as
-    // mentioned earlier, token0 hard-coded is not clean
-    let key = keyer::prices_pool_token_key(
-        &USDC_WETH_03_POOL.to_string(),
-        &USDC_ADDRESS.to_string(),
-        "token0".to_string(),
-    );
+    let key = format!("pool:{}:{}:{}", USDC_WETH_03_POOL, USDC_ADDRESS, "token0");
     return match prices_store.get_at(ordinal, &key) {
         None => {
             log::debug!("price not found");

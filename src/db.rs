@@ -3,8 +3,8 @@ use substreams::pb::substreams::store_delta;
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal, StoreGetBigInt,
-    StoreGetProto,
+    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaInt64, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
+    StoreGetBigInt, StoreGetProto,
 };
 use substreams::{log, Hex};
 
@@ -109,6 +109,8 @@ pub fn tvl_factory_entity_change(tables: &mut Tables, derived_factory_tvl_deltas
 // -------------------
 //  Map Pool Entities
 // -------------------
+
+// This also creates PoolDayData and PoolHourData.
 pub fn pools_created_pool_entity_changes(tables: &mut Tables, timestamp: i64, pools: &Pools) {
     let day_id = timestamp / 86400;
     let hour_id = timestamp / 3600;
@@ -119,8 +121,6 @@ pub fn pools_created_pool_entity_changes(tables: &mut Tables, timestamp: i64, po
 
         // This will take care of use-cases where a pool is created and or initialized in the
         // same transaction but there were no mint/burn/swaps.
-        //TODO: extract the PoolSqrtPrices and the PoolEvents and filter by the ordinal to
-        // better iron out the create vs update operations.
         create_pool_windows(
             tables,
             "PoolDayData",
@@ -327,15 +327,7 @@ pub fn swap_volume_pool_entity_change(tables: &mut Tables, swaps_volume_deltas: 
 // --------------------
 //  Map Token Entities
 // --------------------
-pub fn tokens_created_token_entity_changes(
-    tables: &mut Tables,
-    timestamp: i64,
-    pools: &Pools,
-    tokens_store: StoreGetInt64,
-) {
-    let day_id = timestamp / 86400;
-    let hour_id = timestamp / 3600;
-
+pub fn tokens_created_token_entity_changes(tables: &mut Tables, pools: &Pools, tokens_store: StoreGetInt64) {
     for pool in &pools.pools {
         let ord = pool.log_ordinal;
         let pool_address = &pool.address;
@@ -345,11 +337,6 @@ pub fn tokens_created_token_entity_changes(
             Some(value) => {
                 if value.eq(&1) {
                     add_token_entity_change(tables, pool.token0_ref());
-
-                    let token_day_id = format!("0x{token0_addr}-{day_id}");
-                    let token_hour_id = format!("0x{token0_addr}-{hour_id}");
-                    create_token_windows(tables, "TokenDayData", day_id, &token_day_id, token0_addr);
-                    create_token_windows(tables, "TokenHourData", hour_id, &token_hour_id, token0_addr);
                 }
             }
             None => {
@@ -361,11 +348,6 @@ pub fn tokens_created_token_entity_changes(
             Some(value) => {
                 if value.eq(&1) {
                     add_token_entity_change(tables, pool.token1_ref());
-
-                    let token_day_id = format!("0x{token1_addr}-{day_id}");
-                    let token_hour_id = format!("0x{token1_addr}-{hour_id}");
-                    create_token_windows(tables, "TokenDayData", day_id, &token_day_id, token1_addr);
-                    create_token_windows(tables, "TokenHourData", hour_id, &token_hour_id, token1_addr);
                 }
             }
             None => {
@@ -1272,8 +1254,44 @@ fn create_uniswap_day_data(tables: &mut Tables, day_id: i64, day_start_timestamp
 // -----------------------
 //  Map Pool Day/Hour Data
 // -----------------------
+
+// We can't precisely send a create for a PoolDayData and a PoolHourData as a PoolCreated event
+// can be emitted at trx 0xaa and when we would get a initialized in another trx. We need to
+// know when we get the initialized and send an update entity change with all the fields. This
+// means that at worst case, we will be getting 3 times a update with all the fields when a pool
+// is created then initialized and the minted in the same transactions.
+pub fn upsert_initialized_entity_change_pool_windows(
+    tables: &mut Tables,
+    pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
+) {
+    for delta in pool_sqrt_price_deltas.deltas.iter() {
+        let table_name = match key::first_segment(&delta.key) {
+            "PoolDayData" => "PoolDayData",
+            "PoolHourData" => "PoolHourData",
+            _ => continue,
+        };
+
+        if !delta.new_value.initialized {
+            continue;
+        }
+
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let time_id = key::segment(&delta.key, 1).parse::<i64>().unwrap();
+        let pool_address = key::segment(&delta.key, 2);
+
+        let pool_time_id = format!("0x{pool_address}-{time_id}");
+        create_pool_windows(tables, table_name, time_id, &pool_time_id, pool_address);
+    }
+}
+
+// See above `upsert_initialized_entity_change_pool_windows` info. Also we have to send the update for
+// the PoolDayData or the PoolHourData when we get the first pool event on a new day_id or hour_id
 pub fn upsert_entity_change_pool_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
-    // We
     for delta in tx_count_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {
             "PoolDayData" => "PoolDayData",
@@ -1663,6 +1681,36 @@ pub fn total_value_locked_usd_pool_windows(tables: &mut Tables, derived_tvl_delt
 // ---------------------------------
 //  Map Token Day/Hour Data Entities
 // ---------------------------------
+
+// This will take care of the tokens that have never been seen within a pool in the past
+pub fn create_entity_change_token_windows(tables: &mut Tables, tokens_store_deltas: &Deltas<DeltaInt64>) {
+    for delta in tokens_store_deltas.deltas.iter() {
+        let table_name = match key::first_segment(&delta.key) {
+            "TokenDayData" => "TokenDayData",
+            "TokenHourData" => "TokenHourData",
+            _ => continue,
+        };
+
+        if !delta.new_value == 1 {
+            continue;
+        }
+
+        if delta.operation == store_delta::Operation::Delete {
+            // TODO: need to fix the delete operation
+            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
+            continue;
+        }
+
+        let time_id = key::segment(&delta.key, 1).parse::<i64>().unwrap();
+        let token_address = key::segment(&delta.key, 2);
+
+        let token_time_id = format!("0x{token_address}-{time_id}");
+        create_token_windows(tables, table_name, time_id, &token_time_id, token_address);
+    }
+}
+
+// This will take care of the tokens that will have seen their transaction count increase but that were
+// already created in the past
 pub fn upsert_entity_change_token_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
     for delta in tx_count_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {

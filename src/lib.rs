@@ -6,7 +6,6 @@ mod db;
 mod eth;
 mod filtering;
 mod key;
-mod keyer;
 mod math;
 mod pb;
 mod price;
@@ -122,15 +121,18 @@ pub fn store_tokens(clock: Clock, pools: Pools, store: StoreAddInt64) {
     store.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
     for pool in pools.pools {
+        let token0_addr = pool.token0_ref().address();
+        let token1_addr = pool.token1_ref().address();
+
         store.add_many(
             pool.log_ordinal,
             &vec![
-                keyer::token_key(&pool.token0_ref().address()),
-                keyer::token_key(&pool.token1_ref().address()),
-                keyer::token_day_data_token_key(&pool.token0_ref().address(), day_id.to_string()),
-                keyer::token_day_data_token_key(&pool.token1_ref().address(), day_id.to_string()),
-                keyer::token_hour_data_token_key(&pool.token0_ref().address(), hour_id.to_string()),
-                keyer::token_hour_data_token_key(&pool.token1_ref().address(), hour_id.to_string()),
+                format!("token:{token0_addr}"),
+                format!("token:{token1_addr}"),
+                format!("TokenDayData:{day_id}:{token0_addr}"),
+                format!("TokenDayData:{day_id}:{token1_addr}"),
+                format!("TokenHourData:{hour_id}:{token0_addr}"),
+                format!("TokenHourData:{hour_id}:{token1_addr}"),
             ],
             1,
         );
@@ -174,7 +176,7 @@ pub fn map_tokens_whitelist_pools(pools: Pools) -> Result<Erc20Tokens, Error> {
 #[substreams::handlers::store]
 pub fn store_tokens_whitelist_pools(tokens: Erc20Tokens, output_append: StoreAppend<String>) {
     for token in tokens.tokens {
-        output_append.append_all(1, keyer::token_pool_whitelist(&token.address), token.whitelist_pools);
+        output_append.append_all(1, format!("token:{}", token.address), token.whitelist_pools);
     }
 }
 
@@ -810,7 +812,7 @@ pub fn store_derived_tvl(
             Some(price) => price.with_prec(100),
         };
 
-        let pool = pools_store.must_get_last(keyer::pool_key(&pool_event.pool_address));
+        let pool = pools_store.must_get_last(format!("pool:{}", pool_event.pool_address));
         let pool_address = &pool_event.pool_address;
         let token0_addr = &pool.token0.as_ref().unwrap().address();
         let token1_addr = &pool.token1.as_ref().unwrap().address();
@@ -1230,6 +1232,7 @@ pub fn graph_out(
     price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
     store_prices: StoreGetBigDecimal,                    /* store_prices */
     tokens_store: StoreGetInt64,                         /* store_tokens */
+    tokens_store_deltas: Deltas<DeltaInt64>,             /* store_tokens */
     tokens_whitelist_pools_deltas: Deltas<DeltaArray<String>>, /* store_tokens_whitelist_pools */
     derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
@@ -1259,7 +1262,7 @@ pub fn graph_out(
     db::tvl_factory_entity_change(&mut tables, &derived_factory_tvl_deltas);
 
     // Pool:
-    db::pools_created_pool_entity_changes(&mut tables, timestamp, &pools_created); // creates also PoolDayData and PoolHourData
+    db::pools_created_pool_entity_changes(&mut tables, timestamp, &pools_created);
     db::sqrt_price_and_tick_pool_entity_change(&mut tables, &pool_sqrt_price_deltas);
     db::liquidities_pool_entity_change(&mut tables, &pool_liquidities_store_deltas);
     db::fee_growth_global_pool_entity_change(&mut tables, &events.fee_growth_global_updates);
@@ -1270,7 +1273,7 @@ pub fn graph_out(
     db::swap_volume_pool_entity_change(&mut tables, &swaps_volume_deltas);
 
     // Tokens:
-    db::tokens_created_token_entity_changes(&mut tables, timestamp, &pools_created, tokens_store); // creates also TokenDayData and TokenHourData
+    db::tokens_created_token_entity_changes(&mut tables, &pools_created, tokens_store);
     db::swap_volume_token_entity_change(&mut tables, &swaps_volume_deltas);
     db::tx_count_token_entity_change(&mut tables, &tx_count_deltas);
     db::total_value_locked_by_token_token_entity_change(&mut tables, &token_tvl_deltas);
@@ -1336,6 +1339,7 @@ pub fn graph_out(
     db::volumes_uniswap_day_data_entity_change(&mut tables, &swaps_volume_deltas);
 
     // Pool Day/Hour data:
+    db::upsert_initialized_entity_change_pool_windows(&mut tables, &pool_sqrt_price_deltas);
     db::upsert_entity_change_pool_windows(&mut tables, &tx_count_deltas);
     db::tx_count_pool_windows(&mut tables, &tx_count_deltas);
     db::mint_burn_prices_pool_windows(&mut tables, timestamp, &events.pool_events, &store_prices);
@@ -1350,6 +1354,7 @@ pub fn graph_out(
     db::total_value_locked_usd_pool_windows(&mut tables, &derived_tvl_deltas);
 
     // Token Day/Hour data:
+    db::create_entity_change_token_windows(&mut tables, &tokens_store_deltas);
     db::upsert_entity_change_token_windows(&mut tables, &tx_count_deltas);
     db::swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
     db::total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);

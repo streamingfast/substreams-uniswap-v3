@@ -365,6 +365,7 @@ pub fn extract_pool_sqrt_prices(pool_sqrt_prices: &mut Vec<events::PoolSqrtPrice
             ordinal: log.ordinal,
             sqrt_price: event.sqrt_price_x96.into(),
             tick: event.tick.into(),
+            initialized: true,
         });
     } else if let Some(event) = abi::pool::events::Swap::match_and_decode(log) {
         pool_sqrt_prices.push(events::PoolSqrtPrice {
@@ -372,6 +373,7 @@ pub fn extract_pool_sqrt_prices(pool_sqrt_prices: &mut Vec<events::PoolSqrtPrice
             ordinal: log.ordinal,
             sqrt_price: event.sqrt_price_x96.to_string(),
             tick: event.tick.to_string(),
+            initialized: false,
         });
     }
 }

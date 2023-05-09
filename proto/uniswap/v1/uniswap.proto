@@ -120,6 +120,7 @@ message Events {
     string sqrt_price = 3;
     // Integer
     string tick = 4;
+    bool initialized = 5;
   }
 
   message PoolEvent {
