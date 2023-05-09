@@ -347,7 +347,7 @@ pub fn extract_fee_growth_update(
         }
         do_extract = true;
     } else if let Some(_) = abi::pool::events::Flash::match_and_decode(&log) {
-        do_extract = true;
+        do_extract = false; //TODO: handle this later when we process flashes
     }
     if do_extract {
         fee_growth_updates.append(&mut utils::extract_pool_fee_growth_global_updates(
