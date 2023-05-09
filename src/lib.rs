@@ -22,7 +22,7 @@ use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as Mi
 use crate::pb::uniswap::events::position_event::Type::{
     CollectPosition, CreatedPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, TransferPosition,
 };
-use crate::pb::uniswap::events::PositionEvent;
+use crate::pb::uniswap::events::{PoolSqrtPrice, PositionEvent};
 use crate::pb::uniswap::{events, Events};
 use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, Pools};
 use crate::price::WHITELIST_TOKENS;
@@ -811,6 +811,7 @@ pub fn store_derived_tvl(
             None => continue,
             Some(price) => price.with_prec(100),
         };
+        log::info!("eth_price_usd {}", eth_price_usd);
 
         let pool = pools_store.must_get_last(format!("pool:{}", pool_event.pool_address));
         let pool_address = &pool_event.pool_address;
@@ -906,6 +907,12 @@ pub fn store_derived_tvl(
     }
 }
 
+/*
+    trx0xaa -> PoolCreated
+    trx0xbb -> Initialize -- 17 PoolDayData/PoolHourData
+    trx0xcc -> Mint -- 18
+*/
+
 #[substreams::handlers::store]
 pub fn store_derived_factory_tvl(
     clock: Clock,
@@ -926,6 +933,7 @@ pub fn store_derived_factory_tvl(
 
         log::info!("delta diff {}", delta_diff);
 
+        // why do we calculate the diff
         match key::last_segment(&delta.key) {
             "totalValueLockedETH" => {
                 log::info!("adding factory:totalValueLockedETH {}", delta_diff);
@@ -1262,7 +1270,7 @@ pub fn graph_out(
     db::tvl_factory_entity_change(&mut tables, &derived_factory_tvl_deltas);
 
     // Pool:
-    db::pools_created_pool_entity_changes(&mut tables, timestamp, &pools_created);
+    db::pools_created_pool_entity_changes(&mut tables, &pools_created);
     db::sqrt_price_and_tick_pool_entity_change(&mut tables, &pool_sqrt_price_deltas);
     db::liquidities_pool_entity_change(&mut tables, &pool_liquidities_store_deltas);
     db::fee_growth_global_pool_entity_change(&mut tables, &events.fee_growth_global_updates);
@@ -1323,7 +1331,7 @@ pub fn graph_out(
     );
 
     // Transaction:
-    db::transaction_entity_change(&mut tables, events.transactions);
+    db::transaction_entity_change(&mut tables, &events.transactions);
 
     // Swap, Mint, Burn:
     db::swaps_mints_burns_created_entity_change(&mut tables, &events.pool_events, tx_count_store, store_eth_prices);
@@ -1333,36 +1341,43 @@ pub fn graph_out(
     // db::flashes_update_pool_fee_entity_change(&mut tables, events.flashes);
 
     // Uniswap day data:
-    db::uniswap_day_data_create_entity_change(&mut tables, &tx_count_deltas);
-    db::tx_count_uniswap_day_data_entity_change(&mut tables, &tx_count_deltas);
-    db::totals_uniswap_day_data_entity_change(&mut tables, &derived_factory_tvl_deltas);
-    db::volumes_uniswap_day_data_entity_change(&mut tables, &swaps_volume_deltas);
+    db::uniswap_day_data_create(&mut tables, &tx_count_deltas);
+    db::uniswap_day_data_update(
+        &mut tables,
+        &swaps_volume_deltas,
+        &derived_factory_tvl_deltas,
+        &tx_count_deltas,
+    );
 
     // Pool Day/Hour data:
-    db::upsert_initialized_entity_change_pool_windows(&mut tables, &pool_sqrt_price_deltas);
-    db::upsert_entity_change_pool_windows(&mut tables, &tx_count_deltas);
-    db::tx_count_pool_windows(&mut tables, &tx_count_deltas);
-    db::mint_burn_prices_pool_windows(&mut tables, timestamp, &events.pool_events, &store_prices);
-    db::prices_pool_windows(&mut tables, &price_deltas);
-    db::prices_min_pool_windows(&mut tables, &min_windows_deltas);
-    db::prices_max_pool_windows(&mut tables, &max_windows_deltas);
-    db::prices_close_pool_windows(&mut tables, &price_deltas);
-    db::liquidities_and_sqrt_tick_pool_windows(&mut tables, &pool_liquidities_store_deltas, &pool_sqrt_price_store);
-    db::sqrt_price_and_tick_pool_windows(&mut tables, &pool_sqrt_price_deltas);
-    db::swap_volume_pool_windows(&mut tables, &swaps_volume_deltas);
-    db::fee_growth_global_x128_pool_windows(&mut tables, timestamp, &events.fee_growth_global_updates);
-    db::total_value_locked_usd_pool_windows(&mut tables, &derived_tvl_deltas);
+    db::pool_windows_create(&mut tables, &pool_sqrt_price_deltas, &tx_count_deltas);
+    db::pool_windows_update(
+        &mut tables,
+        timestamp,
+        &tx_count_deltas,
+        &swaps_volume_deltas,
+        &events,
+        &pool_sqrt_price_store,
+        &pool_liquidities_store_deltas,
+        &price_deltas,
+        &store_prices,
+        &derived_tvl_deltas,
+        &min_windows_deltas,
+        &max_windows_deltas,
+    );
 
     // Token Day/Hour data:
-    db::create_entity_change_token_windows(&mut tables, &tokens_store_deltas);
-    db::upsert_entity_change_token_windows(&mut tables, &tx_count_deltas);
-    db::swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
-    db::total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
-    db::total_value_locked_token_windows(&mut tables, timestamp, &token_tvl_deltas);
-    db::total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
-    db::prices_min_token_windows(&mut tables, &min_windows_deltas);
-    db::prices_max_token_windows(&mut tables, &max_windows_deltas);
-    db::prices_close_token_windows(&mut tables, &derived_eth_prices_deltas);
+    db::token_windows_create(&mut tables, &tokens_store_deltas, &tx_count_deltas);
+    db::token_windows_update(
+        &mut tables,
+        timestamp,
+        &swaps_volume_deltas,
+        &derived_tvl_deltas,
+        &min_windows_deltas,
+        &max_windows_deltas,
+        &derived_eth_prices_deltas,
+        &token_tvl_deltas,
+    );
 
     Ok(tables.to_entity_changes())
 }

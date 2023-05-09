@@ -11,7 +11,7 @@ use substreams::{log, Hex};
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::position_event::Type;
 use crate::pb::uniswap::events::{IncreaseLiquidityPosition, PoolSqrtPrice, PositionEvent};
-use crate::pb::uniswap::{events, Pool};
+use crate::pb::uniswap::{events, Events, Pool};
 use crate::tables::Tables;
 use crate::uniswap::{Erc20Token, Pools};
 use crate::{key, utils};
@@ -109,32 +109,9 @@ pub fn tvl_factory_entity_change(tables: &mut Tables, derived_factory_tvl_deltas
 // -------------------
 //  Map Pool Entities
 // -------------------
-
-// This also creates PoolDayData and PoolHourData.
-pub fn pools_created_pool_entity_changes(tables: &mut Tables, timestamp: i64, pools: &Pools) {
-    let day_id = timestamp / 86400;
-    let hour_id = timestamp / 3600;
-
+pub fn pools_created_pool_entity_changes(tables: &mut Tables, pools: &Pools) {
     for pool in &pools.pools {
-        let pool_address = &pool.address;
         create_pool(tables, pool);
-
-        // This will take care of use-cases where a pool is created and or initialized in the
-        // same transaction but there were no mint/burn/swaps.
-        create_pool_windows(
-            tables,
-            "PoolDayData",
-            day_id,
-            &format!("0x{pool_address}-{day_id}"),
-            pool_address,
-        );
-        create_pool_windows(
-            tables,
-            "PoolHourData",
-            hour_id,
-            &format!("0x{pool_address}-{hour_id}"),
-            pool_address,
-        );
     }
 }
 
@@ -174,7 +151,13 @@ fn create_pool(tables: &mut Tables, pool: &Pool) {
         .set("liquidityProviderCount", &bigint0);
 }
 
-fn create_pool_windows(tables: &mut Tables, table_name: &str, time_id: i64, pool_time_id: &String, pool_addr: &str) {
+fn create_pool_windows_entity(
+    tables: &mut Tables,
+    table_name: &str,
+    time_id: i64,
+    pool_time_id: &String,
+    pool_addr: &str,
+) {
     let row = tables
         .update_row(table_name, pool_time_id)
         .set("pool", format!("0x{}", pool_addr))
@@ -384,7 +367,7 @@ fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token) {
         .set("whitelistPools", &whitelist);
 }
 
-fn create_token_windows(
+fn create_token_windows_entity(
     tables: &mut Tables,
     table_name: &str,
     time_id: i64,
@@ -992,7 +975,7 @@ fn fetch_and_update_snapshot_position(
 // --------------------
 //  Map Transaction Entities
 // --------------------
-pub fn transaction_entity_change(tables: &mut Tables, transactions: Vec<events::Transaction>) {
+pub fn transaction_entity_change(tables: &mut Tables, transactions: &Vec<events::Transaction>) {
     for transaction in transactions {
         let id = format!("0x{}", transaction.id);
         tables
@@ -1164,7 +1147,22 @@ pub fn swaps_mints_burns_created_entity_change(
 // --------------------
 //  Map Uniswap Day Data Entities
 // --------------------
-pub fn uniswap_day_data_create_entity_change(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
+pub fn uniswap_day_data_create(mut tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
+    uniswap_day_data_create_entity(&mut tables, &tx_count_deltas);
+}
+
+pub fn uniswap_day_data_update(
+    mut tables: &mut Tables,
+    swaps_volume_deltas: &Deltas<DeltaBigDecimal>,
+    derived_factory_tvl_deltas: &Deltas<DeltaBigDecimal>,
+    tx_count_deltas: &Deltas<DeltaBigInt>,
+) {
+    tx_count_uniswap_day_data_update(&mut tables, &tx_count_deltas);
+    totals_uniswap_day_data_update(&mut tables, &derived_factory_tvl_deltas);
+    volumes_uniswap_day_data_update(&mut tables, &swaps_volume_deltas);
+}
+
+pub fn uniswap_day_data_create_entity(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
     for delta in key::filter_first_segment_eq(tx_count_deltas, "UniswapDayData") {
         if !delta.new_value.eq(&BigInt::one()) {
             continue;
@@ -1182,7 +1180,7 @@ pub fn uniswap_day_data_create_entity_change(tables: &mut Tables, tx_count_delta
     }
 }
 
-pub fn tx_count_uniswap_day_data_entity_change(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
+pub fn tx_count_uniswap_day_data_update(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
     for delta in key::filter_first_segment_eq(tx_count_deltas, "UniswapDayData") {
         if delta.operation == store_delta::Operation::Delete {
             // TODO: need to fix the delete operation
@@ -1198,10 +1196,7 @@ pub fn tx_count_uniswap_day_data_entity_change(tables: &mut Tables, tx_count_del
     }
 }
 
-pub fn totals_uniswap_day_data_entity_change(
-    tables: &mut Tables,
-    derived_factory_tvl_deltas: &Deltas<DeltaBigDecimal>,
-) {
+pub fn totals_uniswap_day_data_update(tables: &mut Tables, derived_factory_tvl_deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(derived_factory_tvl_deltas, "UniswapDayData") {
         if delta.operation == store_delta::Operation::Delete {
             // TODO: need to fix the delete operation
@@ -1217,7 +1212,7 @@ pub fn totals_uniswap_day_data_entity_change(
     }
 }
 
-pub fn volumes_uniswap_day_data_entity_change(tables: &mut Tables, swaps_volume_deltas: &Deltas<DeltaBigDecimal>) {
+pub fn volumes_uniswap_day_data_update(tables: &mut Tables, swaps_volume_deltas: &Deltas<DeltaBigDecimal>) {
     for delta in key::filter_first_segment_eq(swaps_volume_deltas, "UniswapDayData") {
         let day_id = key::segment(&delta.key, 1);
 
@@ -1254,13 +1249,21 @@ fn create_uniswap_day_data(tables: &mut Tables, day_id: i64, day_start_timestamp
 // -----------------------
 //  Map Pool Day/Hour Data
 // -----------------------
+pub fn pool_windows_create(
+    tables: &mut Tables,
+    pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
+    tx_count_deltas: &Deltas<DeltaBigInt>,
+) {
+    upsert_initialized_pool_windows(tables, pool_sqrt_price_deltas);
+    upsert_entity_change_pool_windows(tables, tx_count_deltas);
+}
 
 // We can't precisely send a create for a PoolDayData and a PoolHourData as a PoolCreated event
 // can be emitted at trx 0xaa and when we would get a initialized in another trx. We need to
 // know when we get the initialized and send an update entity change with all the fields. This
 // means that at worst case, we will be getting 3 times a update with all the fields when a pool
 // is created then initialized and the minted in the same transactions.
-pub fn upsert_initialized_entity_change_pool_windows(
+pub fn upsert_initialized_pool_windows(
     tables: &mut Tables,
     pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
 ) {
@@ -1285,7 +1288,7 @@ pub fn upsert_initialized_entity_change_pool_windows(
         let pool_address = key::segment(&delta.key, 2);
 
         let pool_time_id = format!("0x{pool_address}-{time_id}");
-        create_pool_windows(tables, table_name, time_id, &pool_time_id, pool_address);
+        create_pool_windows_entity(tables, table_name, time_id, &pool_time_id, pool_address);
     }
 }
 
@@ -1313,8 +1316,35 @@ pub fn upsert_entity_change_pool_windows(tables: &mut Tables, tx_count_deltas: &
         let pool_address = key::segment(&delta.key, 2);
 
         let pool_time_id = format!("0x{pool_address}-{time_id}");
-        create_pool_windows(tables, table_name, time_id, &pool_time_id, pool_address);
+        create_pool_windows_entity(tables, table_name, time_id, &pool_time_id, pool_address);
     }
+}
+
+pub fn pool_windows_update(
+    mut tables: &mut Tables,
+    timestamp: i64,
+    tx_count_deltas: &Deltas<DeltaBigInt>,
+    swaps_volume_deltas: &Deltas<DeltaBigDecimal>,
+    events: &Events,
+    pool_sqrt_price_store: &StoreGetProto<PoolSqrtPrice>,
+    pool_liquidities_store_deltas: &Deltas<DeltaBigInt>,
+    price_deltas: &Deltas<DeltaBigDecimal>,
+    store_prices: &StoreGetBigDecimal,
+    derived_tvl_deltas: &Deltas<DeltaBigDecimal>,
+    min_windows_deltas: &Deltas<DeltaBigDecimal>,
+    max_windows_deltas: &Deltas<DeltaBigDecimal>,
+) {
+    tx_count_pool_windows(&mut tables, &tx_count_deltas);
+    mint_burn_prices_pool_windows(&mut tables, timestamp, &events.pool_events, &store_prices);
+    prices_pool_windows(&mut tables, &price_deltas);
+    prices_min_pool_windows(&mut tables, &min_windows_deltas);
+    prices_max_pool_windows(&mut tables, &max_windows_deltas);
+    prices_close_pool_windows(&mut tables, &price_deltas);
+    liquidities_and_sqrt_tick_pool_windows(&mut tables, &pool_liquidities_store_deltas, &pool_sqrt_price_store);
+    sqrt_price_and_tick_pool_windows(&mut tables, timestamp, &pool_sqrt_price_store, &events.pool_events);
+    swap_volume_pool_windows(&mut tables, &swaps_volume_deltas);
+    fee_growth_global_x128_pool_windows(&mut tables, timestamp, &events.fee_growth_global_updates);
+    total_value_locked_usd_pool_windows(&mut tables, &derived_tvl_deltas);
 }
 
 pub fn tx_count_pool_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
@@ -1561,31 +1591,33 @@ pub fn liquidities_and_sqrt_tick_pool_windows(
 
 pub fn sqrt_price_and_tick_pool_windows(
     tables: &mut Tables,
-    pool_sqrt_price_deltas: &Deltas<DeltaProto<events::PoolSqrtPrice>>,
+    timestamp: i64,
+    pool_sqrt_price_store: &StoreGetProto<PoolSqrtPrice>,
+    pool_events: &Vec<events::PoolEvent>,
 ) {
-    for delta in pool_sqrt_price_deltas.deltas.iter() {
-        let table_name = match key::first_segment(&delta.key) {
-            "PoolDayData" => "PoolDayData",
-            "PoolHourData" => "PoolHourData",
-            _ => continue,
-        };
+    let day_id = timestamp / 86400;
+    let hour_id = timestamp / 3600;
 
-        if delta.operation == store_delta::Operation::Delete {
-            // TODO: need to fix the delete operation
-            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
-            continue;
+    for pool_event in pool_events {
+        let pool_address = &pool_event.pool_address;
+
+        match pool_sqrt_price_store.get_last(format!("pool:{pool_address}")) {
+            None => continue,
+            Some(pool_sqrt_price) => {
+                let sqrt_price = BigInt::try_from(pool_sqrt_price.sqrt_price).unwrap();
+                let tick = BigInt::try_from(pool_sqrt_price.tick).unwrap();
+
+                tables
+                    .update_row("PoolDayData", format!("0x{pool_address}-{day_id}"))
+                    .set("sqrtPrice", &sqrt_price)
+                    .set("tick", &tick);
+
+                tables
+                    .update_row("PoolHourData", format!("0x{pool_address}-{hour_id}"))
+                    .set("sqrtPrice", sqrt_price)
+                    .set("tick", tick);
+            }
         }
-
-        let time_id = key::segment(&delta.key, 1);
-        let pool_address = key::segment(&delta.key, 2);
-
-        let sqrt_price = BigInt::try_from(&delta.new_value.sqrt_price).unwrap();
-        let tick = BigInt::try_from(&delta.new_value.tick).unwrap();
-
-        tables
-            .update_row(table_name, format!("0x{pool_address}-{time_id}"))
-            .set("sqrtPrice", sqrt_price)
-            .set("tick", tick);
     }
 }
 
@@ -1681,6 +1713,33 @@ pub fn total_value_locked_usd_pool_windows(tables: &mut Tables, derived_tvl_delt
 // ---------------------------------
 //  Map Token Day/Hour Data Entities
 // ---------------------------------
+pub fn token_windows_create(
+    mut tables: &mut Tables,
+    tokens_store_deltas: &Deltas<DeltaInt64>,
+    tx_count_deltas: &Deltas<DeltaBigInt>,
+) {
+    create_entity_change_token_windows(&mut tables, &tokens_store_deltas);
+    upsert_entity_change_token_windows(&mut tables, &tx_count_deltas);
+}
+
+pub fn token_windows_update(
+    mut tables: &mut Tables,
+    timestamp: i64,
+    swaps_volume_deltas: &Deltas<DeltaBigDecimal>,
+    derived_tvl_deltas: &Deltas<DeltaBigDecimal>,
+    min_windows_deltas: &Deltas<DeltaBigDecimal>,
+    max_windows_deltas: &Deltas<DeltaBigDecimal>,
+    derived_eth_prices_deltas: &Deltas<DeltaBigDecimal>,
+    token_tvl_deltas: &Deltas<DeltaBigDecimal>,
+) {
+    swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
+    total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
+    total_value_locked_token_windows(&mut tables, timestamp, &token_tvl_deltas);
+    total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
+    prices_min_token_windows(&mut tables, &min_windows_deltas);
+    prices_max_token_windows(&mut tables, &max_windows_deltas);
+    prices_close_token_windows(&mut tables, &derived_eth_prices_deltas);
+}
 
 // This will take care of the tokens that have never been seen within a pool in the past
 pub fn create_entity_change_token_windows(tables: &mut Tables, tokens_store_deltas: &Deltas<DeltaInt64>) {
@@ -1705,7 +1764,7 @@ pub fn create_entity_change_token_windows(tables: &mut Tables, tokens_store_delt
         let token_address = key::segment(&delta.key, 2);
 
         let token_time_id = format!("0x{token_address}-{time_id}");
-        create_token_windows(tables, table_name, time_id, &token_time_id, token_address);
+        create_token_windows_entity(tables, table_name, time_id, &token_time_id, token_address);
     }
 }
 
@@ -1733,7 +1792,7 @@ pub fn upsert_entity_change_token_windows(tables: &mut Tables, tx_count_deltas: 
         let token_address = key::segment(&delta.key, 2);
 
         let token_time_id = format!("0x{token_address}-{time_id}");
-        create_token_windows(tables, table_name, time_id, &token_time_id, token_address);
+        create_token_windows_entity(tables, table_name, time_id, &token_time_id, token_address);
     }
 }
 
