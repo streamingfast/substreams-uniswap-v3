@@ -1,6 +1,5 @@
 use std::ops::Div;
 use substreams::pb::substreams::store_delta;
-use substreams::pb::substreams::store_delta::Operation;
 use substreams::prelude::StoreGetInt64;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
@@ -994,7 +993,7 @@ pub fn transaction_entity_change(tables: &mut Tables, transactions: &Vec<events:
 pub fn swaps_mints_burns_created_entity_change(
     tables: &mut Tables,
     pool_events: &Vec<events::PoolEvent>,
-    tx_count_store: StoreGetBigInt,
+    tx_count_store: &StoreGetBigInt,
     store_eth_prices: StoreGetBigDecimal,
 ) {
     for pool_event in pool_events {
@@ -1716,12 +1715,10 @@ pub fn total_value_locked_usd_pool_windows(tables: &mut Tables, derived_tvl_delt
 // ---------------------------------
 pub fn token_windows_create(
     mut tables: &mut Tables,
-    pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
     tokens_store_deltas: &Deltas<DeltaInt64>,
     tx_count_deltas: &Deltas<DeltaBigInt>,
 ) {
     create_entity_change_token_windows(&mut tables, &tokens_store_deltas);
-    upsert_entity_change_initialized_token_windows(&mut tables, &pool_sqrt_price_deltas);
     upsert_entity_change_token_windows(&mut tables, &tx_count_deltas);
 }
 
@@ -1734,13 +1731,14 @@ pub fn token_windows_update(
     max_windows_deltas: &Deltas<DeltaBigDecimal>,
     derived_eth_prices_deltas: &Deltas<DeltaBigDecimal>,
     token_tvl_deltas: &Deltas<DeltaBigDecimal>,
+    tx_count_store: &StoreGetBigInt,
 ) {
     swap_volume_token_windows(&mut tables, &swaps_volume_deltas);
     total_value_locked_usd_token_windows(&mut tables, &derived_tvl_deltas);
     total_value_locked_token_windows(&mut tables, timestamp, &token_tvl_deltas);
-    total_prices_token_windows(&mut tables, &derived_eth_prices_deltas);
-    prices_min_token_windows(&mut tables, &min_windows_deltas);
-    prices_max_token_windows(&mut tables, &max_windows_deltas);
+    total_prices_token_windows(&mut tables, &derived_eth_prices_deltas, tx_count_store);
+    prices_min_token_windows(&mut tables, &min_windows_deltas, tx_count_store);
+    prices_max_token_windows(&mut tables, &max_windows_deltas, tx_count_store);
     prices_close_token_windows(&mut tables, &derived_eth_prices_deltas);
 }
 
@@ -1758,35 +1756,6 @@ pub fn create_entity_change_token_windows(tables: &mut Tables, tokens_store_delt
         }
 
         if delta.operation == store_delta::Operation::Delete {
-            // TODO: need to fix the delete operation
-            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
-            continue;
-        }
-
-        let time_id = key::segment(&delta.key, 1).parse::<i64>().unwrap();
-        let token_address = key::segment(&delta.key, 2);
-
-        let token_time_id = format!("0x{token_address}-{time_id}");
-        create_token_windows_entity(tables, table_name, time_id, &token_time_id, token_address);
-    }
-}
-
-pub fn upsert_entity_change_initialized_token_windows(
-    tables: &mut Tables,
-    pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
-) {
-    for delta in pool_sqrt_price_deltas.deltas.iter() {
-        let table_name = match key::first_segment(&delta.key) {
-            "TokenDayData" => "TokenDayData",
-            "TokenHourData" => "TokenHourData",
-            _ => continue,
-        };
-
-        if !delta.new_value.initialized {
-            continue;
-        }
-
-        if delta.operation == Operation::Delete {
             // TODO: need to fix the delete operation
             // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
             continue;
@@ -1929,7 +1898,11 @@ fn total_value_locked_token_windows_update(
         .set("totalValueLocked", value);
 }
 
-pub fn total_prices_token_windows(tables: &mut Tables, derived_eth_prices_deltas: &Deltas<DeltaBigDecimal>) {
+pub fn total_prices_token_windows(
+    tables: &mut Tables,
+    derived_eth_prices_deltas: &Deltas<DeltaBigDecimal>,
+    tx_count_store: &StoreGetBigInt,
+) {
     for delta in derived_eth_prices_deltas.deltas.iter() {
         let table_name = match key::first_segment(&delta.key) {
             "TokenDayData" => "TokenDayData",
@@ -1946,13 +1919,26 @@ pub fn total_prices_token_windows(tables: &mut Tables, derived_eth_prices_deltas
         let time_id = key::segment(&delta.key, 1);
         let token_address = key::segment(&delta.key, 2);
 
+        match tx_count_store.get_last(format!("token:{token_address}")) {
+            Some(i) => {
+                if i.is_zero() {
+                    continue;
+                };
+            }
+            None => continue,
+        }
+
         tables
             .update_row(table_name, format!("0x{token_address}-{time_id}"))
             .set("priceUSD", &delta.new_value);
     }
 }
 
-pub fn prices_min_token_windows(tables: &mut Tables, min_token_prices_deltas: &Deltas<DeltaBigDecimal>) {
+pub fn prices_min_token_windows(
+    tables: &mut Tables,
+    min_token_prices_deltas: &Deltas<DeltaBigDecimal>,
+    tx_count_store: &StoreGetBigInt,
+) {
     for delta in min_token_prices_deltas.deltas.iter() {
         if delta.operation == store_delta::Operation::Delete {
             // TODO: need to fix the delete operation
@@ -1976,13 +1962,26 @@ pub fn prices_min_token_windows(tables: &mut Tables, min_token_prices_deltas: &D
         let token_address = key::segment(&delta.key, 2);
         let token_time_id = format!("0x{token_address}-{time_id}");
 
+        match tx_count_store.get_last(format!("token:{token_address}")) {
+            Some(i) => {
+                if i.is_zero() {
+                    continue;
+                };
+            }
+            None => continue,
+        }
+
         tables
             .update_row(table_name, &token_time_id)
             .set(field, &delta.new_value);
     }
 }
 
-pub fn prices_max_token_windows(tables: &mut Tables, max_token_prices_deltas: &Deltas<DeltaBigDecimal>) {
+pub fn prices_max_token_windows(
+    tables: &mut Tables,
+    max_token_prices_deltas: &Deltas<DeltaBigDecimal>,
+    tx_count_store: &StoreGetBigInt,
+) {
     for delta in max_token_prices_deltas.deltas.iter() {
         if delta.operation == store_delta::Operation::Delete {
             // TODO: need to fix the delete operation
@@ -1999,6 +1998,15 @@ pub fn prices_max_token_windows(tables: &mut Tables, max_token_prices_deltas: &D
         let time_id = key::segment(&delta.key, 1);
         let token_address = key::segment(&delta.key, 2);
         let token_time_id = format!("0x{token_address}-{time_id}");
+
+        match tx_count_store.get_last(format!("token:{token_address}")) {
+            Some(i) => {
+                if i.is_zero() {
+                    continue;
+                };
+            }
+            None => continue,
+        }
 
         tables
             .update_row(table_name, &token_time_id)

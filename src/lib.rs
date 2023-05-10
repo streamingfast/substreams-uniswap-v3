@@ -22,7 +22,7 @@ use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as Mi
 use crate::pb::uniswap::events::position_event::Type::{
     CollectPosition, CreatedPosition, DecreaseLiquidityPosition, IncreaseLiquidityPosition, TransferPosition,
 };
-use crate::pb::uniswap::events::{PoolSqrtPrice, PositionEvent};
+use crate::pb::uniswap::events::PositionEvent;
 use crate::pb::uniswap::{events, Events};
 use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, Pools};
 use crate::price::WHITELIST_TOKENS;
@@ -1334,7 +1334,7 @@ pub fn graph_out(
     db::transaction_entity_change(&mut tables, &events.transactions);
 
     // Swap, Mint, Burn:
-    db::swaps_mints_burns_created_entity_change(&mut tables, &events.pool_events, tx_count_store, store_eth_prices);
+    db::swaps_mints_burns_created_entity_change(&mut tables, &events.pool_events, &tx_count_store, store_eth_prices);
 
     // Flashes:
     // TODO: should we implement flashes entity change - UNISWAP has not done this part
@@ -1367,12 +1367,7 @@ pub fn graph_out(
     );
 
     // Token Day/Hour data:
-    db::token_windows_create(
-        &mut tables,
-        &pool_sqrt_price_deltas,
-        &tokens_store_deltas,
-        &tx_count_deltas,
-    );
+    db::token_windows_create(&mut tables, &tokens_store_deltas, &tx_count_deltas);
     db::token_windows_update(
         &mut tables,
         timestamp,
@@ -1382,6 +1377,7 @@ pub fn graph_out(
         &max_windows_deltas,
         &derived_eth_prices_deltas,
         &token_tvl_deltas,
+        &tx_count_store,
     );
 
     Ok(tables.to_entity_changes())
