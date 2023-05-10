@@ -8,7 +8,7 @@ package:
     See individual modules docs for help.
 
 imports:
-  entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v0.2.1/substreams-entity-change-v0.2.1.spkg
+  entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v1.1.0/substreams-entity-change-v1.1.0.spkg
 
 protobuf:
   files:
@@ -270,4 +270,4 @@ modules:
         mode: deltas
 
     output:
-      type: proto:substreams.entity.v1.EntityChanges
+      type: proto:sf.substreams.entity.v1.EntityChanges
