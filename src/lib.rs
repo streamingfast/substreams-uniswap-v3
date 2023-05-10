@@ -34,8 +34,9 @@ use substreams::pb::substreams::{store_delta, Clock};
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigDecimal, StoreAddBigInt, StoreAppend,
-    StoreGetBigDecimal, StoreGetBigInt, StoreGetProto, StoreGetRaw, StoreSetBigDecimal, StoreSetBigInt, StoreSetProto,
+    key_first_segment_in, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigDecimal, StoreAddBigInt,
+    StoreAppend, StoreGetBigDecimal, StoreGetBigInt, StoreGetProto, StoreGetRaw, StoreSetBigDecimal, StoreSetBigInt,
+    StoreSetProto,
 };
 use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::EntityChanges;
@@ -928,7 +929,7 @@ pub fn store_derived_factory_tvl(
     let prev_day_id = day_id - 1;
     output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
 
-    for delta in key::filter_first_segment_eq(&derived_tvl_deltas, "pool") {
+    for delta in derived_tvl_deltas.deltas.iter().filter(key_first_segment_in("pool")) {
         log::info!("delta key {}", delta.key);
         log::info!("delta old {}", delta.old_value);
         log::info!("delta new {}", delta.new_value);

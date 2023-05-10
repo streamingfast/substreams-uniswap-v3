@@ -1,37 +1,3 @@
-// pub trait KeySplit {
-//     fn key_split(&self, index: usize) -> String;
-//     fn try_key_split(&self, index: usize) -> Option<String>;
-// }
-// impl KeySplit for &DeltaProto<T> {
-//     fn key_split(&self, index: usize) -> String {
-//         split(&self.key, index)
-//     }
-//     fn try_key_split(&self, index: usize) -> Option<String> {
-//         try_split(&self.key, index)
-//     }
-// }
-
-use substreams::store::{Deltas, GetKey};
-
-pub fn filter_first_segment_eq<'a, T: GetKey>(deltas: &'a Deltas<T>, val: &str) -> Vec<&'a T> {
-    let mut out: Vec<&T> = vec![];
-    deltas
-        .deltas
-        .iter()
-        .filter(|delta| first_segment(delta.get_key()) == val)
-        .for_each(|delta| out.push(delta));
-    out
-}
-
-pub fn _filter_first_segment_in_list<'a, T: GetKey>(deltas: &'a Vec<T>, vals: &Vec<&str>) -> Vec<&'a T> {
-    let mut out: Vec<&T> = vec![];
-    deltas
-        .iter()
-        .filter(|delta| vals.contains(&first_segment(delta.get_key())))
-        .for_each(|delta| out.push(delta));
-    out
-}
-
 pub fn first_segment(key: &String) -> &str {
     key.split(":").next().unwrap()
 }
@@ -40,6 +6,7 @@ pub fn first_segment(key: &String) -> &str {
 pub fn segment(key: &String, index: usize) -> &str {
     return try_segment(key, index).unwrap();
 }
+
 pub fn try_segment(key: &String, index: usize) -> Option<&str> {
     let val = key.split(":").nth(index);
     match val {
@@ -47,13 +14,27 @@ pub fn try_segment(key: &String, index: usize) -> Option<&str> {
         None => None,
     }
 }
+
 pub fn last_segment(key: &String) -> &str {
     return try_last_segment(key).unwrap();
 }
+
 pub fn try_last_segment(key: &String) -> Option<&str> {
     let val = key.split(":").last();
     match val {
         Some(val) => Some(val),
         None => None,
     }
+}
+
+pub fn time_as_i64_address_as_str(key: &String) -> (i64, &str) {
+    return (segment(key, 1).parse::<i64>().unwrap(), segment(key, 2));
+}
+
+pub fn pool_windows_id_fields(key: &String) -> (&str, &str, &str) {
+    let table_name = first_segment(key);
+    let time_id = segment(key, 1);
+    let pool_address = segment(key, 2);
+
+    return (table_name, time_id, pool_address);
 }
