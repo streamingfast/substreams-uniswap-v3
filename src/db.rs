@@ -1250,47 +1250,8 @@ fn create_uniswap_day_data(tables: &mut Tables, day_id: i64, day_start_timestamp
 // -----------------------
 //  Map Pool Day/Hour Data
 // -----------------------
-pub fn pool_windows_create(
-    tables: &mut Tables,
-    pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
-    tx_count_deltas: &Deltas<DeltaBigInt>,
-) {
-    upsert_initialized_pool_windows(tables, pool_sqrt_price_deltas);
+pub fn pool_windows_create(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
     upsert_entity_change_pool_windows(tables, tx_count_deltas);
-}
-
-// We can't precisely send a create for a PoolDayData and a PoolHourData as a PoolCreated event
-// can be emitted at trx 0xaa and when we would get a initialized in another trx. We need to
-// know when we get the initialized and send an update entity change with all the fields. This
-// means that at worst case, we will be getting 3 times a update with all the fields when a pool
-// is created then initialized and the minted in the same transactions.
-pub fn upsert_initialized_pool_windows(
-    tables: &mut Tables,
-    pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
-) {
-    for delta in pool_sqrt_price_deltas.deltas.iter() {
-        let table_name = match key::first_segment(&delta.key) {
-            "PoolDayData" => "PoolDayData",
-            "PoolHourData" => "PoolHourData",
-            _ => continue,
-        };
-
-        if !delta.new_value.initialized {
-            continue;
-        }
-
-        if delta.operation == store_delta::Operation::Delete {
-            // TODO: need to fix the delete operation
-            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
-            continue;
-        }
-
-        let time_id = key::segment(&delta.key, 1).parse::<i64>().unwrap();
-        let pool_address = key::segment(&delta.key, 2);
-
-        let pool_time_id = format!("0x{pool_address}-{time_id}");
-        create_pool_windows_entity(tables, table_name, time_id, &pool_time_id, pool_address);
-    }
 }
 
 // See above `upsert_initialized_entity_change_pool_windows` info. Also we have to send the update for
@@ -1716,12 +1677,10 @@ pub fn total_value_locked_usd_pool_windows(tables: &mut Tables, derived_tvl_delt
 // ---------------------------------
 pub fn token_windows_create(
     mut tables: &mut Tables,
-    pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
     tokens_store_deltas: &Deltas<DeltaInt64>,
     tx_count_deltas: &Deltas<DeltaBigInt>,
 ) {
     create_entity_change_token_windows(&mut tables, &tokens_store_deltas);
-    upsert_entity_change_initialized_token_windows(&mut tables, &pool_sqrt_price_deltas);
     upsert_entity_change_token_windows(&mut tables, &tx_count_deltas);
 }
 
@@ -1758,35 +1717,6 @@ pub fn create_entity_change_token_windows(tables: &mut Tables, tokens_store_delt
         }
 
         if delta.operation == store_delta::Operation::Delete {
-            // TODO: need to fix the delete operation
-            // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
-            continue;
-        }
-
-        let time_id = key::segment(&delta.key, 1).parse::<i64>().unwrap();
-        let token_address = key::segment(&delta.key, 2);
-
-        let token_time_id = format!("0x{token_address}-{time_id}");
-        create_token_windows_entity(tables, table_name, time_id, &token_time_id, token_address);
-    }
-}
-
-pub fn upsert_entity_change_initialized_token_windows(
-    tables: &mut Tables,
-    pool_sqrt_price_deltas: &Deltas<DeltaProto<PoolSqrtPrice>>,
-) {
-    for delta in pool_sqrt_price_deltas.deltas.iter() {
-        let table_name = match key::first_segment(&delta.key) {
-            "TokenDayData" => "TokenDayData",
-            "TokenHourData" => "TokenHourData",
-            _ => continue,
-        };
-
-        if !delta.new_value.initialized {
-            continue;
-        }
-
-        if delta.operation == Operation::Delete {
             // TODO: need to fix the delete operation
             // tables.delete_row(POOL_HOUR_DATA, &hour_id).mark_final();
             continue;

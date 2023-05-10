@@ -262,27 +262,10 @@ pub fn map_extract_data_types(block: Block, pools_store: StoreGetProto<Pool>) ->
 }
 
 #[substreams::handlers::store]
-pub fn store_pool_sqrt_price(clock: Clock, events: Events, store: StoreSetProto<events::PoolSqrtPrice>) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id: i64 = timestamp_seconds / 86400;
-    let hour_id: i64 = timestamp_seconds / 3600;
-    let prev_day_id = day_id - 1;
-    let prev_hour_id = hour_id - 1;
-
-    store.delete_prefix(0, &format!("PoolDayData:{prev_day_id}:"));
-    store.delete_prefix(0, &format!("PoolHourData:{prev_hour_id}:"));
-
+pub fn store_pool_sqrt_price(events: Events, store: StoreSetProto<PoolSqrtPrice>) {
     for sqrt_price in events.pool_sqrt_prices {
         let pool_address = &sqrt_price.pool_address;
-        store.set_many(
-            sqrt_price.ordinal,
-            &vec![
-                format!("pool:{pool_address}"),
-                format!("PoolDayData:{day_id}:{pool_address}"),
-                format!("PoolHourData:{hour_id}:{pool_address}"),
-            ],
-            &sqrt_price,
-        )
+        store.set(sqrt_price.ordinal, format!("pool:{pool_address}"), &sqrt_price)
     }
 }
 
@@ -329,6 +312,28 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                     &vec![
                         format!("pool:{pool_address}:{token0_addr}:token0"),
                         format!("pair:{token0_addr}:{token1_addr}"), // used for find_eth_per_token
+                    ],
+                    &tokens_price.0,
+                );
+
+                store.set_many(
+                    sqrt_price_update.ordinal,
+                    &vec![
+                        format!("pool:{pool_address}:{token1_addr}:token1"),
+                        format!("pair:{token1_addr}:{token0_addr}"), // used for find_eth_per_token
+                    ],
+                    &tokens_price.1,
+                );
+
+                // We only want to set the prices of PoolDayData and PoolHourData when
+                // the pool is post-initialized, not on the initialized event.
+                if sqrt_price_update.initialized {
+                    continue;
+                }
+
+                store.set_many(
+                    sqrt_price_update.ordinal,
+                    &vec![
                         // We only need the token0Prices to compute the open, high, low and close
                         format!("PoolDayData:{day_id}:{pool_address}:token0"),
                         format!("PoolHourData:{hour_id}:{pool_address}:token0"),
@@ -339,8 +344,6 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                 store.set_many(
                     sqrt_price_update.ordinal,
                     &vec![
-                        format!("pool:{pool_address}:{token1_addr}:token1"),
-                        format!("pair:{token1_addr}:{token0_addr}"), // used for find_eth_per_token
                         format!("PoolDayData:{day_id}:{pool_address}:token1"),
                         format!("PoolHourData:{hour_id}:{pool_address}:token1"),
                     ],
@@ -541,6 +544,13 @@ pub fn store_eth_prices(
 
         log::info!("token0 price usd: {}", token0_price_usd);
         log::info!("token1 price usd: {}", token1_price_usd);
+
+        // We only want to set the prices of TokenDayData and TokenHourData when
+        // the pool is post-initialized, not on the initialized event.
+        if pool_sqrt_price.initialized {
+            continue;
+        }
+
         output.set_many(
             ord,
             &vec![
@@ -907,12 +917,6 @@ pub fn store_derived_tvl(
     }
 }
 
-/*
-    trx0xaa -> PoolCreated
-    trx0xbb -> Initialize -- 17 PoolDayData/PoolHourData
-    trx0xcc -> Mint -- 18
-*/
-
 #[substreams::handlers::store]
 pub fn store_derived_factory_tvl(
     clock: Clock,
@@ -1233,8 +1237,8 @@ pub fn graph_out(
     derived_eth_prices_deltas: Deltas<DeltaBigDecimal>,  /* store_eth_prices */
     events: Events,                                      /* map_extract_data_types */
     pools_created: Pools,                                /* map_pools_created */
-    pool_sqrt_price_deltas: Deltas<DeltaProto<events::PoolSqrtPrice>>, /* store_pool_sqrt_price */
-    pool_sqrt_price_store: StoreGetProto<events::PoolSqrtPrice>, /* store_pool_sqrt_price */
+    pool_sqrt_price_deltas: Deltas<DeltaProto<PoolSqrtPrice>>, /* store_pool_sqrt_price */
+    pool_sqrt_price_store: StoreGetProto<PoolSqrtPrice>, /* store_pool_sqrt_price */
     pool_liquidities_store_deltas: Deltas<DeltaBigInt>,  /* store_pool_liquidities */
     token_tvl_deltas: Deltas<DeltaBigDecimal>,           /* store_token_tvl */
     price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
@@ -1350,7 +1354,7 @@ pub fn graph_out(
     );
 
     // Pool Day/Hour data:
-    db::pool_windows_create(&mut tables, &pool_sqrt_price_deltas, &tx_count_deltas);
+    db::pool_windows_create(&mut tables, &tx_count_deltas);
     db::pool_windows_update(
         &mut tables,
         timestamp,
@@ -1367,12 +1371,7 @@ pub fn graph_out(
     );
 
     // Token Day/Hour data:
-    db::token_windows_create(
-        &mut tables,
-        &pool_sqrt_price_deltas,
-        &tokens_store_deltas,
-        &tx_count_deltas,
-    );
+    db::token_windows_create(&mut tables, &tokens_store_deltas, &tx_count_deltas);
     db::token_windows_update(
         &mut tables,
         timestamp,

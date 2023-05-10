@@ -89,7 +89,6 @@ modules:
     updatePolicy: set
     valueType: proto:uniswap.types.v1.Events.PoolSqrtPrice
     inputs:
-      - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
 
   - name: store_prices
