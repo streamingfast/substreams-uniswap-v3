@@ -858,18 +858,18 @@ checksum = "f91339c0467de62360649f8d3e185ca8de4224ff281f66000de5eb2a77a79041"
 
 [[package]]
 name = "serde"
-version = "1.0.162"
+version = "1.0.163"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71b2f6e1ab5c2b98c05f0f35b236b22e8df7ead6ffbf51d7808da7f8817e7ab6"
+checksum = "2113ab51b87a539ae008b5c6c02dc020ffa39afd2d83cffcb3f4eb2722cebec2"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.162"
+version = "1.0.163"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2a0814352fd64b58489904a44ea8d90cb1a91dcb6b4f5ebabc32c8318e93cb6"
+checksum = "8c805777e3930c8883389c602315a24224bcc738b63905ef87cd1420353ea93e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -942,7 +942,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "substreams"
 version = "0.5.6"
-source = "git+https://github.com/streamingfast/substreams-rs?branch=feature/predicate-filtering#43076e1da8ee1783e6229374e3a85f2bc933b920"
+source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#a4ee1e59b7b8d8e7e47b7ef9c6ae381e07d96431"
 dependencies = [
  "anyhow",
  "bigdecimal",
@@ -962,7 +962,7 @@ dependencies = [
 [[package]]
 name = "substreams-entity-change"
 version = "1.1.0"
-source = "git+https://github.com/streamingfast/substreams-entity-change/?branch=develop#b055bc3d12bc37b3dda9f32847476c692d8f1cd4"
+source = "git+https://github.com/streamingfast/substreams-entity-change/?branch=develop#205f79592f82fc5576732ef182005b16a51a4515"
 dependencies = [
  "base64",
  "prost",
@@ -1032,7 +1032,7 @@ dependencies = [
 [[package]]
 name = "substreams-macro"
 version = "0.5.6"
-source = "git+https://github.com/streamingfast/substreams-rs?branch=feature/predicate-filtering#43076e1da8ee1783e6229374e3a85f2bc933b920"
+source = "git+https://github.com/streamingfast/substreams-rs?branch=develop#a4ee1e59b7b8d8e7e47b7ef9c6ae381e07d96431"
 dependencies = [
  "proc-macro2",
  "quote",
