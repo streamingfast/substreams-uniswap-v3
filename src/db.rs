@@ -1279,7 +1279,7 @@ pub fn upsert_entity_change_pool_windows(tables: &mut Tables, tx_count_deltas: &
     for delta in tx_count_deltas
         .deltas
         .iter()
-        .filter(key_last_segments_in(vec!["PoolDayData", "PoolHourData"]))
+        .filter(key_first_segments_in(vec!["PoolDayData", "PoolHourData"]))
         .filter(operations_ne(Operation::Delete))
         .filter(|d| d.new_value.eq(&BigInt::one()))
     {
