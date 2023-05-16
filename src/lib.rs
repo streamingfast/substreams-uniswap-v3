@@ -292,9 +292,8 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                 let token0 = pool.token0.as_ref().unwrap();
                 let token1 = pool.token1.as_ref().unwrap();
                 log::debug!(
-                    "pool addr: {}, pool trx_id: {}, token 0 addr: {}, token 1 addr: {}",
+                    "pool addr: {}, token 0 addr: {}, token 1 addr: {}",
                     pool.address,
-                    pool.transaction_id,
                     token0.address,
                     token1.address
                 );
@@ -369,7 +368,7 @@ pub fn store_pool_liquidities(clock: Clock, events: Events, store: StoreSetBigIn
     for pool_liquidity in events.pool_liquidities {
         let pool_address = &pool_liquidity.pool_address;
         store.set_many(
-            0,
+            pool_liquidity.log_ordinal,
             &vec![
                 format!("pool:{pool_address}"),
                 format!("PoolDayData:{day_id}:{pool_address}"),
