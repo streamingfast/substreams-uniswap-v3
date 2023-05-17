@@ -300,6 +300,10 @@ pub fn extract_pool_liquidities(
     storage_changes: &Vec<StorageChange>,
     pool: &Pool,
 ) {
+    if Hex(&log.address).to_string() != pool.address {
+        return;
+    }
+
     if let Some(_) = abi::pool::events::Swap::match_and_decode(&log) {
         if !pool.should_handle_swap() {
             return;
