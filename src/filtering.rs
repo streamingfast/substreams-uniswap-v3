@@ -300,30 +300,51 @@ pub fn extract_pool_liquidities(
     storage_changes: &Vec<StorageChange>,
     pool: &Pool,
 ) {
+    let pool_address = &pool.address;
     if Hex(&log.address).to_string() != pool.address {
         return;
     }
+
+    let storage = UniswapPoolStorage::new(storage_changes, &log.address);
 
     if let Some(_) = abi::pool::events::Swap::match_and_decode(&log) {
         if !pool.should_handle_swap() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes) {
-            pool_liquidities.push(pl)
+        let value = bigint_if_some(storage.liquidity());
+
+        if value != "" {
+            pool_liquidities.push(events::PoolLiquidity {
+                pool_address: pool_address.to_string(),
+                liquidity: value,
+                log_ordinal: log.ordinal,
+            });
         }
     } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes) {
-            pool_liquidities.push(pl)
+        let value = bigint_if_some(storage.liquidity());
+
+        if value != "" {
+            pool_liquidities.push(events::PoolLiquidity {
+                pool_address: pool_address.to_string(),
+                liquidity: value,
+                log_ordinal: log.ordinal,
+            });
         }
     } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
-        if let Some(pl) = utils::extract_pool_liquidity(log.ordinal, &log.address, storage_changes) {
-            pool_liquidities.push(pl)
+        let value = bigint_if_some(storage.liquidity());
+
+        if value != "" {
+            pool_liquidities.push(events::PoolLiquidity {
+                pool_address: pool_address.to_string(),
+                liquidity: value,
+                log_ordinal: log.ordinal,
+            });
         }
     }
 }

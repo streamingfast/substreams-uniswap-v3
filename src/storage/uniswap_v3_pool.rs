@@ -58,6 +58,27 @@ impl<'a> UniswapPoolStorage<'a> {
         }
     }
 
+    pub fn liquidity(&self) -> Option<(BigInt, BigInt)> {
+        let liquidity_slot = BigInt::from(4);
+        let offset = 0;
+        let number_of_bytes = 16;
+
+        // ----
+        let slot_key = utils::left_pad_from_bigint(&liquidity_slot);
+        // ----
+
+        if let Some((old_data, new_data)) =
+            utils::get_storage_change(&self.filtered_changes(), slot_key, offset, number_of_bytes)
+        {
+            Some((
+                BigInt::from_signed_bytes_be(old_data),
+                BigInt::from_signed_bytes_be(new_data),
+            ))
+        } else {
+            None
+        }
+    }
+
     pub fn slot0(&self) -> Slot0Struct {
         let slot0_slot = utils::left_pad_from_bigint(&BigInt::from(0));
         return Slot0Struct::new(self.filtered_changes(), slot0_slot);
@@ -508,6 +529,44 @@ mod tests {
         let tick_idx = BigInt::from(193200);
         let v_opt = storage.ticks(&tick_idx).initialized();
         assert_eq!(Some((false, true)), v_opt);
+    }
+
+    #[test]
+    fn liquidity() {
+        let storage_changes = vec![
+            StorageChange {
+                address: hex!("779dfffb81550bf503c19d52b1e91e9251234faa").to_vec(),
+                key: hex!("8c69d40e3965e41bbc8bb190dc6bbd6d8ed6cfc434af11479a9d93bd6d8d7b04").to_vec(),
+                old_value: hex!("0100000000000000000000000000000000000000000000000000000000000000").to_vec(),
+                new_value: hex!("0161f0d813000000000000000000202dca4db2607b4eeb0089ffff82608219c4").to_vec(),
+                ordinal: 152,
+            },
+            StorageChange {
+                address: hex!("779dfffb81550bf503c19d52b1e91e9251234faa").to_vec(),
+                key: hex!("62ea84ea9c7793817b7c95726c87fd532ffdc92644a26b6448fe793434ef1c04").to_vec(),
+                old_value: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
+                new_value: hex!("00000000000000000000000000000000005955c9750c2d183783fb18efd9ed86").to_vec(),
+                ordinal: 160,
+            },
+            StorageChange {
+                address: hex!("779dfffb81550bf503c19d52b1e91e9251234faa").to_vec(),
+                key: hex!("0000000000000000000000000000000000000000000000000000000000000004").to_vec(),
+                old_value: hex!("000000000000000000000000000000000000000000000051eb0c7b51a54cf028").to_vec(),
+                new_value: hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec(),
+                ordinal: 287,
+            },
+        ];
+
+        let storage = UniswapPoolStorage::new(
+            &storage_changes,
+            &hex!("779dfffb81550bf503c19d52b1e91e9251234faa").to_vec(),
+        );
+
+        let v_opt = storage.liquidity();
+        assert_eq!(
+            Some((BigInt::from_str("1511123317859703124008").unwrap(), BigInt::from(0))),
+            v_opt
+        );
     }
 
     #[test]

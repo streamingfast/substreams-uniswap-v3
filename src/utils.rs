@@ -23,8 +23,6 @@ const SVD_TOKEN_ADDRESS: [u8; 20] = hex!("bdeb4b83251fb146687fa19d1c660f99411eef
 const THEDAO_TOKEN_ADDRESS: [u8; 20] = hex!("bb9bc244d798123fde783fcc1c72d3bb8c189413");
 const HPB_TOKEN_ADDRESS: [u8; 20] = hex!("38c6a68304cdefb9bec48bbfaaba5c5b47818bb2");
 
-const LIQUIDITY_STORAGE_CHANGE: [u8; 32] = hex!("0000000000000000000000000000000000000000000000000000000000000004");
-
 // hard-coded tokens which have various behaviours but for which a UniswapV3 valid pool
 // exists, some are tokens which were migrated to new addresses
 pub fn get_static_uniswap_tokens(token_address: &[u8]) -> Option<Erc20Token> {
@@ -261,23 +259,6 @@ pub fn load_transaction(
     }
 
     transaction
-}
-
-pub fn extract_pool_liquidity(
-    log_ordinal: u64,
-    pool_address: &Vec<u8>,
-    storage_changes: &Vec<StorageChange>,
-) -> Option<events::PoolLiquidity> {
-    for storage_change in storage_changes.iter().rev() {
-        if storage_change.key == LIQUIDITY_STORAGE_CHANGE {
-            return Some(events::PoolLiquidity {
-                pool_address: Hex(&pool_address).to_string(),
-                liquidity: BigInt::from_signed_bytes_be(&storage_change.new_value).to_string(),
-                log_ordinal,
-            });
-        }
-    }
-    None
 }
 
 pub fn get_derived_eth_price(ordinal: u64, token_addr: &String, eth_prices_store: &StoreGetBigDecimal) -> BigDecimal {
