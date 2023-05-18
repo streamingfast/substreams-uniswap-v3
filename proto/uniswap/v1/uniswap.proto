@@ -191,6 +191,8 @@ message Events {
     string pool_address = 1;
     // Integer
     string liquidity = 2;
+    string token0 = 3;
+    string token1 = 4;
 
     // internals
     uint64 log_ordinal = 30;

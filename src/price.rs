@@ -162,6 +162,23 @@ pub fn find_eth_per_token(
                         token1_eth_price = BigDecimal::one();
                     } else {
                         log::debug!("token 1 is NOT WETH");
+
+                        match pool_liquidities_store.get_at(ord, format!("pair:{WETH_ADDRESS}:{token1_addr}")) {
+                            None => {
+                                log::debug!("unable to find liquidity for {:?}", token1_addr);
+                                continue;
+                            }
+                            Some(l) => {
+                                // There is no liquidity in the pool. We can't compute the eth_price
+                                // of the token.
+                                if l.eq(&BigInt::zero()) {
+                                    continue;
+                                }
+
+                                // Else we have enough liquidity to compute the price
+                            }
+                        }
+
                         token1_eth_price = match prices_store.get_at(ord, format!("pair:{WETH_ADDRESS}:{token1_addr}"))
                         {
                             None => {
@@ -220,6 +237,23 @@ pub fn find_eth_per_token(
                         eth_locked = native_amount
                     } else {
                         log::debug!("token 0 is NOT WETH");
+
+                        match pool_liquidities_store.get_at(ord, format!("pair:{WETH_ADDRESS}:{token0_addr}")) {
+                            None => {
+                                log::debug!("unable to find liquidity for {:?}", token0_addr);
+                                continue;
+                            }
+                            Some(l) => {
+                                // There is no liquidity in the pool. We can't compute the eth_price
+                                // of the token.
+                                if l.eq(&BigInt::zero()) {
+                                    continue;
+                                }
+
+                                // Else we have enough liquidity to compute the price
+                            }
+                        }
+
                         token0_eth_price = match prices_store.get_at(ord, format!("pair:{WETH_ADDRESS}:{token0_addr}"))
                         {
                             None => {

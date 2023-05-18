@@ -301,6 +301,8 @@ pub fn extract_pool_liquidities(
     pool: &Pool,
 ) {
     let pool_address = &pool.address;
+    let token0 = &pool.token0().address;
+    let token1 = &pool.token1().address;
     if Hex(&log.address).to_string() != pool.address {
         return;
     }
@@ -317,6 +319,8 @@ pub fn extract_pool_liquidities(
             pool_liquidities.push(events::PoolLiquidity {
                 pool_address: pool_address.to_string(),
                 liquidity: value,
+                token0: token0.to_string(),
+                token1: token1.to_string(),
                 log_ordinal: log.ordinal,
             });
         }
@@ -330,6 +334,8 @@ pub fn extract_pool_liquidities(
             pool_liquidities.push(events::PoolLiquidity {
                 pool_address: pool_address.to_string(),
                 liquidity: value,
+                token0: token0.to_string(),
+                token1: token1.to_string(),
                 log_ordinal: log.ordinal,
             });
         }
@@ -343,6 +349,8 @@ pub fn extract_pool_liquidities(
             pool_liquidities.push(events::PoolLiquidity {
                 pool_address: pool_address.to_string(),
                 liquidity: value,
+                token0: token0.to_string(),
+                token1: token1.to_string(),
                 log_ordinal: log.ordinal,
             });
         }

@@ -316,6 +316,10 @@ pub mod events {
         /// Integer
         #[prost(string, tag="2")]
         pub liquidity: ::prost::alloc::string::String,
+        #[prost(string, tag="3")]
+        pub token0: ::prost::alloc::string::String,
+        #[prost(string, tag="4")]
+        pub token1: ::prost::alloc::string::String,
         /// internals
         #[prost(uint64, tag="30")]
         pub log_ordinal: u64,

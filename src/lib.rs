@@ -289,6 +289,12 @@ pub fn store_prices(clock: Clock, events: Events, pools_store: StoreGetProto<Poo
                 continue;
             }
             Some(pool) => {
+                // This sqrt price has this value when there is no liquidity in the pool
+                if sqrt_price_update.sqrt_price == "1461446703485210103287273052203988822378723970341" {
+                    continue;
+                }
+                // maybe check for this sqrt price also : 4295128739 -> on the other side
+
                 let token0 = pool.token0.as_ref().unwrap();
                 let token1 = pool.token1.as_ref().unwrap();
                 log::debug!(
@@ -367,10 +373,14 @@ pub fn store_pool_liquidities(clock: Clock, events: Events, store: StoreSetBigIn
 
     for pool_liquidity in events.pool_liquidities {
         let pool_address = &pool_liquidity.pool_address;
+        let token0_address = &pool_liquidity.token0;
+        let token1_address = &pool_liquidity.token1;
         store.set_many(
             pool_liquidity.log_ordinal,
             &vec![
                 format!("pool:{pool_address}"),
+                format!("pair:{token0_address}:{token1_address}"),
+                format!("pair:{token1_address}:{token0_address}"),
                 format!("PoolDayData:{day_id}:{pool_address}"),
                 format!("PoolHourData:{hour_id}:{pool_address}"),
             ],
