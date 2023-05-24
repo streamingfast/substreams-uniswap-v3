@@ -397,7 +397,7 @@ fn create_token_windows_entity(
     token_addr: &str,
 ) {
     let row = tables
-        .update_row(table_name, token_day_time_id)
+        .create_row(table_name, token_day_time_id)
         .set("token", format!("0x{}", token_addr.to_string()))
         .set("volume", BigDecimal::zero())
         .set("volumeUSD", BigDecimal::zero())
@@ -1614,13 +1614,8 @@ pub fn total_value_locked_usd_pool_windows(tables: &mut Tables, derived_tvl_delt
 // ---------------------------------
 //  Map Token Day/Hour Data Entities
 // ---------------------------------
-pub fn token_windows_create(
-    mut tables: &mut Tables,
-    tokens_store_deltas: &Deltas<DeltaInt64>,
-    tx_count_deltas: &Deltas<DeltaBigInt>,
-) {
-    create_entity_change_token_windows(&mut tables, &tokens_store_deltas);
-    upsert_entity_change_token_windows(&mut tables, &tx_count_deltas);
+pub fn token_windows_create(mut tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
+    create_token_windows(&mut tables, &tx_count_deltas);
 }
 
 pub fn token_windows_update(
@@ -1642,30 +1637,7 @@ pub fn token_windows_update(
     prices_close_token_windows(&mut tables, &derived_eth_prices_deltas);
 }
 
-// This will take care of the tokens that have never been seen within a pool in the past
-pub fn create_entity_change_token_windows(tables: &mut Tables, tokens_store_deltas: &Deltas<DeltaInt64>) {
-    for delta in tokens_store_deltas
-        .deltas
-        .iter()
-        .filter(key_first_segments_in(vec!["TokenDayData", "TokenHourData"]))
-        .filter(operations_ne(Operation::Delete))
-        .filter(|d| d.new_value == 1)
-    {
-        let (time_id, token_address) = key::time_as_i64_address_as_str(&delta.key);
-        let token_time_id = format!("0x{token_address}-{time_id}");
-        create_token_windows_entity(
-            tables,
-            key::first_segment(&delta.key),
-            time_id,
-            &token_time_id,
-            token_address,
-        );
-    }
-}
-
-// This will take care of the tokens that will have seen their transaction count increase but that were
-// already created in the past
-pub fn upsert_entity_change_token_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
+pub fn create_token_windows(tables: &mut Tables, tx_count_deltas: &Deltas<DeltaBigInt>) {
     for delta in tx_count_deltas
         .deltas
         .iter()
@@ -1772,7 +1744,7 @@ pub fn total_prices_token_windows(tables: &mut Tables, derived_eth_prices_deltas
         .filter(key_first_segments_in(vec!["TokenDayData", "TokenHourData"]))
         .filter(operations_ne(Operation::Delete))
     {
-        let (table_name, time_id, token_address) = key::pool_windows_id_fields(&delta.key);
+        let (table_name, time_id, token_address) = key::token_windows_id_fields(&delta.key);
 
         tables
             .update_row(table_name, format!("0x{token_address}-{time_id}"))
@@ -1788,7 +1760,7 @@ pub fn prices_min_token_windows(tables: &mut Tables, min_token_prices_deltas: &D
         .filter(operations_ne(Operation::Delete))
         .filter(key_last_segments_in(vec!["low", "open"]))
     {
-        let (table_name, time_id, token_address) = key::pool_windows_id_fields(&delta.key);
+        let (table_name, time_id, token_address) = key::token_windows_id_fields(&delta.key);
         let token_time_id = format!("0x{token_address}-{time_id}");
 
         tables
@@ -1804,7 +1776,7 @@ pub fn prices_max_token_windows(tables: &mut Tables, max_token_prices_deltas: &D
         .filter(key_first_segments_in(vec!["TokenDayData", "TokenHourData"]))
         .filter(operations_ne(Operation::Delete))
     {
-        let (table_name, time_id, token_address) = key::pool_windows_id_fields(&delta.key);
+        let (table_name, time_id, token_address) = key::token_windows_id_fields(&delta.key);
         let token_time_id = format!("0x{token_address}-{time_id}");
 
         tables
@@ -1820,7 +1792,7 @@ pub fn prices_close_token_windows(tables: &mut Tables, eth_prices_deltas: &Delta
         .filter(key_first_segments_in(vec!["TokenDayData", "TokenHourData"]))
         .filter(operations_eq(Operation::Delete))
     {
-        let (table_name, time_id, token_address) = key::pool_windows_id_fields(&delta.key);
+        let (table_name, time_id, token_address) = key::token_windows_id_fields(&delta.key);
         let token_time_id = format!("0x{token_address}-{time_id}");
 
         tables

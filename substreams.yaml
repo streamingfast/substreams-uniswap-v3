@@ -50,7 +50,6 @@ modules:
     updatePolicy: add
     valueType: int64
     inputs:
-      - source: sf.substreams.v1.Clock
       - map: map_pools_created
 
   - name: store_pool_count
@@ -253,8 +252,6 @@ modules:
         mode: deltas
       - store: store_prices
       - store: store_tokens
-      - store: store_tokens
-        mode: deltas
       - store: store_tokens_whitelist_pools
         mode: deltas
       - store: store_derived_tvl

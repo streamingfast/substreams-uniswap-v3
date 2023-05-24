@@ -631,7 +631,7 @@ type TokenDayData @entity {
 }
 
 type TokenHourData @entity {
-  # token address concatendated with date
+  # token address concatenated with date
   id: ID!
   # unix timestamp for start of hour
   periodStartUnix: Int!

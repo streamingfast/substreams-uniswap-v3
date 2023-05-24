@@ -111,30 +111,14 @@ pub fn store_pools_created(pools: Pools, store: StoreSetProto<Pool>) {
 }
 
 #[substreams::handlers::store]
-pub fn store_tokens(clock: Clock, pools: Pools, store: StoreAddInt64) {
-    let timestamp_seconds = clock.timestamp.unwrap().seconds;
-    let day_id: i64 = timestamp_seconds / 86400;
-    let hour_id: i64 = timestamp_seconds / 3600;
-    let prev_day_id = day_id - 1;
-    let prev_hour_id = hour_id - 1;
-
-    store.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
-    store.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
-
+pub fn store_tokens(pools: Pools, store: StoreAddInt64) {
     for pool in pools.pools {
         let token0_addr = pool.token0_ref().address();
         let token1_addr = pool.token1_ref().address();
 
         store.add_many(
             pool.log_ordinal,
-            &vec![
-                format!("token:{token0_addr}"),
-                format!("token:{token1_addr}"),
-                format!("TokenDayData:{day_id}:{token0_addr}"),
-                format!("TokenDayData:{day_id}:{token1_addr}"),
-                format!("TokenHourData:{hour_id}:{token0_addr}"),
-                format!("TokenHourData:{hour_id}:{token1_addr}"),
-            ],
+            &vec![format!("token:{token0_addr}"), format!("token:{token1_addr}")],
             1,
         );
     }
@@ -1162,19 +1146,19 @@ pub fn store_min_windows(
         };
 
         let time_id = key::segment(&delta.key, 1);
-        let pool_address = key::segment(&delta.key, 2);
+        let address = key::segment(&delta.key, 2);
 
         if delta.operation == store_delta::Operation::Create {
             output.min(
                 delta.ordinal,
-                format!("{table_name}:{time_id}:{pool_address}:open"),
+                format!("{table_name}:{time_id}:{address}:open"),
                 &delta.new_value,
             );
         }
 
         output.min(
             delta.ordinal,
-            format!("{table_name}:{time_id}:{pool_address}:low"),
+            format!("{table_name}:{time_id}:{address}:low"),
             &delta.new_value,
         );
     }
@@ -1254,7 +1238,6 @@ pub fn graph_out(
     price_deltas: Deltas<DeltaBigDecimal>,               /* store_prices */
     store_prices: StoreGetBigDecimal,                    /* store_prices */
     tokens_store: StoreGetInt64,                         /* store_tokens */
-    tokens_store_deltas: Deltas<DeltaInt64>,             /* store_tokens */
     tokens_whitelist_pools_deltas: Deltas<DeltaArray<String>>, /* store_tokens_whitelist_pools */
     derived_tvl_deltas: Deltas<DeltaBigDecimal>,         /* store_derived_tvl */
     ticks_liquidities_deltas: Deltas<DeltaBigInt>,       /* store_ticks_liquidities */
@@ -1381,7 +1364,7 @@ pub fn graph_out(
     );
 
     // Token Day/Hour data:
-    db::token_windows_create(&mut tables, &tokens_store_deltas, &tx_count_deltas);
+    db::token_windows_create(&mut tables, &tx_count_deltas);
     db::token_windows_update(
         &mut tables,
         timestamp,

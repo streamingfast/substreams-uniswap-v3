@@ -38,3 +38,11 @@ pub fn pool_windows_id_fields(key: &String) -> (&str, &str, &str) {
 
     return (table_name, time_id, pool_address);
 }
+
+pub fn token_windows_id_fields(key: &String) -> (&str, &str, &str) {
+    let table_name = first_segment(key);
+    let time_id = segment(key, 1);
+    let token_address = segment(key, 2);
+
+    return (table_name, time_id, token_address);
+}
