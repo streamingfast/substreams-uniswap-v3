@@ -793,7 +793,7 @@ pub fn store_token_tvl(events: Events, output: StoreAddBigDecimal) {
 pub fn store_derived_tvl(
     clock: Clock,
     events: Events,
-    token_total_value_locked: StoreGetBigDecimal,
+    token_total_value_locked: StoreGetBigDecimal, /* store_token_tvl  */
     pools_store: StoreGetProto<Pool>,
     eth_prices_store: StoreGetBigDecimal,
     output: StoreSetBigDecimal,
@@ -829,34 +829,48 @@ pub fn store_derived_tvl(
         let token0_derive_eth = utils::get_derived_eth_price(ord, token0_addr, &eth_prices_store);
         let token1_derive_eth = utils::get_derived_eth_price(ord, token1_addr, &eth_prices_store);
 
-        let total_value_locked_token0 =
+        let tvl_token0_in_pool =
             utils::get_token_tvl_in_pool(ord, pool_address, token0_addr, "token0", &token_total_value_locked);
-        let total_value_locked_token1 =
+        let tvl_token1_in_pool =
             utils::get_token_tvl_in_pool(ord, pool_address, token1_addr, "token1", &token_total_value_locked);
 
-        log::info!("total_value_locked_token0: {}", total_value_locked_token0);
-        log::info!("total_value_locked_token1: {}", total_value_locked_token1);
+        let tvl_for_token0 = utils::get_token_tvl(ord, token0_addr, &token_total_value_locked);
+        let tvl_for_token1 = utils::get_token_tvl(ord, token1_addr, &token_total_value_locked);
 
-        // not sure about this part
-        let derived_token0_eth = total_value_locked_token0.clone().mul(token0_derive_eth.clone());
-        let derived_token1_eth = total_value_locked_token1.clone().mul(token1_derive_eth.clone());
-        log::info!("derived_token0_eth: {}", derived_token0_eth);
-        log::info!("derived_token1_eth: {}", derived_token1_eth);
+        log::info!("total_value_locked_token0 in pool: {}", tvl_token0_in_pool);
+        log::info!("total_value_locked_token1 in pool: {}", tvl_token1_in_pool);
+        log::info!("total_value_locked_token0 for token: {}", tvl_for_token0);
+        log::info!("total_value_locked_token1 for token: {}", tvl_for_token1);
 
-        let amounts = utils::get_adjusted_amounts(
+        // // not sure about this part
+        // let derived_token0_eth = tvl_token0_in_pool.clone().mul(token0_derive_eth.clone());
+        // let derived_token1_eth = tvl_token1_in_pool.clone().mul(token1_derive_eth.clone());
+        // log::info!("derived_token0_eth: {}", derived_token0_eth);
+        // log::info!("derived_token1_eth: {}", derived_token1_eth);
+
+        let amounts_in_pool = utils::get_adjusted_amounts(
             token0_addr,
             token1_addr,
-            &total_value_locked_token0,
-            &total_value_locked_token1,
+            &tvl_token0_in_pool,
+            &tvl_token1_in_pool,
             &token0_derive_eth,
             &token1_derive_eth,
             &eth_price_usd,
         );
+        // let amounts_for_token = utils::get_adjusted_amounts(
+        //     token0_addr,
+        //     token1_addr,
+        //     &tvl_for_token0,
+        //     &tvl_for_token1,
+        //     &token0_derive_eth,
+        //     &token1_derive_eth,
+        //     &eth_price_usd,
+        // );
 
-        let derived_token0_tvl_usd = total_value_locked_token0
+        let derived_tvl_usd_for_token0 = tvl_for_token0
             .clone()
             .mul(token0_derive_eth.clone().mul(eth_price_usd.clone()));
-        let derived_token1_tvl_usd = total_value_locked_token1
+        let derived_tvl_usd_for_token1 = tvl_for_token1
             .clone()
             .mul(token1_derive_eth.clone().mul(eth_price_usd.clone()));
 
@@ -867,7 +881,7 @@ pub fn store_derived_tvl(
                 format!("TokenDayData:{day_id}:{token0_addr}:totalValueLockedUSD"),
                 format!("TokenHourData:{hour_id}:{token0_addr}:totalValueLockedUSD"),
             ],
-            &derived_token0_tvl_usd, // token0.totalValueLockedUSD
+            &derived_tvl_usd_for_token0, // token0.totalValueLockedUSD
         );
         output.set_many(
             ord,
@@ -876,13 +890,13 @@ pub fn store_derived_tvl(
                 format!("TokenDayData:{day_id}:{token1_addr}:totalValueLockedUSD"),
                 format!("TokenHourData:{hour_id}:{token1_addr}:totalValueLockedUSD"),
             ],
-            &derived_token1_tvl_usd, // token1.totalValueLockedUSD
+            &derived_tvl_usd_for_token1, // token1.totalValueLockedUSD
         );
 
         output.set(
             ord,
             format!("pool:{pool_address}:totalValueLockedETH"),
-            &amounts.delta_tvl_eth, // pool.totalValueLockedETH
+            &amounts_in_pool.delta_tvl_eth, // pool.totalValueLockedETH
         );
 
         output.set_many(
@@ -892,21 +906,21 @@ pub fn store_derived_tvl(
                 format!("PoolDayData:{day_id}:{pool_address}:totalValueLockedUSD"),
                 format!("PoolHourData:{hour_id}:{pool_address}:totalValueLockedUSD"),
             ],
-            &amounts.delta_tvl_usd, // pool.totalValueLockedUSD
+            &amounts_in_pool.delta_tvl_usd, // pool.totalValueLockedUSD
         );
 
         // pool.totalValueLockedETHUntracked
         output.set(
             pool_event.log_ordinal,
             format!("pool:{pool_address}:totalValueLockedETHUntracked"),
-            &amounts.stable_eth_untracked,
+            &amounts_in_pool.stable_eth_untracked,
         );
 
         // pool.totalValueLockedUSDUntracked
         output.set(
             ord,
             format!("pool:{pool_address}:totalValueLockedUSDUntracked"),
-            &amounts.stable_usd_untracked,
+            &amounts_in_pool.stable_usd_untracked,
         );
     }
 }

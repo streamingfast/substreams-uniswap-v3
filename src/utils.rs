@@ -275,10 +275,13 @@ pub fn get_token_tvl_in_pool(
     token_denom: &str,
     total_value_locked_store: &StoreGetBigDecimal,
 ) -> BigDecimal {
-    return match total_value_locked_store.get_at(ordinal, format!("pool:{pool_addr}:{token_addr}:{token_denom}")) {
-        None => {
-            panic!("impossible")
-        }
-        Some(val) => val,
-    };
+    total_value_locked_store
+        .get_at(ordinal, format!("pool:{pool_addr}:{token_addr}:{token_denom}"))
+        .unwrap() // impossible
+}
+
+pub fn get_token_tvl(ordinal: u64, token_addr: &String, total_value_locked_store: &StoreGetBigDecimal) -> BigDecimal {
+    total_value_locked_store
+        .get_at(ordinal, format!("token:{token_addr}"))
+        .unwrap() // impossible
 }
