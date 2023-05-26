@@ -1,0 +1,7 @@
+global:
+  language: rust
+  variant: library
+release:
+  pre-build-hooks:
+  - make build
+  upload-substreams-spkg: substreams.yaml
