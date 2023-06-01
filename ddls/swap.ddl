@@ -1,0 +1,16 @@
+create index brin_swap on "sgdXXX"."swap" using brin(block$, vid);
+create index attr_10_1_swap_transaction on "sgdXXX"."swap" using btree("transaction", block$);
+create index attr_10_2_swap_timestamp on "sgdXXX"."swap" using btree("timestamp");
+create index attr_10_3_swap_pool on "sgdXXX"."swap" using btree("pool", block$);
+create index attr_10_4_swap_token_0 on "sgdXXX"."swap" using btree("token_0", block$);
+create index attr_10_5_swap_token_1 on "sgdXXX"."swap" using btree("token_1", block$);
+create index attr_10_6_swap_sender on "sgdXXX"."swap" using btree(substring("sender", 1, 64));
+create index attr_10_7_swap_recipient on "sgdXXX"."swap" using btree(substring("recipient", 1, 64));
+create index attr_10_8_swap_origin on "sgdXXX"."swap" using btree(substring("origin", 1, 64));
+create index attr_10_9_swap_amount_0 on "sgdXXX"."swap" using btree("amount_0");
+create index attr_10_10_swap_amount_1 on "sgdXXX"."swap" using btree("amount_1");
+create index attr_10_11_swap_amount_usd on "sgdXXX"."swap" using btree("amount_usd");
+create index attr_10_12_swap_sqrt_price_x96 on "sgdXXX"."swap" using btree("sqrt_price_x96");
+create index attr_10_13_swap_tick on "sgdXXX"."swap" using btree("tick");
+create index attr_10_14_swap_log_index on "sgdXXX"."swap" using btree("log_index");
+create index manual_swap_pool_timestamp_id on "sgdXXX".swap using btree (pool, timestamp, id);

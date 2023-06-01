@@ -1,0 +1,16 @@
+create index factory_id_block_range_excl on "sgdXXX"."factory" using gist (id, block_range);
+create index brin_factory on "sgdXXX"."factory" using brin(lower(block_range), coalesce(upper(block_range), 2147483647), vid);
+create index factory_block_range_closed on "sgdXXX"."factory"(coalesce(upper(block_range), 2147483647)) where coalesce(upper(block_range), 2147483647) < 2147483647;
+create index attr_0_0_factory_id on "sgdXXX"."factory" using btree("id");
+create index attr_0_1_factory_pool_count on "sgdXXX"."factory" using btree("pool_count");
+create index attr_0_2_factory_tx_count on "sgdXXX"."factory" using btree("tx_count");
+create index attr_0_3_factory_total_volume_usd on "sgdXXX"."factory" using btree("total_volume_usd");
+create index attr_0_4_factory_total_volume_eth on "sgdXXX"."factory" using btree("total_volume_eth");
+create index attr_0_5_factory_untracked_volume_usd on "sgdXXX"."factory" using btree("untracked_volume_usd");
+create index attr_0_6_factory_total_fees_usd on "sgdXXX"."factory" using btree("total_fees_usd");
+create index attr_0_7_factory_total_fees_eth on "sgdXXX"."factory" using btree("total_fees_eth");
+create index attr_0_8_factory_total_value_locked_usd on "sgdXXX"."factory" using btree("total_value_locked_usd");
+create index attr_0_9_factory_total_value_locked_eth on "sgdXXX"."factory" using btree("total_value_locked_eth");
+create index attr_0_10_factory_total_value_locked_usd_untracked on "sgdXXX"."factory" using btree("total_value_locked_usd_untracked");
+create index attr_0_11_factory_total_value_locked_eth_untracked on "sgdXXX"."factory" using btree("total_value_locked_eth_untracked");
+create index attr_0_12_factory_owner on "sgdXXX"."factory" using btree(left("owner", 256));
