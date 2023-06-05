@@ -57,11 +57,8 @@ pub fn sqrt_price_x96_to_token_prices(
     );
 
     let price: BigDecimal = sqrt_price.clone().mul(sqrt_price);
-    // The real value of 2**192 is 6277101735386680763835789423207666416102355444464034512896
-    // BUT we have used the javascript rounded value as the referenced implementation which
-    // is the same that the Uniswap-v3 subgraph.
     let denominator: BigDecimal =
-        BigDecimal::from_str("6277101735386681000000000000000000000000000000000000000000").unwrap();
+        BigDecimal::from_str("6277101735386680763835789423207666416102355444464034512896").unwrap();
 
     let price1 = price
         .div(denominator)

@@ -61,7 +61,7 @@ impl Tables {
         row
     }
 
-    pub fn delete_row<K: AsRef<str>>(&mut self, table: &str, key: K) -> &mut Row {
+    pub fn _delete_row<K: AsRef<str>>(&mut self, table: &str, key: K) -> &mut Row {
         let rows = self.tables.entry(table.to_string()).or_insert(Rows::new());
         let row = rows.pks.entry(key.as_ref().to_string()).or_insert(Row::new());
         match row.operation {
@@ -183,7 +183,7 @@ impl Row {
         }
     }
 
-    pub fn mark_final(&mut self) -> &mut Self {
+    pub fn _mark_final(&mut self) -> &mut Self {
         self.finalized = true;
         self
     }

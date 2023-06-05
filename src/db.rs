@@ -1,12 +1,11 @@
 use std::ops::Div;
-use substreams::pb::substreams::store_delta;
 use substreams::pb::substreams::store_delta::Operation;
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
     key_first_segment_in, key_first_segments_in, key_last_segment_in, key_last_segments_in, operations_eq,
-    operations_ne, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaInt64, DeltaProto, Deltas, StoreGet,
-    StoreGetBigDecimal, StoreGetBigInt, StoreGetProto,
+    operations_ne, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
+    StoreGetBigInt, StoreGetProto,
 };
 use substreams::{log, Hex};
 

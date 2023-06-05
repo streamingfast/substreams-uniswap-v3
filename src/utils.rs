@@ -109,21 +109,6 @@ pub fn extract_pool_fee_growth_global_updates(
     return fee_growth_global;
 }
 
-pub fn _get_storage_change<'a>(
-    emitter_address: &'a Vec<u8>,
-    key: [u8; 32],
-    storage_changes: &'a Vec<StorageChange>,
-) -> Option<&'a StorageChange> {
-    for storage_change in storage_changes {
-        if emitter_address.eq(&storage_change.address) {
-            if key.to_vec() == storage_change.key {
-                return Some(storage_change);
-            }
-        }
-    }
-    return None;
-}
-
 pub fn calculate_amount_usd(
     amount0: &BigDecimal,
     amount1: &BigDecimal,
