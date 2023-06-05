@@ -151,7 +151,7 @@ pub fn find_eth_per_token(
                     };
                     log::debug!("native amount value of token1 in pool {}", native_amount);
 
-                    let mut token1_eth_price = BigDecimal::zero();
+                    let token1_eth_price;
                     // If the counter token is WETH we know the derived price is 1
                     if token1.address.eq(WETH_ADDRESS) {
                         log::debug!("token 1 is WETH");
