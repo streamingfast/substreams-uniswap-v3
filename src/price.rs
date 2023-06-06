@@ -130,7 +130,7 @@ pub fn find_eth_per_token(
 
             let liquidity: BigInt = match pool_liquidities_store.get_at(ord, format!("pool:{pool_address}")) {
                 None => {
-                    log::debug!("No liquidity for pool {pool_address}");
+                    log::debug!("No liquidity for pool {pool_address}",);
                     BigInt::zero()
                 }
                 Some(l) => l,
@@ -216,7 +216,7 @@ pub fn find_eth_per_token(
                     log::debug!(
                         "current pool token 1 matches desired token, complementary token is {} {}",
                         token0.address,
-                        token1.symbol
+                        token0.symbol
                     );
                     let native_amount = match total_native_amounts_store
                         .get_at(ord, format!("pool:{pool_address}:{token0_addr}:native"))
@@ -226,12 +226,13 @@ pub fn find_eth_per_token(
                     };
                     log::debug!("native amount value of token0 in pool {}", native_amount);
 
-                    let mut token0_eth_price = BigDecimal::zero();
+                    let token0_eth_price;
 
                     // If the counter token is WETH we know the derived price is 1
                     if token0.address.eq(WETH_ADDRESS) {
                         log::debug!("token 0 is WETH");
-                        eth_locked = native_amount
+                        eth_locked = native_amount;
+                        token0_eth_price = BigDecimal::one();
                     } else {
                         log::debug!("token 0 is NOT WETH");
 

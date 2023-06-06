@@ -130,7 +130,7 @@ modules:
 
   - name: store_native_amounts
     kind: store
-    updatePolicy: set
+    updatePolicy: add 
     valueType: bigdecimal
     inputs:
       - map: map_extract_data_types

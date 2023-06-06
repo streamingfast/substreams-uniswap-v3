@@ -417,7 +417,7 @@ pub fn store_total_tx_counts(clock: Clock, events: Events, output: StoreAddBigIn
  * STORE NATIVE AMOUNTS -> spits out any mint, swap and burn amounts
  */
 #[substreams::handlers::store]
-pub fn store_native_amounts(events: Events, store: StoreSetBigDecimal) {
+pub fn store_native_amounts(events: Events, store: StoreAddBigDecimal) {
     for pool_event in events.pool_events {
         log::info!(
             "transaction_id: {} and type of pool event {:?}",
@@ -433,7 +433,7 @@ pub fn store_native_amounts(events: Events, store: StoreSetBigDecimal) {
             let token0_addr = token_amounts.token0_addr;
             let token1_addr = token_amounts.token1_addr;
 
-            store.set_many(
+            store.add_many(
                 pool_event.log_ordinal,
                 &vec![
                     format!("token:{token0_addr}:native"),
@@ -441,7 +441,7 @@ pub fn store_native_amounts(events: Events, store: StoreSetBigDecimal) {
                 ],
                 &amount0,
             );
-            store.set_many(
+            store.add_many(
                 pool_event.log_ordinal,
                 &vec![
                     format!("token:{token1_addr}:native"),
