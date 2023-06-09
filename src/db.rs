@@ -11,7 +11,7 @@ use substreams::store::{
     StoreGetProto,
 };
 use substreams::{log, Hex};
-use substreams_database_change::tables::Tables;
+use substreams_entity_change::tables::Tables;
 
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::position_event::Type;

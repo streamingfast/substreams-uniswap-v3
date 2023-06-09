@@ -17,10 +17,9 @@ ethabi = "17.0"
 prost = "0.11"
 prost-types = "0.11"
 hex = "0.4.3"
-substreams = { version = "0.5" }
+substreams = "0.5"
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum" }
-substreams-entity-change = "^1.0.0"
-substreams-database-change = { git = "https://github.com/streamingfast/substreams-database-change/", branch = "develop" }
+substreams-entity-change = { git = "https://github.com/streamingfast/substreams-entity-change/", branch = "develop" }
 num-bigint = "0.4"
 num-traits = "0.2.15"
 tiny-keccak = "2.0.2"
@@ -33,4 +32,3 @@ substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ether
 
 [patch.crates-io]
 substreams = { git = "https://github.com/streamingfast/substreams-rs", branch = "develop" }
-substreams-entity-change = { git = "https://github.com/streamingfast/substreams-entity-change/", branch = "develop" }

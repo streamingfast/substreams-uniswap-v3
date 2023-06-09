@@ -839,21 +839,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "substreams-database-change"
-version = "1.0.0"
-source = "git+https://github.com/streamingfast/substreams-database-change/?branch=develop#ba7412c1de00fb68756524852bf4a6f26e5b56e0"
-dependencies = [
- "base64",
- "prost",
- "prost-types",
- "substreams",
- "substreams-entity-change",
-]
-
-[[package]]
 name = "substreams-entity-change"
 version = "1.1.0"
-source = "git+https://github.com/streamingfast/substreams-entity-change/?branch=develop#205f79592f82fc5576732ef182005b16a51a4515"
+source = "git+https://github.com/streamingfast/substreams-entity-change/?branch=develop#4ac489bfed8d0adc29e849e6930d823dadf15dfe"
 dependencies = [
  "base64",
  "prost",
@@ -945,7 +933,6 @@ dependencies = [
  "prost-build",
  "prost-types",
  "substreams",
- "substreams-database-change",
  "substreams-entity-change",
  "substreams-ethereum",
  "tiny-keccak",
