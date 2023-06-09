@@ -1,19 +1,22 @@
 use std::ops::Div;
+use substreams::key::{
+    key_first_segment_in, key_first_segments_in, key_last_segment_in, key_last_segments_in, operations_eq,
+    operations_ne,
+};
 use substreams::pb::substreams::store_delta::Operation;
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    key_first_segment_in, key_first_segments_in, key_last_segment_in, key_last_segments_in, operations_eq,
-    operations_ne, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal,
-    StoreGetBigInt, StoreGetProto,
+    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, Deltas, StoreGet, StoreGetBigDecimal, StoreGetBigInt,
+    StoreGetProto,
 };
 use substreams::{log, Hex};
+use substreams_database_change::tables::Tables;
 
 use crate::pb::uniswap::events::pool_event::Type::{Burn as BurnEvent, Mint as MintEvent, Swap as SwapEvent};
 use crate::pb::uniswap::events::position_event::Type;
 use crate::pb::uniswap::events::{IncreaseLiquidityPosition, PoolSqrtPrice, PositionEvent};
 use crate::pb::uniswap::{events, Events, Pool};
-use crate::tables::Tables;
 use crate::uniswap::{Erc20Token, Pools};
 use crate::{key, utils};
 
