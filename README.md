@@ -8,7 +8,7 @@ Substreams are consumable directly.
 
 ## Stream intermediate values and events
 
-- Replace the spkg with the version you would like to used, the current release can be foubd on [Github](https://github.com/streamingfast/substreams-uniswap-v3/releases)
+- Replace the spkg with the version you would like to use, the current release can be found on [Github](https://github.com/streamingfast/substreams-uniswap-v3/releases).
 
 - Replace the streamingfast api endpoint with the preffered network, a list of chains and endpoints can be found [here](https://substreams.streamingfast.io/reference-and-specs/chains-and-endpoints)
 
