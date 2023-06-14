@@ -10,7 +10,7 @@ Substreams are consumable directly.
 
 - Replace the spkg with the version you would like to use, the current release can be found on [Github](https://github.com/streamingfast/substreams-uniswap-v3/releases).
 
-- Replace the streamingfast api endpoint with the preffered network, a list of chains and endpoints can be found [here](https://substreams.streamingfast.io/reference-and-specs/chains-and-endpoints)
+- Replace the StreamingFast api endpoint with the preferred network, a list of chains and endpoints can be found [here](https://substreams.streamingfast.io/reference-and-specs/chains-and-endpoints).
 
 ```bash
 $ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.2.8/substreams.spkg \
