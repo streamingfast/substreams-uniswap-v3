@@ -8,10 +8,14 @@ Substreams are consumable directly.
 
 ## Stream intermediate values and events
 
+- Replace the spkg with the version you would like to used, the current release can be foubd on [Github](https://github.com/streamingfast/substreams-uniswap-v3/releases)
+
+- Replace the streamingfast api endpoint with the preffered network, a list of chains and endpoints can be found [here](https://substreams.streamingfast.io/reference-and-specs/chains-and-endpoints)
+
 ```bash
-$ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.1.0-beta/uniswap-v3-v0.1.0-beta.spkg \
+$ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.2.8/substreams.spkg \
   map_pools_created \
-  -e api-dev.streamingfast.io:443 \
+  -e api.streamingfast.io:443 \
   -t +150
 [...]
 {
@@ -58,7 +62,7 @@ First, [authenticate](https://substreams.streamingfast.io/reference-and-specs/au
 This runs the `graph_out` module against a Substreams cluster:
 
 ```bash
-$ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.1.0-beta/uniswap-v3-v0.1.0-beta.spkg \
+$ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.2.8/substreams.spkg \
   graph_out \
   -e api.streamingfast.io:443 \
   -t +150
