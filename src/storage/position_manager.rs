@@ -382,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn position_poolId() {
+    fn position_pool_id() {
         let changes = get_store_changes();
         let storage = get_position_manager(&changes);
         let v_opt = storage.positions(&BigInt::from_str("1").unwrap()).pool_id();

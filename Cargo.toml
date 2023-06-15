@@ -14,29 +14,21 @@ strip = "debuginfo"
 
 [dependencies]
 ethabi = "17.0"
-wasm-bindgen = "0.2.79"
-prost = "0.11.0"
-prost-types = "0.11.0"
+prost = "0.11"
+prost-types = "0.11"
 hex = "0.4.3"
-substreams = { version = "0.5.6" }
+substreams = "0.5"
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum" }
-substreams-entity-change = {git = "https://github.com/streamingfast/substreams-entity-change/", branch = "develop"}
+substreams-entity-change = { git = "https://github.com/streamingfast/substreams-entity-change/", branch = "develop" }
 num-bigint = "0.4"
-bigdecimal = "0.3"
-pad = "0.1"
-base64 = "0.13.0"
-stable-hash_legacy = { version = "0.3.3", package = "stable-hash" }
-stable-hash = { version = "0.4.2"}
-thiserror = "1.0.25"
 num-traits = "0.2.15"
 tiny-keccak = "2.0.2"
 phf = { version = "0.11.1", features = ["macros"] }
 
 [build-dependencies]
-prost-build = "0.11.0"
+prost-build = "0.11"
 anyhow = "1"
 substreams-ethereum = { git = "https://github.com/streamingfast/substreams-ethereum" }
 
 [patch.crates-io]
 substreams = { git = "https://github.com/streamingfast/substreams-rs", branch = "develop" }
-#substreams = { path = "/Users/abourget/sf/substreams-rs/substreams" }

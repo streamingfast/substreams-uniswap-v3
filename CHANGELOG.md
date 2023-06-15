@@ -5,11 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
-
+## Next
+* Moved `tables.rs` abstraction into `substreams-database-change` crate
 * Fixed issue with `store_native_amounts` using `updatePolicy: set` instead of `updatePoliciy: add`
-
 * Fixed issue with `find_eth_per_token` having WETH price set to 0 when it is `token0` of the pool
+
+## v0.2.8
+* Update q192 to use real computed q192 value instead of truncated js value to have more precise values and closer to the real value mathematically.
+* Javascript Engine 2^192 computed value: 6277101735386681000000000000000000000000000000000000000000 Real value of 2^192: 6277101735386680763835789423207666416102355444464034512896
 
 ## v0.2.7
 

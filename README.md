@@ -8,10 +8,14 @@ Substreams are consumable directly.
 
 ## Stream intermediate values and events
 
+- Replace the spkg with the version you would like to use, the current release can be found on [Github](https://github.com/streamingfast/substreams-uniswap-v3/releases).
+
+- Replace the StreamingFast api endpoint with the preferred network, a list of chains and endpoints can be found [here](https://substreams.streamingfast.io/reference-and-specs/chains-and-endpoints).
+
 ```bash
-$ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.1.0-beta/uniswap-v3-v0.1.0-beta.spkg \
+substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.2.8/substreams.spkg \
   map_pools_created \
-  -e api-dev.streamingfast.io:443 \
+  -e mainnet.eth.streamingfast.io:443 \
   -t +150
 [...]
 {
@@ -49,8 +53,6 @@ $ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases
 [...]
 ```
 
-
-
 ## Stream Entity changes
 
 First, [authenticate](https://substreams.streamingfast.io/reference-and-specs/authentication), and run `sftoken` in your shell session.
@@ -58,9 +60,9 @@ First, [authenticate](https://substreams.streamingfast.io/reference-and-specs/au
 This runs the `graph_out` module against a Substreams cluster:
 
 ```bash
-$ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.1.0-beta/uniswap-v3-v0.1.0-beta.spkg \
+substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.2.8/substreams.spkg \
   graph_out \
-  -e api.streamingfast.io:443 \
+  -e mainnet.eth.streamingfast.io:443 \
   -t +150
 [...]
 {
@@ -113,20 +115,17 @@ $ substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases
 }
 ```
 
-
-
 ## Hack on it
 
 ### Build `substreams-uniswap-v3`
 
 ```bash
-$ cargo build --target wasm32-unknown-unknown --release
+make build
 [...]
-$ substreams run  -e api-dev.streamingfast.io:443 substreams.yaml graph_out -t +150
+substreams run  -e mainnet.eth.streamingfast.io:443 substreams.yaml graph_out -t +150
 [...]
 try it :)
 ```
-
 
 ### Pack everything to release
 

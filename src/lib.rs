@@ -11,7 +11,6 @@ mod pb;
 mod price;
 mod rpc;
 mod storage;
-mod tables;
 mod ticks_idx;
 mod utils;
 
@@ -26,20 +25,20 @@ use crate::pb::uniswap::events::{PoolSqrtPrice, PositionEvent};
 use crate::pb::uniswap::{events, Events};
 use crate::pb::uniswap::{Erc20Token, Erc20Tokens, Pool, Pools};
 use crate::price::WHITELIST_TOKENS;
-use crate::tables::Tables;
 use crate::utils::{ERROR_POOL, UNISWAP_V3_FACTORY};
 use std::ops::{Div, Mul, Sub};
 use substreams::errors::Error;
+use substreams::key::key_first_segment_in;
 use substreams::pb::substreams::{store_delta, Clock};
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    key_first_segment_in, DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigDecimal, StoreAddBigInt,
-    StoreAppend, StoreGetBigDecimal, StoreGetBigInt, StoreGetProto, StoreGetRaw, StoreSetBigDecimal, StoreSetBigInt,
-    StoreSetProto,
+    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigDecimal, StoreAddBigInt, StoreAppend,
+    StoreGetBigDecimal, StoreGetBigInt, StoreGetProto, StoreGetRaw, StoreSetBigDecimal, StoreSetBigInt, StoreSetProto,
 };
 use substreams::{log, Hex};
 use substreams_entity_change::pb::entity::EntityChanges;
+use substreams_entity_change::tables::Tables;
 use substreams_ethereum::{pb::eth as ethpb, Event as EventTrait};
 
 #[substreams::handlers::map]

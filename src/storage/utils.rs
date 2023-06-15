@@ -117,13 +117,9 @@ pub fn read_bytes(buf: &Vec<u8>, offset: usize, number_of_bytes: usize) -> &[u8]
 #[cfg(test)]
 mod tests {
     use crate::storage::utils::{get_storage_change, left_pad, read_bytes};
-    use std::ops::Add;
-    use std::str::FromStr;
     use std::{fmt::Write, num::ParseIntError};
-    use substreams::scalar::BigInt;
-    use substreams::{hex, Hex};
+    use substreams::hex;
     use substreams_ethereum::pb::eth::v2::StorageChange;
-    use tiny_keccak::{Hasher, Keccak};
 
     #[test]
     fn left_pad_lt_32_bytes() {
