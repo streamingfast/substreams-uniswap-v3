@@ -140,8 +140,8 @@ message Events {
     uint64 created_at_block_number = 108;
 
     message Swap {
-      string sender = 1;
-      string recipient = 2;
+      bytes sender = 1;
+      bytes recipient = 2;
       string origin = 3;
       // Decimal
       string amount_0 = 4;
@@ -156,7 +156,7 @@ message Events {
     }
 
     message Burn {
-      string owner = 1;
+      bytes owner = 1;
       string origin = 2;
       // Integer
       string amount = 3;
@@ -171,8 +171,8 @@ message Events {
     }
 
     message Mint {
-      string owner = 1;
-      string sender = 2;
+      bytes owner = 1;
+      bytes sender = 2;
       string origin = 3;
       // Decimal
       string amount_0 = 4;
@@ -273,7 +273,7 @@ message Events {
 
   message TransferPosition {
     string token_id = 1;
-    string owner = 2;
+    bytes owner = 2;
     uint64 log_ordinal = 10;
   }
 }
@@ -288,7 +288,7 @@ message SnapshotPosition {
   // the token_id of the position
   string position = 2;
   uint64 block_number = 3;
-  string owner = 4;
+  bytes owner = 4;
   uint64 timestamp = 6;
   // Decimal
   string liquidity = 7;

@@ -227,10 +227,10 @@ pub mod events {
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Swap {
-            #[prost(string, tag="1")]
-            pub sender: ::prost::alloc::string::String,
-            #[prost(string, tag="2")]
-            pub recipient: ::prost::alloc::string::String,
+            #[prost(bytes="vec", tag="1")]
+            pub sender: ::prost::alloc::vec::Vec<u8>,
+            #[prost(bytes="vec", tag="2")]
+            pub recipient: ::prost::alloc::vec::Vec<u8>,
             #[prost(string, tag="3")]
             pub origin: ::prost::alloc::string::String,
             /// Decimal
@@ -252,8 +252,8 @@ pub mod events {
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Burn {
-            #[prost(string, tag="1")]
-            pub owner: ::prost::alloc::string::String,
+            #[prost(bytes="vec", tag="1")]
+            pub owner: ::prost::alloc::vec::Vec<u8>,
             #[prost(string, tag="2")]
             pub origin: ::prost::alloc::string::String,
             /// Integer
@@ -275,10 +275,10 @@ pub mod events {
         #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Mint {
-            #[prost(string, tag="1")]
-            pub owner: ::prost::alloc::string::String,
-            #[prost(string, tag="2")]
-            pub sender: ::prost::alloc::string::String,
+            #[prost(bytes="vec", tag="1")]
+            pub owner: ::prost::alloc::vec::Vec<u8>,
+            #[prost(bytes="vec", tag="2")]
+            pub sender: ::prost::alloc::vec::Vec<u8>,
             #[prost(string, tag="3")]
             pub origin: ::prost::alloc::string::String,
             /// Decimal
@@ -479,8 +479,8 @@ pub mod events {
     pub struct TransferPosition {
         #[prost(string, tag="1")]
         pub token_id: ::prost::alloc::string::String,
-        #[prost(string, tag="2")]
-        pub owner: ::prost::alloc::string::String,
+        #[prost(bytes="vec", tag="2")]
+        pub owner: ::prost::alloc::vec::Vec<u8>,
         #[prost(uint64, tag="10")]
         pub log_ordinal: u64,
     }
@@ -501,8 +501,8 @@ pub struct SnapshotPosition {
     pub position: ::prost::alloc::string::String,
     #[prost(uint64, tag="3")]
     pub block_number: u64,
-    #[prost(string, tag="4")]
-    pub owner: ::prost::alloc::string::String,
+    #[prost(bytes="vec", tag="4")]
+    pub owner: ::prost::alloc::vec::Vec<u8>,
     #[prost(uint64, tag="6")]
     pub timestamp: u64,
     /// Decimal
