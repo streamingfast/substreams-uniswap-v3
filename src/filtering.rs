@@ -266,7 +266,7 @@ pub fn extract_pool_events_and_positions(
                 &position_manager_contract_call,
             );
         }
-    } else if let Some(_collect) = abi::pool::events::Collect::match_and_decode(log) {
+    } else if abi::pool::events::Collect::match_log(log) {
         if let Some(position_manager_contract_call) = call_view.parent() {
             extract_positions(
                 pool,
@@ -309,7 +309,7 @@ pub fn extract_pool_liquidities(
 
     let storage = UniswapPoolStorage::new(storage_changes, &log.address);
 
-    if let Some(_) = abi::pool::events::Swap::match_and_decode(&log) {
+    if abi::pool::events::Swap::match_log(&log) {
         if !pool.should_handle_swap() {
             return;
         }
@@ -324,7 +324,7 @@ pub fn extract_pool_liquidities(
                 log_ordinal: log.ordinal,
             });
         }
-    } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
+    } else if abi::pool::events::Mint::match_log(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
@@ -339,7 +339,7 @@ pub fn extract_pool_liquidities(
                 log_ordinal: log.ordinal,
             });
         }
-    } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
+    } else if abi::pool::events::Burn::match_log(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
@@ -364,22 +364,22 @@ pub fn extract_fee_growth_update(
     pool: &Pool,
 ) {
     let mut do_extract = false;
-    if let Some(_) = abi::pool::events::Swap::match_and_decode(&log) {
+    if abi::pool::events::Swap::match_log(&log) {
         if !pool.should_handle_swap() {
             return;
         }
         do_extract = true;
-    } else if let Some(_) = abi::pool::events::Mint::match_and_decode(&log) {
+    } else if abi::pool::events::Mint::match_log(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
         do_extract = true
-    } else if let Some(_) = abi::pool::events::Burn::match_and_decode(&log) {
+    } else if abi::pool::events::Burn::match_log(&log) {
         if !pool.should_handle_mint_and_burn() {
             return;
         }
         do_extract = true;
-    } else if let Some(_) = abi::pool::events::Flash::match_and_decode(&log) {
+    } else if abi::pool::events::Flash::match_log(&log) {
         do_extract = false; //TODO: handle this later when we process flashes
     }
     if do_extract {
@@ -419,13 +419,13 @@ pub fn extract_transactions(
     block_number: u64,
 ) {
     let mut add_transaction = false;
-    if abi::pool::events::Burn::match_and_decode(log).is_some()
-        || abi::pool::events::Mint::match_and_decode(log).is_some()
-        || abi::pool::events::Swap::match_and_decode(log).is_some()
-        || abi::positionmanager::events::IncreaseLiquidity::match_and_decode(log).is_some()
-        || abi::positionmanager::events::Collect::match_and_decode(log).is_some()
-        || abi::positionmanager::events::DecreaseLiquidity::match_and_decode(log).is_some()
-        || abi::positionmanager::events::Transfer::match_and_decode(log).is_some()
+    if abi::pool::events::Burn::match_log(log)
+        || abi::pool::events::Mint::match_log(log)
+        || abi::pool::events::Swap::match_log(log)
+        || abi::positionmanager::events::IncreaseLiquidity::match_log(log)
+        || abi::positionmanager::events::Collect::match_log(log)
+        || abi::positionmanager::events::DecreaseLiquidity::match_log(log)
+        || abi::positionmanager::events::Transfer::match_log(log)
     {
         add_transaction = true
     }
