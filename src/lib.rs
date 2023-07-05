@@ -934,7 +934,7 @@ pub fn store_derived_factory_tvl(
     let prev_day_id = day_id - 1;
     output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
 
-    for delta in derived_tvl_deltas.deltas.iter().key_first_segment_eq("pool") {
+    for delta in derived_tvl_deltas.into_iter().key_first_segment_eq("pool") {
         log::info!("delta key {}", delta.key);
         log::info!("delta old {}", delta.old_value);
         log::info!("delta new {}", delta.new_value);
