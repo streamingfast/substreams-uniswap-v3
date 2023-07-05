@@ -5,7 +5,6 @@ mod ast;
 mod db;
 mod eth;
 mod filtering;
-mod key;
 mod math;
 mod pb;
 mod price;
@@ -28,6 +27,7 @@ use crate::price::WHITELIST_TOKENS;
 use crate::utils::{ERROR_POOL, UNISWAP_V3_FACTORY};
 use std::ops::{Div, Mul, Sub};
 use substreams::errors::Error;
+use substreams::key;
 use substreams::pb::substreams::{store_delta, Clock};
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
@@ -1134,7 +1134,7 @@ pub fn store_min_windows(
     output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
-    for delta in deltas.iter() {
+    for delta in deltas {
         if delta.operation == store_delta::Operation::Delete {
             continue;
         }
@@ -1157,8 +1157,8 @@ pub fn store_min_windows(
             _ => continue,
         };
 
-        let time_id = key::segment(&delta.key, 1);
-        let address = key::segment(&delta.key, 2);
+        let time_id = key::segment_at(&delta.key, 1);
+        let address = key::segment_at(&delta.key, 2);
 
         if delta.operation == store_delta::Operation::Create {
             output.min(
@@ -1199,7 +1199,7 @@ pub fn store_max_windows(
     output.delete_prefix(0, &format!("TokenDayData:{prev_day_id}:"));
     output.delete_prefix(0, &format!("TokenHourData:{prev_hour_id}:"));
 
-    for delta in deltas.iter() {
+    for delta in deltas {
         if delta.operation == store_delta::Operation::Delete {
             continue;
         }
@@ -1222,13 +1222,13 @@ pub fn store_max_windows(
             _ => continue,
         };
 
-        let day_id = key::segment(&delta.key, 1);
-        let pool_address = key::segment(&delta.key, 2);
+        let day_id = key::segment_at(&delta.key, 1);
+        let pool_address = key::segment_at(&delta.key, 2);
 
         output.max(
             delta.ordinal,
             format!("{table_name}:{day_id}:{pool_address}:high"),
-            &delta.new_value,
+            delta.new_value,
         );
     }
 }
