@@ -8,7 +8,7 @@ use std::string::ToString;
 use substreams::prelude::StoreGetBigDecimal;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::StoreGet;
-use substreams::{hex, log, Hex};
+use substreams::{hex, key, log, Hex};
 
 pub const UNISWAP_V3_FACTORY: [u8; 20] = hex!("1f98431c8ad98523631ae4a59f267346ea31f984");
 
@@ -269,4 +269,24 @@ pub fn get_token_tvl(ordinal: u64, token_addr: &String, total_value_locked_store
     total_value_locked_store
         .get_at(ordinal, format!("token:{token_addr}"))
         .unwrap() // impossible
+}
+
+pub fn time_as_i64_address_as_str(key: &String) -> (i64, &str) {
+    return (key::segment_at(key, 1).parse::<i64>().unwrap(), key::segment_at(key, 2));
+}
+
+pub fn pool_windows_id_fields(key: &String) -> (&str, &str, &str) {
+    let table_name = key::first_segment(key);
+    let time_id = key::segment_at(key, 1);
+    let pool_address = key::segment_at(key, 2);
+
+    return (table_name, time_id, pool_address);
+}
+
+pub fn token_windows_id_fields(key: &String) -> (&str, &str, &str) {
+    let table_name = key::first_segment(key);
+    let time_id = key::segment_at(key, 1);
+    let token_address = key::segment_at(key, 2);
+
+    return (table_name, time_id, token_address);
 }
