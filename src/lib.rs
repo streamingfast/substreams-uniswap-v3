@@ -28,12 +28,11 @@ use crate::price::WHITELIST_TOKENS;
 use crate::utils::{ERROR_POOL, UNISWAP_V3_FACTORY};
 use std::ops::{Div, Mul, Sub};
 use substreams::errors::Error;
-use substreams::key::key_first_segment_in;
 use substreams::pb::substreams::{store_delta, Clock};
 use substreams::prelude::*;
 use substreams::scalar::{BigDecimal, BigInt};
 use substreams::store::{
-    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaProto, StoreAddBigDecimal, StoreAddBigInt, StoreAppend,
+    DeltaArray, DeltaBigDecimal, DeltaBigInt, DeltaExt, DeltaProto, StoreAddBigDecimal, StoreAddBigInt, StoreAppend,
     StoreGetBigDecimal, StoreGetBigInt, StoreGetProto, StoreGetRaw, StoreSetBigDecimal, StoreSetBigInt, StoreSetProto,
 };
 use substreams::{log, Hex};
@@ -935,7 +934,7 @@ pub fn store_derived_factory_tvl(
     let prev_day_id = day_id - 1;
     output.delete_prefix(0, &format!("UniswapDayData:{prev_day_id}:"));
 
-    for delta in derived_tvl_deltas.deltas.iter().filter(key_first_segment_in("pool")) {
+    for delta in derived_tvl_deltas.deltas.iter().key_first_segment_eq("pool") {
         log::info!("delta key {}", delta.key);
         log::info!("delta old {}", delta.old_value);
         log::info!("delta new {}", delta.new_value);

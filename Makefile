@@ -1,5 +1,6 @@
 ENDPOINT ?= api-unstable.streamingfast.io:443
 GRAPH_CONFIG ?= ../graph-node-dev/config/graphman.toml
+STOP_BLOCK ?= +1000
 
 .PHONY: build
 build:
@@ -7,11 +8,11 @@ build:
 
 .PHONY: stream
 stream: build
-	substreams run -e $(ENDPOINT) substreams.yaml map_extract_data_types -s 12369621 -t +1000
+	substreams run -e $(ENDPOINT) substreams.yaml map_extract_data_types -s 12369621 -t $(STOP_BLOCK)
 
 .PHONY: graph_out
 graph_out: build
-	substreams run -e $(ENDPOINT) substreams.yaml graph_out -s 12369621 -t +1000
+	substreams run -e $(ENDPOINT) substreams.yaml graph_out -s 12369621 -t $(STOP_BLOCK)
 
 .PHONY: protogen
 protogen:
