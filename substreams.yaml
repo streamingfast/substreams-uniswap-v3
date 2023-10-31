@@ -3,6 +3,7 @@ package:
   name: uniswap_v3
   version: v0.2.8
   url: https://github.com/streamingfast/substreams-uniswap-v3
+  image: ./sf_substreams_uniswap.jpeg
   doc: |
     Official StreamingFast implementation of Uniswap v3 Substreams. Underlying Substreams modules
     allow for composability. This Substreams contains 22 modules. Mappers are used to extract
