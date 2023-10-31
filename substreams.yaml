@@ -4,8 +4,12 @@ package:
   version: v0.2.8
   url: https://github.com/streamingfast/substreams-uniswap-v3
   doc: |
-    These substream modules compose all the things to build up the Uniswap v3 substreams.
-    See individual modules docs for help.
+    Official StreamingFast implementation of Uniswap v3 Substreams. Underlying Substreams modules
+    allow for composability. This Substreams contains 22 modules. Mappers are used to extract
+    key structures which are either passed down to other modules or used to emit entity changes.
+    Stores are used as temporary storage to hold/pass down key data to mappers, such as ETH price
+    in USD. These substreams modules compose all the things to build up the Uniswap v3 Substreams.
+    See individual modules docs for more information.
 
 imports:
   entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v1.1.0/substreams-entity-change-v1.1.0.spkg
@@ -21,6 +25,8 @@ binaries:
     type: wasm/rust-v1
     file: target/wasm32-unknown-unknown/release/substreams_uniswap_v3.wasm
 
+network: mainnet
+
 modules:
   - name: map_pools_created
     kind: map
@@ -30,12 +36,12 @@ modules:
     output:
       type: proto:uniswap.types.v1.Pools
     doc: |
-      Dynamic data sources pattern for Uniswap V3 pools. This module will loop over block transactions and detect
-      pools created events. Once the pool created events have been detected, we will create `Pools` structs.
+      This module will loop over block transactions and detect pools created events. 
+      Once the pool created events have been detected, `Pools` structs will be emitted out of the module.
       
       Try with
       ```
-      substreams gui substreams.yaml map_pools_created -e $SUBSTREAMS_ENDPOINT -t +1000
+      substreams gui substreams.yaml map_pools_created -t +1000
       ```
 
   - name: store_pools_created
@@ -44,6 +50,9 @@ modules:
     valueType: proto:uniswap.types.v1.Pool
     inputs:
       - map: map_pools_created
+    doc: |
+      This module stores the Pools emitted by the `map_pools_created` module. 
+      Dynamic data sources pattern for Uniswap v3 pools. 
 
   - name: store_tokens
     kind: store
@@ -51,6 +60,8 @@ modules:
     valueType: int64
     inputs:
       - map: map_pools_created
+    doc: |
+      `Int64` store accumulator for each time a token is used for any combination for a pool.
 
   - name: store_pool_count
     kind: store
@@ -58,6 +69,8 @@ modules:
     valueType: bigint
     inputs:
       - map: map_pools_created
+    doc: |
+      `BigInt` store accumulator for each time a pool is created.
 
   - name: map_tokens_whitelist_pools
     kind: map
@@ -66,6 +79,16 @@ modules:
       - map: map_pools_created
     output:
       type: proto:uniswap.types.v1.ERC20Tokens
+    doc: |
+      This modules loops over the pools created and emits `ERC20Tokens` structs out of the module.
+      Tokens part of the pair of a pool are checked against the `WHITELIST_TOKENS` constant to see
+      if they are part of the list. If so push the address of the pool in the field `whitelist_pools`
+      of the token.
+
+      Try with
+      ```
+      substreams gui substreams.yaml map_tokens_whitelist_pools -t +1000
+      ```
 
   - name: store_tokens_whitelist_pools
     kind: store
@@ -73,6 +96,8 @@ modules:
     valueType: string
     inputs:
       - map: map_tokens_whitelist_pools
+    doc: |
+      `String` appender store which stores the `whitelist_pools` field of a token.
 
   - name: map_extract_data_types
     kind: map
@@ -82,6 +107,16 @@ modules:
       - store: store_pools_created
     output:
       type: proto:uniswap.types.v1.Events
+    doc: |
+      Chunky module which emits multiple types of `Events`. Looping over every transaction to filter out `Events`. 
+      For some events, we have to loop over `StorageChanges` to be able to fetch certain changes such as liquidity
+      increases and decreases.
+      For more information on what the `Event` contains, check proto/uniswap/v1/uniswap.proto.
+
+      Try with
+      ```
+      substreams gui substreams.yaml map_extract_data_types -t +1000
+      ```
 
   - name: store_pool_sqrt_price
     kind: store
@@ -89,6 +124,8 @@ modules:
     valueType: proto:uniswap.types.v1.Events.PoolSqrtPrice
     inputs:
       - map: map_extract_data_types
+    doc: |
+      Store setter for `PoolSqrtPrice` emitted out of the `map_extract_data_types`.
 
   - name: store_prices
     kind: store
@@ -99,6 +136,14 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
       - store: store_pools_created
+    doc: |
+      `BigDecimal` store setter for storing the price of token0 <> token1 and vice versa. 
+      Also store the Daily and Hourly prices.
+      
+      For example: Pool: TOKEN0 <> TOKEN1
+        - pool:{pool_address}:{token0_addr}:token0 -> 100
+        - pool:{pool_address}:{token1_addr}:token1 -> 1
+        This means that the price of TOKEN0 is 100 for 1 TOKEN1
 
   - name: store_pool_liquidities
     kind: store
@@ -108,6 +153,8 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
+    doc: |
+      `BigInt` store setter for storing pool liquidites which were extracted from `map_extract_data_types`.
 
   - name: store_total_tx_counts
     kind: store
@@ -116,6 +163,9 @@ modules:
     inputs:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
+    doc: |
+      `BigInt` accumulator store for the total transaction counts for pools, tokens, factory, 
+      daily factory, daily and hourly for token and pool data.
 
   - name: store_swaps_volume
     kind: store
@@ -127,6 +177,10 @@ modules:
       - store: store_pools_created
       - store: store_total_tx_counts
       - store: store_eth_prices
+    doc: |
+      `BigDecimal` accumulator store for the swap volume of various entries such as `amount0_abs`, `amount1_abs`,
+      `volume_usd`, `volume_usd_untracked`, `volume_eth`, `fee_usd` and `fee_eth`. The `_0` and `_1` entries
+      are the value of one token for another token.
 
   - name: store_native_amounts
     kind: store
@@ -134,6 +188,9 @@ modules:
     valueType: bigdecimal
     inputs:
       - map: map_extract_data_types
+    doc: |
+      `BigDecimal` setter store for the native amounts out of any `Event` type: `Mint`, `Swap` and `Burn` amounts
+      (amount0 and amount1).
 
   - name: store_eth_prices
     kind: store
@@ -148,6 +205,16 @@ modules:
       - store: store_tokens_whitelist_pools
       - store: store_native_amounts
       - store: store_pool_liquidities
+    doc: |
+      `BigDecimal` setter store for the `eth_price`. This module uses a multiple stores and `map_extract_data_types` to find the `eth_price`
+      of any given token. If a pool contains a token which has a pair with a _well-known_ token, the `eth_price` is easily found.
+      Stores the USD price of ETH.
+
+      For example: 
+        - Pool: DAI <> WBTC -> we check if there is a pool with DAI <> ETH and easily derive the price
+        - Pool: ANYTOKEN0 <> DAI -> we can derive the price by finding the pool DAI <> ETH 
+        - Pool: ANYTOKEN0 <> ANYTOKEN1 -> more complicated case where we have to check on either side of the pool
+                and try to find a path to reach a `whitelisted_token` which has a pool with ETH to be able to derive the price
 
   - name: store_token_tvl
     kind: store
@@ -156,6 +223,8 @@ modules:
     valueType: bigdecimal
     inputs:
       - map: map_extract_data_types
+    doc: |
+      `BigDecimal` accumulator store for the `total_value_locked` for tokens.
 
   - name: store_derived_tvl
     kind: store
@@ -168,6 +237,9 @@ modules:
       - store: store_token_tvl
       - store: store_pools_created
       - store: store_eth_prices
+    doc: |
+      `BigDecimal` accumulator store for the derived `total_value_locked` in `USD`, `ETH`, `USDUntracked` and `ETHUntracked` for
+      pools and tokens.
 
   - name: store_derived_factory_tvl
     kind: store
@@ -178,6 +250,8 @@ modules:
       - source: sf.substreams.v1.Clock
       - store: store_derived_tvl
         mode: deltas
+    doc: |
+      `BigDecimal` accumulator store for the derived `total_value_locked` in `USD`, `ETH`, `USDUntracked` and `ETHUntracked` for the factory.
 
   - name: store_ticks_liquidities
     kind: store
@@ -187,13 +261,8 @@ modules:
       - source: sf.substreams.v1.Clock
       - map: map_extract_data_types
     doc: |
-      ### Hello world
-      
-      This is how you use this:
-      
-      ```
-      substreams gui blah blah
-      ```
+      `BigInt` accumulator store for the liquidities of the pools. Tracking `liquidityGross` and `liquidityNet` for pool values at all times,
+      daily and hourly for `Mint` and `Burn` events.
 
   - name: store_positions
     kind: store
@@ -201,6 +270,9 @@ modules:
     valueType: proto:uniswap.types.v1.Events.PositionEvent
     inputs:
       - map: map_extract_data_types
+    doc: |
+      `PositionEvent` setter store for `Position` Events emitted out of `map_extract_data_types`. `CreatedPosition`, `IncreaseLiquidityPosition`, 
+      `DecreaseLiquidityPosition`, `CollectPosition` and `TransferPosition` are stored.
 
   - name: store_min_windows
     kind: store
@@ -212,6 +284,8 @@ modules:
         mode: deltas
       - store: store_eth_prices
         mode: deltas
+    doc: |
+      `BigDecimal` minimum store for the price of `eth` and token prices for `open` and `low` for daily and hourly.
 
   - name: store_max_windows
     kind: store
@@ -223,6 +297,8 @@ modules:
         mode: deltas
       - store: store_eth_prices
         mode: deltas
+    doc: |
+      `BigDecimal` maximum store for the price of `eth` and token prices for `open` and `low` for daily and hourly.
 
   - name: graph_out
     kind: map
@@ -265,6 +341,7 @@ modules:
         mode: deltas
       - store: store_max_windows
         mode: deltas
-
     output:
       type: proto:sf.substreams.entity.v1.EntityChanges
+    doc: |
+      `EntityChanges` emitted out for all the entities defined in the `schema.graphql` for the Uniswap v3 Subgraph.
