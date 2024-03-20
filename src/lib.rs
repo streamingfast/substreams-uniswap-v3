@@ -78,6 +78,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                         }
                         None => {
                             // We were unable to create the uniswap token, so we discard this event entirely
+                            log::info!("ignoring creating of pool addr: {}", Hex(&event.pool));
                             return None;
                         }
                     }),
@@ -90,6 +91,7 @@ pub fn map_pools_created(block: Block) -> Result<Pools, Error> {
                         }
                         None => {
                             // We were unable to create the uniswap token, so we discard this event entirely
+                            log::info!("ignoring creating of pool addr: {}", Hex(&event.pool));
                             return None;
                         }
                     }),

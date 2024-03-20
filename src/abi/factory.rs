@@ -221,7 +221,15 @@
                             let non_full_signed_bytes = self
                                 .tick_spacing
                                 .to_signed_bytes_be();
-                            let mut full_signed_bytes = [0xff as u8; 32];
+                            let full_signed_bytes_init = if non_full_signed_bytes[0]
+                                & 0x80 == 0x80
+                            {
+                                0xff
+                            } else {
+                                0x00
+                            };
+                            let mut full_signed_bytes = [full_signed_bytes_init
+                                as u8; 32];
                             non_full_signed_bytes
                                 .into_iter()
                                 .rev()

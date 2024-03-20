@@ -18,6 +18,14 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     let decimals: u64;
     match RpcBatch::decode::<_, abi::erc20::functions::Decimals>(&responses[0]) {
         Some(decoded_decimals) => {
+            // if the number of decimals are bigger than 255, we ignore the token
+            if decoded_decimals > BigInt::from(255) {
+                log::info!(
+                    "{} is not a an ERC20 token contract decimals are bigger than 255",
+                    token_address,
+                );
+                return None;
+            }
             decimals = decoded_decimals.to_u64();
         }
         None => match utils::get_static_uniswap_tokens(token_address.encode_to_vec().as_slice()) {
