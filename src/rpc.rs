@@ -19,9 +19,9 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
     match RpcBatch::decode::<_, abi::erc20::functions::Decimals>(&responses[0]) {
         Some(decoded_decimals) => {
             // if the number of decimals are bigger than 255, we ignore the token
-            if decoded_decimals > BigInt::from(255) {
+            if decoded_decimals >= BigInt::from(255) {
                 log::info!(
-                    "{} is not a an ERC20 token contract decimals are bigger than 255",
+                    "ignoring token address {} because the decimals are bigger than 255",
                     token_address,
                 );
                 return None;
@@ -32,7 +32,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
             Some(token) => decimals = token.decimals,
             None => {
                 log::debug!(
-                    "{} is not a an ERC20 token contract decimal `eth_call` failed",
+                    "{} is not an ERC20 token contract decimal `eth_call` failed",
                     Hex(&token_address),
                 );
 
@@ -51,7 +51,7 @@ pub fn create_uniswap_token(token_address: &String) -> Option<Erc20Token> {
             Some(token) => name = token.name,
             None => {
                 log::debug!(
-                    "{} is not a an ERC20 token contract name `eth_call` failed",
+                    "{} is not an ERC20 token contract name `eth_call` failed",
                     &token_address,
                 );
                 name = eth::read_string_from_bytes(responses[1].raw.as_ref());
