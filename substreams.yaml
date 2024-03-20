@@ -39,7 +39,7 @@ modules:
     doc: |
       This module will loop over block transactions and detect pools created events. 
       Once the pool created events have been detected, `Pools` structs will be emitted out of the module.
-      
+
       Try with
       ```
       substreams gui substreams.yaml map_pools_created -t +1000
@@ -53,7 +53,7 @@ modules:
       - map: map_pools_created
     doc: |
       This module stores the Pools emitted by the `map_pools_created` module. 
-      Dynamic data sources pattern for Uniswap v3 pools. 
+      Dynamic data sources pattern for Uniswap v3 pools.
 
   - name: store_tokens
     kind: store
@@ -140,7 +140,7 @@ modules:
     doc: |
       `BigDecimal` store setter for storing the price of token0 <> token1 and vice versa. 
       Also store the Daily and Hourly prices.
-      
+
       For example: Pool: TOKEN0 <> TOKEN1
         - pool:{pool_address}:{token0_addr}:token0 -> 100
         - pool:{pool_address}:{token1_addr}:token1 -> 1
