@@ -4,4 +4,4 @@ global:
 release:
   pre-build-hooks:
   - make build
-  upload-substreams-spkg: substreams.yaml
+  upload-substreams-spkg: substreams-patch-over-0.2.9.yaml

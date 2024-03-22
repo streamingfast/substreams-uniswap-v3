@@ -8,8 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.2.10
 
 * Fixed `total_supply` incorrectly sent as `String` to `graph-node` while it should have been `BigInt`.
+* Building from `substreams-patch-over-0.2.9.yaml` to reuse the caches from v0.2.9
 
 ## v0.2.9
+
+* ERRATUM: The outputs are the wrong type on `total_supply`, breaking the integration with graph-node.
 
 * Fixed `decimals()` handling when token reports more than 255 decimals.
 
