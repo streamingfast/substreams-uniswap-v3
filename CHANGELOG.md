@@ -5,10 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Next
+## v0.2.10
+
+* Fixed `total_supply` incorrectly sent as `String` to `graph-node` while it should have been `BigInt`.
+
+## v0.2.9
+
+* Fixed `decimals()` handling when token reports more than 255 decimals.
+
 * Moved `tables.rs` abstraction into `substreams-database-change` crate
 
 ## v0.2.8
+
 * Update q192 to use real computed q192 value instead of truncated js value to have more precise values and closer to the real value mathematically.
 * Javascript Engine 2^192 computed value: 6277101735386681000000000000000000000000000000000000000000 Real value of 2^192: 6277101735386680763835789423207666416102355444464034512896
 
@@ -30,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.2.3
 
-* Fix issue with liquidities check when looping over the storage changes. 
+* Fix issue with liquidities check when looping over the storage changes.
 
 ## v0.2.2
 
@@ -62,4 +70,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.1.1
 
-* Fix issue when `map_pool_sqrt_price` was panicking because of `must_get_last` call on `pool_store` 
+* Fix issue when `map_pool_sqrt_price` was panicking because of `must_get_last` call on `pool_store`

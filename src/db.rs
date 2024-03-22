@@ -359,7 +359,7 @@ fn add_token_entity_change(tables: &mut Tables, token: &Erc20Token) {
         .set("symbol", &token.symbol)
         .set("name", &token.name)
         .set("decimals", token.decimals)
-        .set("totalSupply", &token.total_supply)
+        .set_bigint("totalSupply", &token.total_supply)
         .set("volume", &bigdecimal0)
         .set("volumeUSD", &bigdecimal0)
         .set("untrackedVolumeUSD", &bigdecimal0)
