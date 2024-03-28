@@ -58,8 +58,8 @@ pub fn extract_pool_events_and_positions(
             timestamp: timestamp_seconds,
             created_at_block_number: block_number,
             r#type: Some(SwapEvent(events::pool_event::Swap {
-                sender: Hex(&swap.sender).to_string(),
-                recipient: Hex(&swap.recipient).to_string(),
+                sender: swap.sender,
+                recipient: swap.recipient,
                 origin: origin.to_string(),
                 amount_0: amount0.into(),
                 amount_1: amount1.into(),
@@ -102,8 +102,8 @@ pub fn extract_pool_events_and_positions(
             timestamp: timestamp_seconds,
             created_at_block_number: block_number,
             r#type: Some(MintEvent(events::pool_event::Mint {
-                owner: Hex(&mint.owner).to_string(),
-                sender: Hex(&mint.sender).to_string(),
+                owner: mint.owner,
+                sender: mint.sender,
                 origin: origin.to_string(),
                 amount: mint.amount.to_string(),
                 amount_0: amount0.into(),
@@ -231,7 +231,7 @@ pub fn extract_pool_events_and_positions(
             timestamp: timestamp_seconds,
             created_at_block_number: block_number,
             r#type: Some(BurnEvent(events::pool_event::Burn {
-                owner: Hex(&burn.owner).to_string(),
+                owner: burn.owner,
                 origin: origin.to_string(),
                 amount: burn.amount.into(),
                 amount_0: amount0.into(),
@@ -524,7 +524,7 @@ fn extract_positions(
         } else if let Some(event) = abi::positionmanager::events::Transfer::match_and_decode(log) {
             transfer_positions.push(events::TransferPosition {
                 token_id: event.token_id.to_string(),
-                owner: Hex(&event.to).to_string(),
+                owner: event.to,
                 log_ordinal: log.ordinal,
             });
         }
