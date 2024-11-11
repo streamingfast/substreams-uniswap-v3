@@ -4,13 +4,7 @@ package:
   version: v0.2.10
   url: https://github.com/streamingfast/substreams-uniswap-v3
   image: ./sf_substreams_uniswap.jpeg
-  doc: |
-    Official StreamingFast implementation of Uniswap v3 Substreams. Underlying Substreams modules
-    allow for composability. This Substreams contains 22 modules. Mappers are used to extract
-    key structures which are either passed down to other modules or used to emit entity changes.
-    Stores are used as temporary storage to hold/pass down key data to mappers, such as ETH price
-    in USD. These substreams modules compose all the things to build up the Uniswap v3 Substreams.
-    See individual modules docs for more information.
+  description: This is a full-blown replica of the Uniswap-v3 subgraph, by the Uniswap team, but completely rewritten in Rust, yet much faster.
 
 imports:
   entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v1.1.0/substreams-entity-change-v1.1.0.spkg
@@ -20,11 +14,15 @@ protobuf:
     - uniswap/v1/uniswap.proto
   importPaths:
     - ./proto
+#  excludePaths:
+#    - sf/substreams
+#    - google
 
 binaries:
   default:
     type: wasm/rust-v1
     file: target/wasm32-unknown-unknown/release/substreams_uniswap_v3.wasm
+#    build: cargo build --release --target wasm32-unknown-unknown
 
 network: mainnet
 
