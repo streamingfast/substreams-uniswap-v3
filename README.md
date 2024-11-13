@@ -1,6 +1,6 @@
 # Uniswap v3 Substreams package
 
-[![Substreams Package](https://img.shields.io/badge/streamingfast%2Funiswap-v3?logo=bitcoin&logoColor=orange&label=spkg.io&color=blue)](https://substreams.dev/streamingfast/uniswap-v3/latest)
+[![Substreams Package](https://img.shields.io/badge/streamingfast%2Funiswap-v3?logo=bitcoin&logoColor=orange&label=spkg.io&color=blue)](https://substreams.dev/packages/uniswap-v3/latest)
 [![Open in DevPod!](https://devpod.sh/assets/open-in-devpod.svg)](https://devpod.sh/open#https://github.com/streamingfast/substreams-uniswap-v3)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new/streamingfast/substreams-uniswap-v3)
 
@@ -13,23 +13,15 @@ This module covers all of the entities of the original `v3-subgraph` by the Unis
 Launch the _devpod_ above and run:
 
 ```bash
-make build
-substreams gui map_pools_created \
-  -e mainnet.eth.streamingfast.io:443 \
-  -t +150
+substreams auth
+substreams build
+substreams gui
 ```
 
-## Stream Entity changes
-
-First, [authenticate](https://substreams.streamingfast.io/reference-and-specs/authentication), and run `sftoken` in your shell session.
-
-This runs the `graph_out` module against a Substreams cluster:
+Alternatively, run the `graph_out` module against a Substreams cluster, without building it locally:
 
 ```bash
-substreams run https://github.com/streamingfast/substreams-uniswap-v3/releases/download/v0.2.8/substreams.spkg \
-  graph_out \
-  -e mainnet.eth.streamingfast.io:443 \
-  -t +150
+substreams run -t +150 uniswap-v3@latest graph_out 
 [...]
 {
   "@module": "graph_out",
