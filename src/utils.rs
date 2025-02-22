@@ -239,7 +239,7 @@ pub fn load_transaction(
         log_ordinal,
     };
     if let Some(gas_price) = &transaction_trace.gas_price {
-        let gas_price: BigInt = BigInt::from_signed_bytes_be(&gas_price.bytes);
+        let gas_price: BigInt = BigInt::from_unsigned_bytes_be(&gas_price.bytes);
         transaction.gas_price = gas_price.to_string();
     }
 
